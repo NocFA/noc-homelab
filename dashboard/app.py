@@ -48,6 +48,13 @@ SERVICES = {
         'launchd': 'pm2:uptime-kuma',  # Special marker for PM2
         'port': 3001,
         'log_paths': ['~/.pm2/logs/uptime-kuma-out.log', '~/.pm2/logs/uptime-kuma-error.log']
+    },
+    'tailscale': {
+        'name': 'Tailscale',
+        'launchd': 'tailscale',  # Special marker for Tailscale (managed via system)
+        'port': None,  # No single port, uses dynamic ports
+        'log_paths': ['/var/log/tailscaled.log', '~/Library/Logs/Tailscale/'],
+        'webclient_port': 5252
     }
 }
 
@@ -92,14 +99,43 @@ def get_service_log(service_key):
 def index():
     services_list = []
     for key, service in SERVICES.items():
-        is_online = check_port_listening(service['port'])
-            
-        services_list.append({
-            'name': service['name'],
-            'port': service['port'],
-            'status': 'online' if is_online else 'offline',
-            'url': f"http://noc-local:{service['port']}"
-        })
+        # Special handling for Tailscale
+        if key == 'tailscale':
+            # Check if Tailscale is running by checking for the process
+            import subprocess as sp
+            try:
+                result = sp.run(['pgrep', '-f', 'Tailscale.app'], capture_output=True)
+                is_online = result.returncode == 0
+
+                # Get webclient URL if available
+                ts_result = sp.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/tailscale_manager.py', 'summary'],
+                                  capture_output=True, text=True)
+                if ts_result.returncode == 0:
+                    import json
+                    ts_data = json.loads(ts_result.stdout)
+                    webclient_url = ts_data.get('webclient_url', 'http://noc-local:5252')
+                else:
+                    webclient_url = 'http://noc-local:5252'
+            except:
+                is_online = False
+                webclient_url = 'http://noc-local:5252'
+
+            services_list.append({
+                'name': service['name'],
+                'port': '5252 (WebClient)',
+                'status': 'online' if is_online else 'offline',
+                'url': webclient_url,
+                'description': 'VPN & Mesh Network'
+            })
+        else:
+            is_online = check_port_listening(service['port'])
+
+            services_list.append({
+                'name': service['name'],
+                'port': service['port'],
+                'status': 'online' if is_online else 'offline',
+                'url': f"http://noc-local:{service['port']}"
+            })
     return render_template('template.html', services=services_list)
 
 @app.route('/favicon.ico')
@@ -110,7 +146,15 @@ def favicon():
 def get_status():
     status = {}
     for key, service in SERVICES.items():
-        status[key] = check_port_listening(service['port'])
+        if key == 'tailscale':
+            # Check if Tailscale is running
+            try:
+                result = subprocess.run(['pgrep', '-f', 'Tailscale.app'], capture_output=True)
+                status[key] = result.returncode == 0
+            except:
+                status[key] = False
+        else:
+            status[key] = check_port_listening(service['port'])
     return jsonify(status)
 
 @app.route('/api/service/<action>', methods=['POST'])
@@ -134,6 +178,38 @@ def control_service(action):
                 return jsonify({'success': True, 'logs': logs})
             else:
                 return jsonify({'success': False, 'message': f'{service["name"]} control is disabled (managed via Login Items)'})
+        # Special handling for Tailscale
+        elif launchd_name == 'tailscale':
+            if action == 'logs':
+                # Get Tailscale logs using tailscale bugreport or system logs
+                try:
+                    result = subprocess.run(['log', 'show', '--predicate', 'process == "Tailscale"', '--last', '5m', '--style', 'syslog'],
+                                          capture_output=True, text=True, timeout=10)
+                    logs = result.stdout if result.stdout else "No recent Tailscale logs found"
+                    # Also add Tailscale status
+                    status_result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/tailscale_manager.py', 'summary'],
+                                                  capture_output=True, text=True)
+                    if status_result.returncode == 0:
+                        logs = f"=== Tailscale Status ===\n{status_result.stdout}\n\n=== System Logs ===\n{logs}"
+                except Exception as e:
+                    logs = f"Error getting Tailscale logs: {str(e)}"
+                return jsonify({'success': True, 'logs': logs})
+            elif action == 'start':
+                # Tailscale is managed by the system, just open the app
+                subprocess.run(['open', '-a', 'Tailscale'], check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': 'Tailscale app launched'})
+            elif action == 'stop':
+                # Can't really stop Tailscale easily, but we can disconnect
+                return jsonify({'success': False, 'message': 'Tailscale is a system service and should not be stopped. Use the Tailscale app menu to disconnect if needed.'})
+            elif action == 'restart':
+                # Restart by quitting and reopening
+                subprocess.run(['pkill', '-9', 'Tailscale'], capture_output=True)
+                import time
+                time.sleep(1)
+                subprocess.run(['open', '-a', 'Tailscale'], check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': 'Tailscale restarted'})
+            else:
+                return jsonify({'success': False, 'message': 'Invalid action'}), 400
         # Special handling for PM2 services
         elif launchd_name.startswith('pm2:'):
             pm2_name = launchd_name.replace('pm2:', '')

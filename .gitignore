@@ -48,6 +48,8 @@ configs/nzbhydra2/backup/
 *.pem
 *.p12
 certs/
+CREDENTIALS.txt
+*CREDENTIALS*
 
 # macOS
 .DS_Store
