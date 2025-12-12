@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.copyparty</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/noc/.local/bin/copyparty</string>
+        <string>-p</string>
+        <string>8081</string>
+        <string>-i</string>
+        <string>0.0.0.0</string>
+        <string>-v</string>
+        <string>/:/system:rw</string>
+        <string>-v</string>
+        <string>/Users:/users:rw</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/noc/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/copyparty.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/copyparty.log</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc</string>
+</dict>
+</plist>

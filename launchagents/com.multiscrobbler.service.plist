@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.multiscrobbler.service</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/tsx</string>
+        <string>/Users/noc/multi-scrobbler/src/backend/index.ts</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/multi-scrobbler</string>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/multi-scrobbler.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/multi-scrobbler.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+        <key>NODE_ENV</key>
+        <string>production</string>
+        <key>PORT</key>
+        <string>9078</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>

@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+
+# Logs
+*.log
+*.log.*
+logs/
+
+# Runtime data
+*.pid
+*.seed
+*.pid.lock
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+database/
+db/
+
+# Caches
+cache/
+.cache/
+*.cache
+
+# Backups
+backup/
+*.backup
+*.bak
+
+# Sensitive config data
+configs/nzbhydra2/database/
+configs/nzbhydra2/cache/
+configs/nzbhydra2/logs/
+configs/nzbhydra2/backup/
+
+# Secrets (be careful!)
+*secret*
+*password*
+*.key
+*.pem
+*.p12
+certs/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temp files
+*.tmp
+temp/
+tmp/
