@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamSpeak Server Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1a0033, #000);
+            color: white;
+            padding: 2rem;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, #fff 0%, #b8b8b8 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .info-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .server-address {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .address-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            font-family: 'SF Mono', monospace;
+            font-size: 1.2rem;
+            flex: 1;
+            color: #10f981;
+        }
+
+        .copy-btn {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.3));
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #10f981;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .copy-btn:hover {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(16, 185, 129, 0.4));
+            transform: translateY(-2px);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #10f981;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .refresh-btn {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            color: #60a5fa;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
+        .client-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .client-item {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .client-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .client-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #b026ff, #6366f1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .client-name {
+            font-size: 1.1rem;
+        }
+
+        .client-details {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 0.25rem;
+        }
+
+        .client-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .action-btn.kick {
+            border-color: rgba(251, 146, 60, 0.4);
+            color: #fb923c;
+        }
+
+        .action-btn.kick:hover {
+            background: rgba(251, 146, 60, 0.2);
+        }
+
+        .action-btn.ban {
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+        }
+
+        .action-btn.ban:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .no-clients {
+            text-align: center;
+            padding: 3rem;
+            color: rgba(255, 255, 255, 0.5);
+            font-style: italic;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(28, 28, 30, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            color: white;
+            display: none;
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .notification.success {
+            border-left: 3px solid #10f981;
+        }
+
+        .notification.error {
+            border-left: 3px solid #ef4444;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #10f981;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TeamSpeak Server Admin</h1>
+
+        <div class="info-card">
+            <h2 style="font-size: 1.2rem; margin-bottom: 1rem;">Server Connection Info</h2>
+            <p style="color: rgba(255, 255, 255, 0.7); margin-bottom: 0.5rem;">Share this address with people to connect:</p>
+            <div class="server-address">
+                <div class="address-box" id="serverAddress">Loading...</div>
+                <button class="copy-btn" onclick="copyAddress()">Copy Address</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-value" id="clientCount">-</div>
+                <div class="stat-label">Clients Online</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="maxClients">32</div>
+                <div class="stat-label">Max Slots</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="channelCount">-</div>
+                <div class="stat-label">Channels</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="uptime">-</div>
+                <div class="stat-label">Uptime (hours)</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>Connected Clients</span>
+                <button class="refresh-btn" onclick="loadData()">Refresh</button>
+            </div>
+            <div id="clientList" class="client-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 1rem;">Loading clients...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>Channel Management</span>
+                <button class="refresh-btn" onclick="loadChannels()">Refresh</button>
+            </div>
+            <div style="margin-bottom: 1rem;">
+                <input type="text" id="newChannelName" placeholder="New channel name..." style="background: rgba(0, 0, 0, 0.4); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 0.75rem; color: white; width: 300px; margin-right: 0.5rem;">
+                <button class="copy-btn" onclick="createChannel()">Create Channel</button>
+            </div>
+            <div id="channelList" class="client-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 1rem;">Loading channels...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>Ban List</span>
+                <button class="refresh-btn" onclick="loadBans()">Refresh</button>
+            </div>
+            <div id="banList" class="client-list">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 1rem;">Loading bans...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        let serverAddress = '';
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function copyAddress() {
+            // Try modern clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(serverAddress).then(() => {
+                    showNotification('Server address copied to clipboard!', 'success');
+                }).catch(() => {
+                    fallbackCopy();
+                });
+            } else {
+                fallbackCopy();
+            }
+        }
+
+        function fallbackCopy() {
+            const textArea = document.createElement('textarea');
+            textArea.value = serverAddress;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showNotification('Server address copied: ' + serverAddress, 'success');
+            } catch (err) {
+                showNotification('Copy failed. Address: ' + serverAddress, 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        async function loadData() {
+            try {
+                const response = await fetch('/api/teamspeak/status');
+                const data = await response.json();
+
+                if (data.error) {
+                    showNotification('Error: ' + data.error, 'error');
+                    return;
+                }
+
+                // Update server address
+                serverAddress = data.server_address;
+                document.getElementById('serverAddress').textContent = serverAddress;
+
+                // Update stats
+                document.getElementById('clientCount').textContent = data.clients_online;
+                document.getElementById('maxClients').textContent = data.max_clients;
+                document.getElementById('channelCount').textContent = data.channels;
+                document.getElementById('uptime').textContent = data.uptime_hours;
+
+                // Update client list
+                const clientList = document.getElementById('clientList');
+                if (data.clients && data.clients.length > 0) {
+                    clientList.innerHTML = data.clients.map(client => `
+                        <div class="client-item">
+                            <div class="client-info">
+                                <div class="client-avatar">${client.client_nickname ? client.client_nickname.charAt(0).toUpperCase() : '?'}</div>
+                                <div>
+                                    <div class="client-name">${client.client_nickname || 'Unknown'}</div>
+                                    <div class="client-details">
+                                        Connected: ${formatTime(client.client_idle_time)} ago
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="action-btn kick" onclick="kickClient(${client.clid}, '${client.client_nickname}')">Kick</button>
+                                <button class="action-btn ban" onclick="banClient(${client.clid}, '${client.client_nickname}')">Ban</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    clientList.innerHTML = '<div class="no-clients">No clients connected</div>';
+                }
+            } catch (error) {
+                showNotification('Failed to load server data: ' + error.message, 'error');
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            if (mins < 60) return `${mins}m`;
+            const hours = Math.floor(mins / 60);
+            return `${hours}h ${mins % 60}m`;
+        }
+
+        async function kickClient(clid, nickname) {
+            if (!confirm(`Kick ${nickname} from the server?`)) return;
+
+            showNotification('Kicking ' + nickname + '...', 'success');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+                const response = await fetch('/api/teamspeak/kick', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clid: parseInt(clid) }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(`${nickname} has been kicked`, 'success');
+                    setTimeout(loadData, 1000);
+                } else {
+                    showNotification('Failed to kick: ' + (data.error || JSON.stringify(data)), 'error');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showNotification('Request timed out. Operation may still complete.', 'error');
+                } else {
+                    showNotification('Error: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function banClient(clid, nickname) {
+            const reason = prompt(`Ban ${nickname}?\n\nEnter ban reason:`, 'Banned by admin');
+            if (!reason) return;
+
+            showNotification(`Banning ${nickname}...`, 'success');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+                const response = await fetch('/api/teamspeak/ban', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clid, reason }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification(`${nickname} has been banned`, 'success');
+                    setTimeout(loadData, 1000);
+                } else {
+                    showNotification('Failed to ban client: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showNotification('Request timed out. Operation may still complete.', 'error');
+                } else {
+                    showNotification('Error: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function loadChannels() {
+            try {
+                const response = await fetch('/api/teamspeak/channels');
+                const data = await response.json();
+
+                const channelList = document.getElementById('channelList');
+                if (data.channels && data.channels.length > 0) {
+                    channelList.innerHTML = data.channels.map(channel => `
+                        <div class="client-item">
+                            <div class="client-info">
+                                <div class="client-avatar">#</div>
+                                <div>
+                                    <div class="client-name">${channel.channel_name}</div>
+                                    <div class="client-details">
+                                        CID: ${channel.cid} | Clients: ${channel.total_clients || 0}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="action-btn" style="border-color: rgba(59, 130, 246, 0.4); color: #60a5fa;" onclick="renameChannel(${channel.cid}, '${channel.channel_name}')">Rename</button>
+                                <button class="action-btn ban" onclick="deleteChannel(${channel.cid}, '${channel.channel_name}')">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    channelList.innerHTML = '<div class="no-clients">No channels found</div>';
+                }
+            } catch (error) {
+                showNotification('Failed to load channels: ' + error.message, 'error');
+            }
+        }
+
+        async function createChannel() {
+            const nameInput = document.getElementById('newChannelName');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                showNotification('Please enter a channel name', 'error');
+                return;
+            }
+
+            showNotification('Creating channel, please wait...', 'success');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+
+                const response = await fetch('/api/teamspeak/channel/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Channel created successfully', 'success');
+                    nameInput.value = '';
+                    setTimeout(loadChannels, 500);
+                } else {
+                    showNotification('Failed to create channel: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showNotification('Request timed out. Operation may still complete.', 'error');
+                } else {
+                    showNotification('Error: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function renameChannel(cid, currentName) {
+            const newName = prompt(`Rename channel "${currentName}"\n\nEnter new name:`, currentName);
+            if (!newName || newName === currentName) return;
+
+            showNotification('Renaming channel, please wait...', 'success');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+                const response = await fetch('/api/teamspeak/channel/rename', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cid, name: newName }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Channel renamed successfully', 'success');
+                    setTimeout(loadChannels, 500);
+                } else {
+                    showNotification('Failed to rename channel: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showNotification('Request timed out. Operation may still complete.', 'error');
+                } else {
+                    showNotification('Error: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function deleteChannel(cid, name) {
+            if (!confirm(`Delete channel "${name}"?\n\nThis will remove the channel and move clients to default channel.`)) return;
+
+            showNotification('Deleting channel, please wait...', 'success');
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+                const response = await fetch('/api/teamspeak/channel/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cid }),
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Channel deleted successfully', 'success');
+                    setTimeout(loadChannels, 500);
+                } else {
+                    showNotification('Failed to delete channel: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    showNotification('Request timed out. Operation may still complete.', 'error');
+                } else {
+                    showNotification('Error: ' + error.message, 'error');
+                }
+            }
+        }
+
+        async function loadBans() {
+            try {
+                const response = await fetch('/api/teamspeak/bans');
+                const data = await response.json();
+
+                const banList = document.getElementById('banList');
+                if (data.bans && data.bans.length > 0) {
+                    banList.innerHTML = data.bans.map(ban => {
+                        const created = new Date(parseInt(ban.created) * 1000).toLocaleString();
+                        const duration = ban.duration == 0 ? 'Permanent' : `${Math.floor(ban.duration / 3600)}h`;
+                        return `
+                        <div class="client-item">
+                            <div class="client-info">
+                                <div class="client-avatar">🚫</div>
+                                <div>
+                                    <div class="client-name">${ban.ip || ban.name || 'Unknown'}</div>
+                                    <div class="client-details">
+                                        Reason: ${ban.reason || 'No reason'} | Created: ${created} | Duration: ${duration}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="action-btn kick" onclick="removeBan(${ban.banid})">Remove Ban</button>
+                            </div>
+                        </div>
+                    `}).join('');
+                } else {
+                    banList.innerHTML = '<div class="no-clients">No active bans</div>';
+                }
+            } catch (error) {
+                showNotification('Failed to load bans: ' + error.message, 'error');
+            }
+        }
+
+        async function removeBan(banid) {
+            if (!confirm('Remove this ban?')) return;
+
+            try {
+                const response = await fetch('/api/teamspeak/unban', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ banid })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showNotification('Ban removed successfully', 'success');
+                    setTimeout(loadBans, 500);
+                } else {
+                    showNotification('Failed to remove ban: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                showNotification('Error: ' + error.message, 'error');
+            }
+        }
+
+        // Load data on page load and refresh every 5 seconds
+        loadData();
+        loadChannels();
+        loadBans();
+        setInterval(loadData, 5000);
+        setInterval(loadChannels, 10000);  // Refresh channels every 10 seconds
+        setInterval(loadBans, 30000);  // Refresh bans every 30 seconds
+    </script>
+</body>
+</html>

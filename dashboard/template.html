@@ -151,6 +151,8 @@
         .service-card:nth-child(5) { animation-delay: 0.5s; }
         .service-card:nth-child(6) { animation-delay: 0.6s; }
         .service-card:nth-child(7) { animation-delay: 0.7s; }
+        .service-card:nth-child(8) { animation-delay: 0.8s; }
+        .service-card:nth-child(9) { animation-delay: 0.9s; }
         
         .service-card::before {
             content: '';
@@ -580,7 +582,7 @@
         function visitService(cardElement) {
             const url = cardElement.dataset.url;
             const serviceName = cardElement.dataset.service;
-            
+
             if (url) {
                 window.open(url, '_blank');
                 showNotification(`Opening ${serviceName}`, 'success');
@@ -702,7 +704,8 @@
                         'maloja': 'Maloja',
                         'multi-scrobbler': 'Multi-Scrobbler',
                         'uptime-kuma': 'Uptime Kuma',
-                        'tailscale': 'Tailscale'
+                        'tailscale': 'Tailscale',
+                        'teamspeak': 'TeamSpeak'
                     };
                     
                     const serviceName = serviceNameMap[serviceKey];

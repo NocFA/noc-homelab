@@ -3,8 +3,14 @@ import subprocess
 import socket
 import os
 import glob
+import requests
+import time
 
 app = Flask(__name__, template_folder='.')
+
+# Cache for public IP
+_public_ip_cache = {'ip': None, 'timestamp': 0}
+_cache_duration = 300  # 5 minutes
 
 SERVICES = {
     'emby': {
@@ -55,8 +61,41 @@ SERVICES = {
         'port': None,  # No single port, uses dynamic ports
         'log_paths': ['/var/log/tailscaled.log', '~/Library/Logs/Tailscale/'],
         'webclient_port': 5252
+    },
+    'teamspeak': {
+        'name': 'TeamSpeak',
+        'launchd': 'com.noc.teamspeak',
+        'port': 9987,  # Voice port (UDP, but we'll check TCP port 10011 for status)
+        'status_port': 10011,  # ServerQuery port for status checking
+        'log_paths': ['/Users/noc/teamspeak3-server_mac/logs/*_1.log', '/Users/noc/noc-homelab/logs/teamspeak.log'],
+        'web_ports': [30033, 10080],  # File transfer and WebQuery
+        'use_wan_ip': True  # Dynamically fetch WAN IP
     }
 }
+
+def get_public_ip():
+    """Get public IP address with caching"""
+    global _public_ip_cache
+
+    current_time = time.time()
+
+    # Return cached IP if still valid
+    if _public_ip_cache['ip'] and (current_time - _public_ip_cache['timestamp']) < _cache_duration:
+        return _public_ip_cache['ip']
+
+    # Fetch new public IP
+    try:
+        response = requests.get('https://api.ipify.org', timeout=3)
+        if response.status_code == 200:
+            public_ip = response.text.strip()
+            _public_ip_cache['ip'] = public_ip
+            _public_ip_cache['timestamp'] = current_time
+            return public_ip
+    except:
+        pass
+
+    # Fallback to cached IP even if expired, or None
+    return _public_ip_cache['ip']
 
 def check_port_listening(port):
     """Check if a port is listening using socket"""
@@ -127,6 +166,26 @@ def index():
                 'url': webclient_url,
                 'description': 'VPN & Mesh Network'
             })
+        # Special handling for TeamSpeak
+        elif key == 'teamspeak':
+            # Check ServerQuery port for status
+            status_port = service.get('status_port', service['port'])
+            is_online = check_port_listening(status_port)
+
+            # Dynamically get WAN IP if configured
+            if service.get('use_wan_ip'):
+                wan_ip = get_public_ip()
+                server_address = f"{wan_ip}:{service['port']}" if wan_ip else f"noc-local:{service['port']}"
+            else:
+                server_address = f"noc-local:{service['port']}"
+
+            services_list.append({
+                'name': service['name'],
+                'port': f"{service['port']} (Voice)",
+                'status': 'online' if is_online else 'offline',
+                'url': '/teamspeak',  # Link to admin dashboard
+                'description': 'Voice Chat Server'
+            })
         else:
             is_online = check_port_listening(service['port'])
 
@@ -142,6 +201,10 @@ def index():
 def favicon():
     return send_from_directory('static', 'favicon.svg', mimetype='image/svg+xml')
 
+@app.route('/teamspeak')
+def teamspeak_admin():
+    return render_template('teamspeak.html')
+
 @app.route('/api/status')
 def get_status():
     status = {}
@@ -153,6 +216,10 @@ def get_status():
                 status[key] = result.returncode == 0
             except:
                 status[key] = False
+        elif key == 'teamspeak':
+            # Check ServerQuery port for TeamSpeak status
+            status_port = service.get('status_port', service['port'])
+            status[key] = check_port_listening(status_port)
         else:
             status[key] = check_port_listening(service['port'])
     return jsonify(status)
@@ -271,6 +338,202 @@ def control_service(action):
         return jsonify({'success': False, 'message': f'Command failed: {error_msg}'}), 500
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/teamspeak/status')
+def teamspeak_status():
+    """Get TeamSpeak server status and client list"""
+    try:
+        # Run teamspeak_manager.py to get status
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'status'],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            data = json.loads(result.stdout)
+
+            # Add server address
+            wan_ip = get_public_ip()
+            ts_service = SERVICES.get('teamspeak', {})
+            port = ts_service.get('port', 9987)
+            data['server_address'] = f"{wan_ip}:{port}" if wan_ip else f"noc-local:{port}"
+            data['uptime_hours'] = round(data.get('uptime', 0) / 3600, 1)
+
+            return jsonify(data)
+        else:
+            return jsonify({'error': 'Failed to get server status'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/teamspeak/kick', methods=['POST'])
+def teamspeak_kick():
+    """Kick a client from the server"""
+    try:
+        data = request.get_json()
+        clid = data.get('clid')
+        reason = data.get('reason', 'Kicked by admin')
+
+        if not clid:
+            return jsonify({'success': False, 'error': 'Missing client ID'}), 400
+
+        # Use teamspeak_manager.py kick command
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'kick', str(clid), reason],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            response = json.loads(result.stdout)
+            return jsonify(response)
+        else:
+            return jsonify({'success': False, 'error': 'Failed to kick client'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/teamspeak/ban', methods=['POST'])
+def teamspeak_ban():
+    """Ban a client from the server"""
+    try:
+        data = request.get_json()
+        clid = data.get('clid')
+        reason = data.get('reason', 'Banned by admin')
+        duration = data.get('duration', 0)  # 0 = permanent
+
+        if not clid:
+            return jsonify({'success': False, 'error': 'Missing client ID'}), 400
+
+        # Use teamspeak_manager.py ban command
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'ban', str(clid), str(duration), reason],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            response = json.loads(result.stdout)
+            return jsonify(response)
+        else:
+            return jsonify({'success': False, 'error': 'Failed to ban client'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/teamspeak/bans')
+def teamspeak_bans():
+    """Get list of all bans"""
+    try:
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'banlist'],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            bans = json.loads(result.stdout)
+            return jsonify({'bans': bans})
+        else:
+            return jsonify({'error': 'Failed to get ban list'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/teamspeak/unban', methods=['POST'])
+def teamspeak_unban():
+    """Remove a ban"""
+    try:
+        data = request.get_json()
+        banid = data.get('banid')
+
+        if not banid:
+            return jsonify({'success': False, 'error': 'Missing ban ID'}), 400
+
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'unban', str(banid)],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            response = json.loads(result.stdout)
+            return jsonify(response)
+        else:
+            return jsonify({'success': False, 'error': 'Failed to remove ban'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/teamspeak/channels')
+def teamspeak_channels():
+    """Get list of channels"""
+    try:
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'channels'],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            channels = json.loads(result.stdout)
+            return jsonify({'channels': channels})
+        else:
+            return jsonify({'error': 'Failed to get channels'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/teamspeak/channel/create', methods=['POST'])
+def teamspeak_create_channel():
+    """Create a new channel"""
+    try:
+        data = request.get_json()
+        name = data.get('name')
+        parent_cid = data.get('parent_cid', 0)
+
+        if not name:
+            return jsonify({'success': False, 'error': 'Missing channel name'}), 400
+
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'createchannel', name, str(parent_cid)],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            response = json.loads(result.stdout)
+            return jsonify(response)
+        else:
+            return jsonify({'success': False, 'error': 'Failed to create channel'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/teamspeak/channel/delete', methods=['POST'])
+def teamspeak_delete_channel():
+    """Delete a channel"""
+    try:
+        data = request.get_json()
+        cid = data.get('cid')
+
+        if not cid:
+            return jsonify({'success': False, 'error': 'Missing channel ID'}), 400
+
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'deletechannel', str(cid)],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            response = json.loads(result.stdout)
+            return jsonify(response)
+        else:
+            return jsonify({'success': False, 'error': 'Failed to delete channel'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/teamspeak/channel/rename', methods=['POST'])
+def teamspeak_rename_channel():
+    """Rename a channel"""
+    try:
+        data = request.get_json()
+        cid = data.get('cid')
+        new_name = data.get('name')
+
+        if not cid or not new_name:
+            return jsonify({'success': False, 'error': 'Missing channel ID or name'}), 400
+
+        result = subprocess.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/teamspeak_manager.py', 'renamechannel', str(cid), new_name],
+                              capture_output=True, text=True, timeout=20)
+
+        if result.returncode == 0:
+            import json
+            response = json.loads(result.stdout)
+            return jsonify(response)
+        else:
+            return jsonify({'success': False, 'error': 'Failed to rename channel'}), 500
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

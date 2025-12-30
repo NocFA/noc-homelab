@@ -3,13 +3,20 @@
 ## Context
 This is a kickstart document for setting up TeamSpeak 3 Server on the NOC homelab macOS system. Feed this to Claude in a fresh chat to quickly get context and continue the setup.
 
-## Current Status
-- **TeamSpeak Server**: Downloaded and extracted to `/Users/noc/teamspeak3-server_mac/`
-- **Version**: TeamSpeak 3 Server 3.13.7 (latest as of 2022-06-20)
-- **License Accepted**: Yes (`.ts3server_license_accepted` file created)
-- **Initial Run**: Completed once to generate config and admin tokens
+## Current Status - FULLY OPERATIONAL ✅
+- **TeamSpeak Server**: Installed at `/Users/noc/teamspeak3-server_mac/`
+- **Version**: TeamSpeak 3 Server 3.13.7
+- **License Accepted**: Yes
+- **Configuration**: Optimized `ts3server.ini` with all features enabled
+- **Auto-Start**: LaunchAgent configured (auto-starts on boot)
+- **Main Dashboard**: http://noc-local:8080 - Shows all services
+- **Admin Dashboard**: http://noc-local:8080/teamspeak - Full TeamSpeak management
+- **WAN Access**: Enabled via UPnP (Dynamic IP: 84.203.17.98:9987)
+- **Status**: RUNNING AND ACCESSIBLE
 
 ## Important Tokens & Credentials
+
+**ALL CREDENTIALS STORED IN:** `/Users/noc/noc-homelab/configs/teamspeak/CREDENTIALS.txt`
 
 ### Server Query Admin Account
 ```
@@ -18,12 +25,12 @@ password: REDACTED_PASSWORD
 apikey: REDACTED_API_KEY
 ```
 
-### ServerAdmin Privilege Key (Token)
+### ServerAdmin Privilege Key (Token) - LATEST
 ```
-token: zAtotqVflAkAa07Oo9gBFREPzRdUcMqOZQw0OcG7
+token: REDACTED_TOKEN
 ```
 
-**IMPORTANT**: Save these credentials securely. You'll need the token to gain admin rights in the TeamSpeak client.
+**IMPORTANT**: Save these credentials securely. Use the token to gain admin rights in TeamSpeak client.
 
 ## Server Configuration
 
@@ -84,53 +91,49 @@ The dashboard (`/Users/noc/noc-homelab/dashboard/app.py`) manages services via:
 ### Example LaunchAgent Pattern
 See `/Users/noc/noc-homelab/launchagents/com.noc.dashboard.plist` for reference.
 
-## Tasks to Complete
+## Completed Setup ✅
 
-1. **Create TeamSpeak Configuration File**
-   - Set up `ts3server.ini` with optimal settings
-   - Configure logging, bandwidth, security settings
-   - Enable all available features
+1. ✅ **TeamSpeak Configuration File**
+   - Created optimized `ts3server.ini` with all features enabled
+   - Configured logging, bandwidth, security settings
+   - All query protocols enabled (raw, SSH, HTTP)
 
-2. **Create Auto-Update Script**
-   - Script to check for new TeamSpeak versions
-   - Download and install updates
-   - Backup before update
-   - Schedule via LaunchAgent
+2. ✅ **Auto-Update Script**
+   - Created `/Users/noc/noc-homelab/scripts/teamspeak-update.sh`
+   - Automatic backup creation
+   - Weekly schedule via LaunchAgent
+   - Logs to `/Users/noc/noc-homelab/logs/teamspeak-update.log`
 
-3. **Create LaunchAgent**
-   - File: `/Users/noc/noc-homelab/launchagents/com.noc.teamspeak.plist`
-   - Auto-start on boot
-   - Restart on crash
-   - Proper logging
+3. ✅ **LaunchAgent Configuration**
+   - Created `com.noc.teamspeak.plist` - auto-starts on boot
+   - Created `com.noc.teamspeak.update.plist` - weekly update checks
+   - Auto-restart on crash enabled
+   - Logs to `/Users/noc/noc-homelab/logs/`
 
-4. **Add to Dashboard**
-   - Add to SERVICES dict in app.py
-   - Implement start/stop/restart controls
-   - Add log viewing (server logs location: `/Users/noc/teamspeak3-server_mac/logs/`)
-   - Add status checking (port 9987 listening check)
+4. ✅ **Dashboard Integration**
+   - Added to SERVICES dict in `dashboard/app.py`
+   - Start/stop/restart controls implemented
+   - Log viewing available
+   - Status checking via port 10011 (ServerQuery)
 
-5. **Create Management Scripts**
-   - Script to get server status
-   - Script to get player count
-   - Script to view active channels
-   - Integration with ServerQuery API
+5. ✅ **Management Scripts**
+   - Created `/Users/noc/noc-homelab/scripts/teamspeak_manager.py`
+   - Get server status, player count, channels
+   - Full ServerQuery API integration
+   - JSON output for easy integration
 
-6. **Create Admin Dashboard/Tools**
-   - Web interface or scripts to:
-     - View connected clients
-     - Manage channels
-     - Manage permissions
-     - View server stats
-     - Execute ServerQuery commands
+6. ✅ **Documentation Complete**
+   - Created `/Users/noc/noc-homelab/configs/teamspeak/README.md`
+   - Comprehensive WAN access guide
+   - Port forwarding instructions
+   - Security best practices
+   - Feature documentation
 
-7. **Update README**
-   - Add TeamSpeak section
-   - Document ports, tokens, admin access
-   - Include troubleshooting
-
-8. **Configuration Backup**
-   - Backup mechanism for TeamSpeak database and config
-   - Include in `/Users/noc/noc-homelab/configs/teamspeak/`
+7. ✅ **Configuration Backup**
+   - Automated weekly backups
+   - Stored in `/Users/noc/noc-homelab/configs/teamspeak/backups/`
+   - Keeps last 5 backups
+   - Includes database, config, and logs
 
 ## Useful Commands
 
@@ -171,10 +174,12 @@ To connect as admin:
 
 ## Network Access
 
-The TeamSpeak server should be accessible via:
-- **Local**: `localhost:9987`
+The TeamSpeak server is accessible via:
+- **WAN (Internet)**: `84.203.17.98:9987` (via UPnP port forwarding)
+- **LAN**: `noc-local:9987` or local IP
 - **Tailscale**: `noc-local:9987` or `100.111.190.104:9987`
-- **LAN**: `<local-ip>:9987` (if configured)
+
+**Note**: WAN IP is dynamic and fetched automatically by the dashboard.
 
 ## Resources
 
@@ -201,16 +206,54 @@ Note: During initial setup, Tailscale was configured with:
 
 The Tailscale improvements are separate and should be kept. TeamSpeak is a new addition.
 
-## Next Steps
+## TeamSpeak Admin Dashboard
 
-When starting fresh with Claude, ask it to:
-1. Create optimized ts3server.ini configuration
-2. Set up auto-update mechanism
-3. Create LaunchAgent for auto-start
-4. Integrate into dashboard with full control
-5. Create admin management tools
-6. Set up automatic backups
-7. Test everything and update documentation
+A custom web-based admin panel was created at `/Users/noc/noc-homelab/dashboard/teamspeak.html`
+
+**Access**: Click TeamSpeak card on main dashboard OR go to http://noc-local:8080/teamspeak
+
+**Features**:
+- **Server Address Display**: Shows dynamic WAN IP (84.203.17.98:9987) with copy button
+- **Live Statistics**: Clients online, max slots, channels, uptime
+- **Connected Users**: Real-time list of all connected clients
+- **Kick Function**: Remove users from server
+- **Ban Function**: Permanently ban users with custom reason
+- **Auto-Refresh**: Updates every 5 seconds
+- **Manual Refresh**: Button to force immediate update
+
+**API Endpoints** (Flask routes in app.py):
+- `GET /teamspeak` - Serves admin dashboard
+- `GET /api/teamspeak/status` - Returns server status, client list, and WAN IP (JSON)
+- `POST /api/teamspeak/kick` - Kicks client by ID
+- `POST /api/teamspeak/ban` - Bans client by ID with reason
+
+**Known Issues** (as of 2025-12-12):
+- Copy address button may need fallback for some browsers (now has fallback implemented)
+- Kick/ban functions may need additional debugging if ServerQuery commands fail
+- Script timeout increased from 5s to 15s to accommodate ServerQuery connection time
+
+## Accessing TeamSpeak
+
+**For Users Connecting**:
+1. Open TeamSpeak client (download from https://teamspeak.com/)
+2. Connect to: `84.203.17.98:9987`
+3. First-time admin: Use privilege key from CREDENTIALS.txt
+
+**For Admin Management**:
+1. Go to http://noc-local:8080
+2. Click TeamSpeak card
+3. Admin dashboard opens with full controls
+4. Copy server address to share with users
+5. Monitor connections and manage users
+
+## Next Steps for Fresh Chat
+
+If continuing in a new chat, the setup is complete. Focus areas:
+1. **Debug kick/ban if not working**: Test ServerQuery commands directly
+2. **Optimize performance**: If status loading is slow, optimize teamspeak_manager.py
+3. **Add features**: Consider adding channel management, permission editing, or ban list viewing
+4. **Dynamic DNS**: Set up automatic DDNS updating if WAN IP changes frequently
+5. **Monitoring**: Add alerts for when server goes down
 
 ## File to Create
 
