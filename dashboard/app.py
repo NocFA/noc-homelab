@@ -70,6 +70,20 @@ SERVICES = {
         'log_paths': ['/Users/noc/teamspeak3-server_mac/logs/*_1.log', '/Users/noc/noc-homelab/logs/teamspeak.log'],
         'web_ports': [30033, 10080],  # File transfer and WebQuery
         'use_wan_ip': True  # Dynamically fetch WAN IP
+    },
+    'zurg': {
+        'name': 'Zurg',
+        'launchd': 'com.zurg.service',
+        'port': 9999,
+        'log_paths': ['/Users/noc/logs/zurg.out', '/Users/noc/logs/zurg.err', '/Users/noc/applications/zurg/logs/*.log']
+    },
+    'coolify': {
+        'name': 'Coolify',
+        'launchd': 'orbstack:coolify',  # Special marker for OrbStack VM
+        'port': 8000,
+        'log_paths': [],  # Logs are inside the VM
+        'description': 'Self-hosted PaaS (Heroku/Vercel alternative)',
+        'vm_name': 'coolify'  # OrbStack VM name (port forwarding enabled, Traefik 8080 disabled)
     }
 }
 
@@ -186,6 +200,17 @@ def index():
                 'url': '/teamspeak',  # Link to admin dashboard
                 'description': 'Voice Chat Server'
             })
+        # Special handling for OrbStack services (like Coolify)
+        elif service.get('launchd', '').startswith('orbstack:'):
+            # Port forwarding enabled - check localhost
+            is_online = check_port_listening(service['port'])
+            services_list.append({
+                'name': service['name'],
+                'port': service['port'],
+                'status': 'online' if is_online else 'offline',
+                'url': f"http://noc-local:{service['port']}",
+                'description': service.get('description', 'OrbStack VM Service')
+            })
         else:
             is_online = check_port_listening(service['port'])
 
@@ -220,6 +245,9 @@ def get_status():
             # Check ServerQuery port for TeamSpeak status
             status_port = service.get('status_port', service['port'])
             status[key] = check_port_listening(status_port)
+        elif service.get('launchd', '').startswith('orbstack:'):
+            # OrbStack VM - port forwarding enabled, check localhost
+            status[key] = check_port_listening(service['port'])
         else:
             status[key] = check_port_listening(service['port'])
     return jsonify(status)
@@ -277,17 +305,46 @@ def control_service(action):
                 return jsonify({'success': True, 'message': 'Tailscale restarted'})
             else:
                 return jsonify({'success': False, 'message': 'Invalid action'}), 400
+        # Special handling for OrbStack VMs
+        elif launchd_name.startswith('orbstack:'):
+            vm_name = service.get('vm_name', launchd_name.replace('orbstack:', ''))
+            if action == 'start':
+                subprocess.run(['orb', 'start', vm_name],
+                             check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': f'OrbStack VM {vm_name} started'})
+            elif action == 'stop':
+                subprocess.run(['orb', 'stop', vm_name],
+                             check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': f'OrbStack VM {vm_name} stopped'})
+            elif action == 'restart':
+                subprocess.run(['orb', 'stop', vm_name], capture_output=True, text=True)
+                import time
+                time.sleep(2)
+                subprocess.run(['orb', 'start', vm_name],
+                             check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': f'OrbStack VM {vm_name} restarted'})
+            elif action == 'logs':
+                # Get Coolify container logs from inside the VM
+                try:
+                    result = subprocess.run(['orb', '-m', vm_name, 'sudo', 'docker', 'logs', '--tail', '100', 'coolify'],
+                                          capture_output=True, text=True, timeout=15)
+                    logs = result.stdout if result.stdout else result.stderr
+                    if not logs:
+                        logs = "No logs available"
+                except Exception as e:
+                    logs = f"Error getting logs: {str(e)}"
+                return jsonify({'success': True, 'logs': logs})
         # Special handling for PM2 services
         elif launchd_name.startswith('pm2:'):
             pm2_name = launchd_name.replace('pm2:', '')
             if action == 'start':
-                subprocess.run(['pm2', 'start', pm2_name], 
+                subprocess.run(['pm2', 'start', pm2_name],
                              check=True, capture_output=True, text=True)
             elif action == 'stop':
-                subprocess.run(['pm2', 'stop', pm2_name], 
+                subprocess.run(['pm2', 'stop', pm2_name],
                              check=True, capture_output=True, text=True)
             elif action == 'restart':
-                subprocess.run(['pm2', 'restart', pm2_name], 
+                subprocess.run(['pm2', 'restart', pm2_name],
                              check=True, capture_output=True, text=True)
             elif action == 'logs':
                 logs = get_service_log(service_key_lower)
