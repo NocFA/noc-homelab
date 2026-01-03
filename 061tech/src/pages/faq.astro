@@ -1,0 +1,220 @@
+---
+import Page from '../layouts/Page.astro';
+
+const faqs = [
+  {
+    category: 'Booking & Process',
+    questions: [
+      {
+        q: 'How do I book a repair?',
+        a: 'Fill in the booking form on this site, or call/text me. I\'ll get back to you within 24 hours with a rough quote and to arrange courier collection.'
+      },
+      {
+        q: 'How long does the whole process take?',
+        a: 'Typically 3-7 days from courier collection to return. Simple repairs (virus removal, SSD upgrades) are often faster. Complex hardware issues may take longer. I\'ll always give you an estimated timeline.'
+      },
+      {
+        q: 'Do I have to use the courier?',
+        a: 'No. If you\'d prefer to drop off and collect in person, we can arrange that. Just mention it when you book. This saves you the courier cost.'
+      },
+      {
+        q: 'What areas do you cover?',
+        a: 'All of Limerick city and county with courier service. Nearby counties (Clare, Tipperary, Kerry) may be possible - ask for a quote. For remote services, I can help anyone in Ireland.'
+      },
+    ]
+  },
+  {
+    category: 'Pricing & Payment',
+    questions: [
+      {
+        q: 'How much will my repair cost?',
+        a: 'It depends on the problem. Check the Services & Pricing page for typical costs. I\'ll always give you a quote before starting any work - no surprises.'
+      },
+      {
+        q: 'What if you can\'t fix it?',
+        a: 'You don\'t pay for the repair. You\'ll only pay the courier cost for collection/return. I\'ll always be upfront if something can\'t be fixed.'
+      },
+      {
+        q: 'When do I pay?',
+        a: 'After the repair is complete. You can pay online before delivery, or pay the courier on delivery (cash or card). No payment is taken until you approve the work.'
+      },
+      {
+        q: 'How much is the courier?',
+        a: 'Laptops: €30-40 total (Limerick city), €40-50 (county). Desktop PCs: €50-60 (city), €60-70 (county). Exact cost quoted when you book.'
+      },
+    ]
+  },
+  {
+    category: 'About the Repair',
+    questions: [
+      {
+        q: 'Is my data safe?',
+        a: 'Yes. I don\'t look through personal files - that\'s not what I\'m there for. If data needs to be wiped (e.g., for a Windows reinstall), I\'ll always ask first and offer to back it up.'
+      },
+      {
+        q: 'What warranty do you offer?',
+        a: 'All repairs come with a minimum 30-day warranty. Premium package includes 60 days. If the same problem comes back, I\'ll fix it at no extra charge.'
+      },
+      {
+        q: 'What if something goes wrong after you return it?',
+        a: 'Contact me. If it\'s related to the repair I did, I\'ll sort it out under warranty. If it\'s a new issue, I\'ll give you a quote for fixing it.'
+      },
+      {
+        q: 'Do you repair Macs/Apple devices?',
+        a: 'No, I focus on Windows PCs and laptops. For Mac repairs, I\'d recommend going to an Apple authorised service provider.'
+      },
+    ]
+  },
+  {
+    category: 'Not Sure What\'s Wrong?',
+    questions: [
+      {
+        q: 'I don\'t know what\'s wrong with my computer',
+        a: 'That\'s fine - most people don\'t. Book a Video Diagnosis (€20) and we\'ll figure out the problem together over a video call. If you go ahead with a repair, the €20 comes off your bill.'
+      },
+      {
+        q: 'My computer is slow - what do I need?',
+        a: 'Usually an SSD upgrade makes the biggest difference. Could also be malware, bloatware, or low RAM. I can diagnose and recommend the best fix.'
+      },
+      {
+        q: 'Is it worth repairing or should I buy new?',
+        a: 'I\'ll always tell you honestly. If a repair would cost more than the device is worth, I\'ll say so. Sometimes an upgrade (SSD, RAM) gives you years more life at a fraction of the cost of new.'
+      },
+    ]
+  },
+];
+
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": faqs.flatMap(category =>
+    category.questions.map(faq => ({
+      "@type": "Question",
+      "name": faq.q,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.a
+      }
+    }))
+  )
+};
+---
+
+<Page title="FAQ" description="Computer repair FAQ - Limerick. How much does PC repair cost? How long does laptop repair take? Do you fix slow computers? Is my data safe? All your questions answered.">
+
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} slot="head" />
+
+  <!-- Page Header -->
+  <section class="page-header">
+    <div class="container">
+      <h1>Frequently Asked Questions</h1>
+      <p class="page-intro">Common questions about how this works, pricing, and what to expect.</p>
+    </div>
+  </section>
+
+  <!-- FAQs by Category -->
+  {faqs.map((category, index) => (
+    <section class={`section ${index % 2 === 1 ? 'section--alt' : ''}`}>
+      <div class="container">
+        <h2 class="category-title">{category.category}</h2>
+        <div class="faq-list">
+          {category.questions.map(faq => (
+            <div class="faq-item">
+              <h3>{faq.q}</h3>
+              <p>{faq.a}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  ))}
+
+  <!-- Still have questions -->
+  <section class="section section--alt">
+    <div class="container cta-section">
+      <h2>Still have questions?</h2>
+      <p>Can't find what you're looking for? Get in touch and I'll help.</p>
+      <div class="cta-buttons">
+        <a href="/contact" class="btn btn-primary btn-lg">Contact Me</a>
+        <a href="/book" class="btn btn-secondary btn-lg">Book a Repair</a>
+      </div>
+    </div>
+  </section>
+
+</Page>
+
+<style>
+  /* Page Header */
+  .page-header {
+    padding: var(--space-2xl) 0 var(--space-xl);
+    text-align: center;
+  }
+
+  .page-header h1 {
+    margin-bottom: var(--space-sm);
+  }
+
+  .page-intro {
+    font-size: var(--text-lg);
+    color: var(--text-secondary);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  /* Category */
+  .category-title {
+    text-align: center;
+    margin-bottom: var(--space-xl);
+    color: var(--accent);
+  }
+
+  /* FAQ List */
+  .faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .faq-item {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: var(--space-lg);
+    border-radius: 6px;
+  }
+
+  .faq-item h3 {
+    font-size: var(--text-base);
+    margin-bottom: var(--space-sm);
+  }
+
+  .faq-item p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: var(--leading-relaxed);
+  }
+
+  /* CTA */
+  .cta-section {
+    text-align: center;
+    max-width: 500px;
+  }
+
+  .cta-section h2 {
+    margin-bottom: var(--space-sm);
+  }
+
+  .cta-section p {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xl);
+  }
+
+  .cta-buttons {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+</style>

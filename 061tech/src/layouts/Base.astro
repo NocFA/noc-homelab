@@ -1,0 +1,188 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "PC & laptop repair in Limerick with courier collection and delivery. Virus removal, SSD upgrades, data recovery. Serving Limerick city and county." } = Astro.props;
+const siteName = "061 Tech";
+const fullTitle = title === "Home" ? `${siteName} - Computer Repair Limerick | PC & Laptop Repair` : `${title} | ${siteName}`;
+const siteUrl = "https://061tech.ie";
+const canonicalUrl = Astro.url.pathname === "/" ? siteUrl : `${siteUrl}${Astro.url.pathname}`;
+
+const localBusinessSchema = {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "@id": `${siteUrl}/#localbusiness`,
+  "name": "061 Tech",
+  "alternateName": "061Tech",
+  "description": "PC and laptop repair service in Limerick, Ireland. Computer running slow? Virus problems? Won't turn on? We collect, fix, and deliver. Local technician with 10+ years experience.",
+  "url": siteUrl,
+  "email": "hello@061tech.ie",
+  "image": `${siteUrl}/og-image.png`,
+  "logo": `${siteUrl}/favicon.svg`,
+  "areaServed": [
+    {
+      "@type": "City",
+      "name": "Limerick",
+      "containedInPlace": {
+        "@type": "Country",
+        "name": "Ireland"
+      }
+    },
+    {
+      "@type": "AdministrativeArea",
+      "name": "County Limerick"
+    }
+  ],
+  "serviceArea": {
+    "@type": "GeoCircle",
+    "geoMidpoint": {
+      "@type": "GeoCoordinates",
+      "latitude": 52.6638,
+      "longitude": -8.6267
+    },
+    "geoRadius": "50000"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": 52.6638,
+    "longitude": -8.6267
+  },
+  "priceRange": "€€",
+  "currenciesAccepted": "EUR",
+  "paymentAccepted": "Cash, Credit Card, Bank Transfer",
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "opens": "09:00",
+    "closes": "18:00"
+  },
+  "hasOfferCatalog": {
+    "@type": "OfferCatalog",
+    "name": "Computer Repair Services",
+    "itemListElement": [
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "PC Repair",
+          "description": "Desktop computer repair and diagnostics"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Laptop Repair",
+          "description": "Laptop repair, screen replacement, battery replacement"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Virus Removal",
+          "description": "Malware, spyware, and virus removal services"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "SSD Upgrade",
+          "description": "Hard drive to SSD upgrade for faster performance"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Data Recovery",
+          "description": "Recover lost or deleted files from damaged drives"
+        }
+      },
+      {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Custom PC Build",
+          "description": "Custom gaming PC and workstation builds"
+        }
+      }
+    ]
+  },
+  "knowsAbout": [
+    "Computer Repair",
+    "Laptop Repair",
+    "PC Repair",
+    "Virus Removal",
+    "Malware Removal",
+    "SSD Upgrade",
+    "RAM Upgrade",
+    "Data Recovery",
+    "Windows Installation",
+    "Custom PC Build",
+    "Gaming PC",
+    "Slow Computer Fix",
+    "Computer Won't Turn On",
+    "Blue Screen Fix",
+    "Hardware Diagnostics"
+  ],
+  "slogan": "PC & Laptop Repair, Collected and Delivered",
+  "sameAs": []
+};
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content={description}>
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href={canonicalUrl}>
+
+  <meta name="geo.region" content="IE-LK">
+  <meta name="geo.placename" content="Limerick">
+  <meta name="geo.position" content="52.6638;-8.6267">
+  <meta name="ICBM" content="52.6638, -8.6267">
+
+  <meta property="og:title" content={fullTitle}>
+  <meta property="og:description" content={description}>
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="en_IE">
+  <meta property="og:url" content={canonicalUrl}>
+  <meta property="og:site_name" content={siteName}>
+  <meta property="og:image" content={`${siteUrl}/og-image.png`}>
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="061 Tech - PC & Laptop Repair in Limerick">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content={fullTitle}>
+  <meta name="twitter:description" content={description}>
+  <meta name="twitter:image" content={`${siteUrl}/og-image.png`}>
+
+  <title>{fullTitle}</title>
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <script type="application/ld+json" set:html={JSON.stringify(localBusinessSchema)} />
+
+  <script is:inline>
+    const theme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+  </script>
+</head>
+<body>
+  <slot />
+</body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+  @import '../styles/components.css';
+</style>

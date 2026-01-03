@@ -1,0 +1,377 @@
+---
+import Page from '../layouts/Page.astro';
+
+const steps = [
+  {
+    num: 1,
+    title: 'Book Online',
+    desc: 'Tell me what\'s wrong (or that you\'re not sure). I\'ll give you a rough idea of cost and timing.',
+    details: [
+      'Fill in the booking form, chat, or email',
+      'Describe the problem as best you can',
+      'Get an estimate before committing',
+      'Not sure what\'s wrong? €20 video diagnosis available'
+    ]
+  },
+  {
+    num: 2,
+    title: 'Courier Collects Your Device',
+    desc: 'A courier comes to your door. You hand over the device. That\'s it.',
+    details: [
+      'Collection scheduled at a time that suits you',
+      'Weekdays, flexible timing',
+      'Laptops and desktops both collected',
+      'Device is handled carefully and insured in transit'
+    ]
+  },
+  {
+    num: 3,
+    title: 'Diagnosis & Quote',
+    desc: 'I assess the problem and tell you exactly what\'s needed and what it\'ll cost. No surprises.',
+    details: [
+      'Full diagnostic within 1-2 days of receiving device',
+      'You get a clear quote with no hidden fees',
+      'If it\'s not worth fixing, I\'ll tell you honestly',
+      'No work starts until you approve the quote'
+    ]
+  },
+  {
+    num: 4,
+    title: 'Repair',
+    desc: 'Once you approve, I get to work. Most repairs done within 1-3 days.',
+    details: [
+      'Quality parts used (no cheap knockoffs)',
+      'Full testing before sign-off',
+      'Updates via text or email',
+      'You can ask questions anytime'
+    ]
+  },
+  {
+    num: 5,
+    title: 'Courier Returns Your Device',
+    desc: 'Fixed and tested. Delivered back to your door.',
+    details: [
+      'Return scheduled when device is ready',
+      'Pay on delivery or online beforehand',
+      'All repairs come with warranty',
+      'Support available if any issues'
+    ]
+  },
+];
+
+const faqs = [
+  {
+    q: 'What if you can\'t fix it?',
+    a: 'You don\'t pay for the repair. You\'ll only pay the courier cost for collection/return. I\'ll always be upfront if something isn\'t fixable.'
+  },
+  {
+    q: 'How long does the whole process take?',
+    a: 'Typically 3-7 days from collection to return. Simple repairs (virus removal, SSD upgrade) are faster. Complex hardware issues take longer.'
+  },
+  {
+    q: 'Is my data safe?',
+    a: 'Yes. I don\'t snoop through personal files. If data needs to be wiped (e.g., Windows reinstall), I\'ll always ask first and offer backup options.'
+  },
+  {
+    q: 'Can I drop off instead of using courier?',
+    a: 'Yes, by arrangement. Contact me to organise a drop-off/collection. This saves you the courier cost.'
+  },
+];
+---
+
+<Page title="How It Works" description="Computer repair without leaving your house. We collect your broken PC or laptop from anywhere in Limerick, fix it, and deliver it back. No shops, no queues, no hassle. See the simple 5-step process.">
+
+  <!-- Page Header -->
+  <section class="page-header">
+    <div class="container">
+      <h1>How It Works</h1>
+      <p class="page-intro">Computer repair without leaving your house. Here's the process from start to finish.</p>
+    </div>
+  </section>
+
+  <!-- Steps -->
+  <section class="section">
+    <div class="container">
+      <div class="steps-detailed">
+        {steps.map((step, index) => (
+          <div class="step-detailed">
+            <div class="step-header">
+              <span class="step-number">{step.num}</span>
+              <div>
+                <h2>{step.title}</h2>
+                <p class="step-summary">{step.desc}</p>
+              </div>
+            </div>
+            <ul class="step-details">
+              {step.details.map(detail => (
+                <li>{detail}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Timeline Visual -->
+  <section class="section section--alt">
+    <div class="container">
+      <h2 class="section-title">Typical Timeline</h2>
+      <div class="timeline">
+        <div class="timeline-item">
+          <span class="timeline-day">Day 1</span>
+          <span class="timeline-event">You book, courier collects</span>
+        </div>
+        <div class="timeline-item">
+          <span class="timeline-day">Day 2</span>
+          <span class="timeline-event">Device arrives, diagnosis starts</span>
+        </div>
+        <div class="timeline-item">
+          <span class="timeline-day">Day 2-3</span>
+          <span class="timeline-event">Quote sent, you approve</span>
+        </div>
+        <div class="timeline-item">
+          <span class="timeline-day">Day 3-5</span>
+          <span class="timeline-event">Repair completed, tested</span>
+        </div>
+        <div class="timeline-item">
+          <span class="timeline-day">Day 5-7</span>
+          <span class="timeline-event">Courier returns device</span>
+        </div>
+      </div>
+      <p class="timeline-note">Simple repairs (virus removal, tune-ups) often done faster. Complex hardware may take longer.</p>
+    </div>
+  </section>
+
+  <!-- Quick FAQs -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Common Questions</h2>
+      <div class="faq-grid">
+        {faqs.map(faq => (
+          <div class="faq-item">
+            <h3>{faq.q}</h3>
+            <p>{faq.a}</p>
+          </div>
+        ))}
+      </div>
+      <p class="view-all">
+        <a href="/faq">See all FAQs &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="section section--alt">
+    <div class="container cta-section">
+      <h2>Ready to get started?</h2>
+      <p>Book online or get in touch. I'll reply within 24 hours.</p>
+      <div class="cta-buttons">
+        <a href="/book" class="btn btn-primary btn-lg">Book a Repair</a>
+        <a href="/contact" class="btn btn-secondary btn-lg">Contact Me</a>
+      </div>
+    </div>
+  </section>
+
+</Page>
+
+<style>
+  /* Page Header */
+  .page-header {
+    padding: var(--space-2xl) 0 var(--space-xl);
+    text-align: center;
+  }
+
+  .page-header h1 {
+    margin-bottom: var(--space-sm);
+  }
+
+  .page-intro {
+    font-size: var(--text-lg);
+    color: var(--text-secondary);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  /* Detailed Steps */
+  .steps-detailed {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2xl);
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .step-detailed {
+    border-left: 3px solid var(--border);
+    padding-left: var(--space-xl);
+    position: relative;
+  }
+
+  .step-header {
+    display: flex;
+    gap: var(--space-md);
+    align-items: flex-start;
+    margin-bottom: var(--space-md);
+  }
+
+  .step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    background: var(--accent);
+    color: #1c1917;
+    border-radius: 50%;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: absolute;
+    left: -1.35rem;
+  }
+
+  .step-header h2 {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-xs);
+  }
+
+  .step-summary {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .step-details {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .step-details li {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: var(--space-xs);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+  }
+
+  .step-details li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--success);
+  }
+
+  /* Timeline */
+  .section-title {
+    text-align: center;
+    margin-bottom: var(--space-xl);
+  }
+
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  @media (min-width: 640px) {
+    .timeline {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 800px;
+    }
+
+    .timeline-item {
+      flex: 1 1 150px;
+      text-align: center;
+    }
+  }
+
+  .timeline-item {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: var(--space-md);
+    border-radius: 6px;
+  }
+
+  .timeline-day {
+    display: block;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: var(--space-xs);
+  }
+
+  .timeline-event {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+  }
+
+  .timeline-note {
+    text-align: center;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: var(--space-lg);
+    font-style: italic;
+  }
+
+  /* FAQs */
+  .faq-grid {
+    display: grid;
+    gap: var(--space-lg);
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  @media (min-width: 640px) {
+    .faq-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .faq-item {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: var(--space-lg);
+    border-radius: 6px;
+  }
+
+  .faq-item h3 {
+    font-size: var(--text-base);
+    margin-bottom: var(--space-sm);
+  }
+
+  .faq-item p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .view-all {
+    text-align: center;
+    margin-top: var(--space-xl);
+  }
+
+  /* CTA */
+  .cta-section {
+    text-align: center;
+    max-width: 500px;
+  }
+
+  .cta-section h2 {
+    margin-bottom: var(--space-sm);
+  }
+
+  .cta-section p {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xl);
+  }
+
+  .cta-buttons {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+</style>

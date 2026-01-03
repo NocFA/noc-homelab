@@ -1,0 +1,230 @@
+---
+import Page from '../layouts/Page.astro';
+---
+
+<Page title="Book a Repair" description="Book computer repair in Limerick online. PC or laptop collected from your door, fixed, and delivered back. Get a quote within 24 hours. Serving Limerick city and county.">
+
+  <!-- Page Header -->
+  <section class="page-header">
+    <div class="container">
+      <h1>Book a Repair</h1>
+      <p class="page-intro">Tell me what's wrong and I'll get back to you within 24 hours.</p>
+    </div>
+  </section>
+
+  <!-- Booking Form -->
+  <section class="section">
+    <div class="container">
+      <div class="booking-layout">
+        <form class="booking-form" action="https://formspree.io/f/xxxxx" method="POST">
+          <div class="form-group">
+            <label for="name">Your Name *</label>
+            <input type="text" id="name" name="name" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="phone">Phone Number *</label>
+              <input type="tel" id="phone" name="phone" required>
+            </div>
+            <div class="form-group">
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="address">Address (for courier collection) *</label>
+            <input type="text" id="address" name="address" required placeholder="Street address, town/city, eircode">
+          </div>
+
+          <div class="form-group">
+            <label for="device">Device Type *</label>
+            <select id="device" name="device" required>
+              <option value="">Select...</option>
+              <option value="laptop">Laptop</option>
+              <option value="desktop">Desktop PC</option>
+              <option value="other">Other (describe below)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="problem">What's the problem? *</label>
+            <textarea id="problem" name="problem" required placeholder="Describe what's happening. The more detail the better - when did it start, any error messages, etc."></textarea>
+            <span class="form-hint">Not sure what's wrong? That's fine - just describe what you're experiencing.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="service">Service needed (if you know)</label>
+            <select id="service" name="service">
+              <option value="">Not sure / Other</option>
+              <option value="diagnosis">Video Diagnosis (€20) - Help me figure it out</option>
+              <option value="repair">Hardware Repair - Won't turn on, broken parts</option>
+              <option value="virus">Virus / Malware Removal</option>
+              <option value="slow">Speed Issues - Running slow</option>
+              <option value="data">Data Recovery - Lost files</option>
+              <option value="reinstall">Windows Reinstall - Fresh start</option>
+              <option value="upgrade">Upgrade - SSD, RAM, GPU, etc.</option>
+              <option value="build">Custom PC Build</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="preferred-date">Preferred Collection Date</label>
+            <input type="date" id="preferred-date" name="preferred_date">
+            <span class="form-hint">I'll confirm availability when I respond.</span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-lg btn-full">Send Booking Request</button>
+
+          <p class="form-note">
+            I'll respond within 24 hours with a rough quote and to arrange collection. No payment needed until you approve the work.
+          </p>
+        </form>
+
+        <aside class="booking-sidebar">
+          <div class="sidebar-card">
+            <h3>Not sure what's wrong?</h3>
+            <p>Select "Video Diagnosis (€20)" and we'll do a video call to figure out the problem together. If you go ahead with a repair, the €20 comes off your bill.</p>
+          </div>
+
+          <div class="sidebar-card">
+            <h3>What happens next?</h3>
+            <ol>
+              <li>I'll review your request</li>
+              <li>Reply within 24 hours with a quote</li>
+              <li>If you approve, I'll arrange courier collection</li>
+              <li>Repair, test, and return via courier</li>
+            </ol>
+          </div>
+
+          <div class="sidebar-card">
+            <h3>Need to talk it through?</h3>
+            <p>Book a free 15-minute video call to discuss your issue.</p>
+            <a href="#" class="btn btn-secondary sidebar-btn">Schedule Call</a>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+</Page>
+
+<style>
+  /* Page Header */
+  .page-header {
+    padding: var(--space-2xl) 0 var(--space-xl);
+    text-align: center;
+  }
+
+  .page-header h1 {
+    margin-bottom: var(--space-sm);
+  }
+
+  .page-intro {
+    font-size: var(--text-lg);
+    color: var(--text-secondary);
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  /* Layout */
+  .booking-layout {
+    display: grid;
+    gap: var(--space-2xl);
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  @media (min-width: 768px) {
+    .booking-layout {
+      grid-template-columns: 1fr 280px;
+    }
+  }
+
+  /* Form */
+  .booking-form {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: var(--space-xl);
+    border-radius: 6px;
+  }
+
+  .form-group {
+    margin-bottom: var(--space-lg);
+  }
+
+  .form-row {
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  @media (min-width: 500px) {
+    .form-row {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  .form-hint {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: var(--space-xs);
+  }
+
+  .btn-full {
+    width: 100%;
+    text-align: center;
+  }
+
+  .form-note {
+    text-align: center;
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin-top: var(--space-lg);
+    margin-bottom: 0;
+  }
+
+  /* Sidebar */
+  .booking-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .sidebar-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    padding: var(--space-lg);
+    border-radius: 6px;
+  }
+
+  .sidebar-card h3 {
+    font-size: var(--text-base);
+    margin-bottom: var(--space-sm);
+  }
+
+  .sidebar-card p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .sidebar-card ol {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+
+  .sidebar-card li {
+    margin-bottom: var(--space-xs);
+  }
+
+  .sidebar-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: var(--space-sm);
+  }
+</style>

@@ -1,0 +1,246 @@
+---
+import Page from '../layouts/Page.astro';
+import { homepage } from '../data/config';
+
+const { problems, upgrades, remoteServices, steps } = homepage;
+---
+
+<Page title="Home" description="PC and laptop repair in Limerick - we collect, fix, and deliver. Computer running slow? Virus problems? Won't turn on? Local Limerick technician with 10+ years experience. No fix, no fee. Same week turnaround.">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="container">
+      <h1>PC & Laptop Repair, Collected and Delivered</h1>
+      <p class="hero-subtitle">
+        Computer not working? We pick up your device, fix it, and bring it back.
+        Serving Limerick city and county.
+      </p>
+      <p class="hero-keywords">
+        Slow computer fix, virus removal, laptop won't turn on, data recovery,
+        SSD upgrades, custom PC builds - all with free collection and delivery in Limerick.
+      </p>
+      <div class="hero-buttons">
+        <a href="/book" class="btn btn-primary btn-lg">Book a Repair</a>
+        <a href="/services" class="btn btn-secondary btn-lg">See Pricing</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it Works -->
+  <section class="section section--alt">
+    <div class="container">
+      <h2 class="section-title">How it Works</h2>
+      <div class="steps">
+        {steps.map(step => (
+          <div class="step">
+            <span class="step-number">{step.num}</span>
+            <h3 class="step-title">{step.title}</h3>
+            <p class="step-desc">{step.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">What's Wrong With Your Computer?</h2>
+      <p class="section-intro">Pick what sounds like your problem. Not sure? That's fine - the last option is for you.</p>
+      <div class="services-grid">
+        {problems.map(problem => (
+          <div class={`service-card ${problem.highlight ? 'service-card--highlight' : ''}`}>
+            <h3>{problem.symptom}</h3>
+            <span class="price">
+              {problem.priceFrom && <span class="price-from">From</span>}
+              {problem.price}
+            </span>
+            <p class="symptom-desc">{problem.desc}</p>
+            <span class="service-name">{problem.service}</span>
+          </div>
+        ))}
+      </div>
+      <p class="view-all">
+        <a href="/services">View full pricing breakdown &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Upgrades -->
+  <section class="section section--alt">
+    <div class="container">
+      <h2 class="section-title">Want More Power?</h2>
+      <p class="section-intro">Upgrades for laptops and desktop PCs. Make your computer faster without buying new.</p>
+      <div class="remote-grid">
+        {upgrades.map(upgrade => (
+          <div class="remote-card">
+            <h3>{upgrade.name}</h3>
+            <span class="price">
+              {upgrade.priceFrom && <span class="price-from">From</span>}
+              {upgrade.price}
+            </span>
+            <p>{upgrade.desc}</p>
+          </div>
+        ))}
+      </div>
+      <p class="view-all">
+        <a href="/services#upgrades">See all upgrades - CPU, motherboard, PSU &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- Remote Services -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Remote Services</h2>
+      <p class="section-intro">Some things don't need a courier - I can help over the internet.</p>
+      <div class="remote-grid">
+        {remoteServices.map(service => (
+          <div class="remote-card">
+            <h3>{service.name}</h3>
+            <span class="price">
+              {service.priceFrom && <span class="price-from">From</span>}
+              {service.price}
+            </span>
+            <p>{service.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Why Courier -->
+  <section class="section section--alt">
+    <div class="container why-section">
+      <h2>Why Courier-Based Repair?</h2>
+      <p class="why-intro">You shouldn't have to rearrange your day to get your computer fixed.</p>
+      <ul class="benefits">
+        <li>No driving across town to drop it off</li>
+        <li>No waiting around in a shop</li>
+        <li>No trying to find parking</li>
+        <li>No taking time off work</li>
+      </ul>
+      <p class="why-summary">I send a courier to collect it, fix it at my workshop, and send it back. You stay home.</p>
+    </div>
+  </section>
+
+  <!-- About Snippet -->
+  <section class="section">
+    <div class="container about-snippet">
+      <h2>About</h2>
+      <p>
+        10+ years in IT. Based in Limerick. I fix computers because I enjoy it.
+        No upselling, no jargon, just honest repairs at fair prices.
+      </p>
+      <p>
+        <a href="/about">More about 061 Tech &rarr;</a>
+      </p>
+    </div>
+  </section>
+</Page>
+
+<style>
+  .section-title {
+    text-align: center;
+    margin-bottom: var(--space-md);
+  }
+
+  .section-intro {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xl);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .view-all {
+    text-align: center;
+    margin-top: var(--space-xl);
+  }
+
+  /* Symptom cards */
+  .symptom-desc {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-sm);
+  }
+
+  .service-name {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: auto;
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border);
+  }
+
+  .service-card--highlight {
+    border-color: var(--accent);
+    background: var(--accent-subtle);
+  }
+
+  .service-card--highlight .service-name {
+    border-top-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* Remote services grid */
+  .remote-grid {
+    display: grid;
+    gap: var(--space-md);
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .remote-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    padding: var(--space-lg);
+    border-radius: 6px;
+  }
+
+  .remote-card h3 {
+    font-size: var(--text-base);
+    margin-bottom: var(--space-xs);
+  }
+
+  .remote-card .price {
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+  }
+
+  .remote-card p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* Why section */
+  .why-section {
+    max-width: 600px;
+  }
+
+  .why-section h2 {
+    margin-bottom: var(--space-sm);
+  }
+
+  .why-intro {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-lg);
+  }
+
+  .why-summary {
+    margin-top: var(--space-lg);
+    font-weight: 500;
+  }
+
+  /* About snippet */
+  .about-snippet {
+    max-width: 600px;
+  }
+
+  .about-snippet h2 {
+    margin-bottom: var(--space-md);
+  }
+</style>

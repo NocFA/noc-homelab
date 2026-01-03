@@ -1,0 +1,76 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Page Not Found" description="The page you're looking for doesn't exist.">
+  <main class="error-page">
+    <div class="container">
+      <span class="error-code">404</span>
+      <h1>Story bud? This page is gone.</h1>
+      <p class="error-desc">
+        Whatever you were looking for has done a runner.
+        Maybe it never existed, maybe it moved - either way, it's not here.
+      </p>
+      <div class="error-actions">
+        <a href="/" class="btn btn-primary">Back to Home</a>
+        <a href="/contact" class="btn btn-secondary">Get in Touch</a>
+      </div>
+      <p class="error-hint">
+        If you think this is a mistake, give me a shout at <a href="mailto:hello@061tech.ie">hello@061tech.ie</a>
+      </p>
+    </div>
+  </main>
+</Base>
+
+<style>
+  .error-page {
+    min-height: calc(100vh - var(--header-height) - 200px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: var(--space-2xl) var(--space-md);
+  }
+
+  .container {
+    max-width: 500px;
+  }
+
+  .error-code {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: clamp(4rem, 15vw, 8rem);
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: var(--space-md);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    margin-bottom: var(--space-md);
+  }
+
+  .error-desc {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xl);
+    line-height: var(--leading-relaxed);
+  }
+
+  .error-actions {
+    display: flex;
+    gap: var(--space-md);
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: var(--space-xl);
+  }
+
+  .error-hint {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+
+  .error-hint a {
+    color: var(--accent);
+  }
+</style>
