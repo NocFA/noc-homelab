@@ -1,6 +1,6 @@
 ---
 import Page from '../layouts/Page.astro';
-import { videoDiagnosis } from '../data/config';
+import { videoDiagnosis, courier } from '../data/config';
 
 const steps = [
   {
@@ -19,10 +19,10 @@ const steps = [
     title: 'Courier Collects Your Device',
     desc: 'A courier comes to your door. You hand over the device. That\'s it.',
     details: [
-      'Collection scheduled at a time that suits you',
-      'Weekdays, flexible timing',
+      `Collections run once weekly (${courier.scheduleDay})`,
+      `Book by ${courier.bookByDay} to be on that week's run`,
       'Laptops and desktops both collected',
-      'Device is handled carefully and insured in transit'
+      'Device is handled carefully - no packaging needed from you'
     ]
   },
   {
@@ -52,22 +52,26 @@ const steps = [
     title: 'Courier Returns Your Device',
     desc: 'Fixed and tested. Delivered back to your door.',
     details: [
-      'Return scheduled when device is ready',
-      'Pay on delivery or online beforehand',
+      `Deliveries run once weekly (${courier.scheduleDay}) with collections`,
+      'Payment required before dispatch',
       'All repairs come with warranty',
-      'Support available if any issues'
+      `Need it back sooner? Express return via ${courier.expressReturn.provider} available`
     ]
   },
 ];
 
 const faqs = [
   {
+    q: 'Why only once a week?',
+    a: `Collections and deliveries run on ${courier.scheduleDay} to keep costs down. One dedicated driver handles everything with care. Need it back faster? Express return via ${courier.expressReturn.provider} is available at extra cost.`
+  },
+  {
     q: 'What if you can\'t fix it?',
     a: 'You don\'t pay for the repair. You\'ll only pay the courier cost for collection/return. I\'ll always be upfront if something isn\'t fixable.'
   },
   {
     q: 'How long does the whole process take?',
-    a: 'Typically 3-7 days from collection to return. Simple repairs (virus removal, SSD upgrade) are faster. Complex hardware issues take longer.'
+    a: `Depends when you book. If you book early in the week, your device gets collected that ${courier.scheduleDay}. Repair takes 1-5 days depending on complexity, then it goes out on the next ${courier.scheduleDay} run.`
   },
   {
     q: 'Is my data safe?',
@@ -120,27 +124,23 @@ const faqs = [
       <h2 class="section-title">Typical Timeline</h2>
       <div class="timeline">
         <div class="timeline-item">
-          <span class="timeline-day">Day 1</span>
-          <span class="timeline-event">You book, courier collects</span>
+          <span class="timeline-day">Week 1</span>
+          <span class="timeline-event">Book by Thu, collected Fri</span>
         </div>
         <div class="timeline-item">
-          <span class="timeline-day">Day 2</span>
-          <span class="timeline-event">Device arrives, diagnosis starts</span>
+          <span class="timeline-day">Sat-Mon</span>
+          <span class="timeline-event">Diagnosis, quote sent</span>
         </div>
         <div class="timeline-item">
-          <span class="timeline-day">Day 2-3</span>
-          <span class="timeline-event">Quote sent, you approve</span>
-        </div>
-        <div class="timeline-item">
-          <span class="timeline-day">Day 3-5</span>
+          <span class="timeline-day">Mon-Thu</span>
           <span class="timeline-event">Repair completed, tested</span>
         </div>
         <div class="timeline-item">
-          <span class="timeline-day">Day 5-7</span>
-          <span class="timeline-event">Courier returns device</span>
+          <span class="timeline-day">Week 2</span>
+          <span class="timeline-event">Delivered Fri (after payment)</span>
         </div>
       </div>
-      <p class="timeline-note">Simple repairs (virus removal, tune-ups) often done faster. Complex hardware may take longer.</p>
+      <p class="timeline-note">Most repairs done within a week. Complex jobs may need an extra week. Express return via {courier.expressReturn.provider} available if you can't wait.</p>
     </div>
   </section>
 

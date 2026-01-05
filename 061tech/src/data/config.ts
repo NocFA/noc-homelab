@@ -19,6 +19,17 @@ export const brands = {
 
 export const formatBrands = (brandList: string[]) => brandList.join(', ');
 
+export const courier = {
+  price: '€50',
+  scheduleDay: 'Fridays',
+  bookByDay: 'Thursday',
+  expressReturn: {
+    provider: 'DPD',
+    note: 'Next-day delivery back (we handle packaging)',
+    extraCost: true,
+  },
+};
+
 export const pricing = {
   hardware: {
     diagnostics: '€50-80',
@@ -63,7 +74,7 @@ export const pricing = {
     protectionPlan: '+€60',
     annualSupport: '€150/yr',
   },
-  courier: '€50',
+  courier: courier.price,
   baseWarranty: '14 days',
 };
 
