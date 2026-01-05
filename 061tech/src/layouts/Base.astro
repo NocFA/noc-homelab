@@ -173,12 +173,53 @@ const localBusinessSchema = {
   <script type="application/ld+json" set:html={JSON.stringify(localBusinessSchema)} />
 
   <script is:inline>
-    const theme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', theme);
+    (function() {
+      var stored = localStorage.getItem('theme');
+      var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
   </script>
 </head>
 <body>
   <slot />
+  <script is:inline>
+    function getSiteTheme() {
+      return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    }
+
+    window.chatwootSettings = {
+      hideMessageBubble: true,
+      position: "right",
+      type: "standard",
+      launcherTitle: "Chat with 061 Tech",
+      darkMode: getSiteTheme()
+    };
+
+    (function(d,t) {
+      var BASE_URL="https://chat.nocfa.net";
+      var g=d.createElement(t),s=d.getElementsByTagName(t)[0];
+      g.src=BASE_URL+"/packs/js/sdk.js";
+      g.async=true;
+      s.parentNode.insertBefore(g,s);
+      g.onload=function(){
+        window.chatwootSDK.run({
+          websiteToken: '3YJkTefyoKtGRUyDeoqgK8rQ',
+          baseUrl: BASE_URL
+        })
+      }
+    })(document,"script");
+
+    document.addEventListener('click', function(e) {
+      if (e.target.closest('.chat-trigger')) {
+        e.preventDefault();
+        if (window.$chatwoot) window.$chatwoot.toggle('open');
+      }
+    });
+
+    new MutationObserver(function() {
+      if (window.$chatwoot) window.$chatwoot.setColorScheme(getSiteTheme());
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  </script>
 </body>
 </html>
 

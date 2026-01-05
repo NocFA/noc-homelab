@@ -2,13 +2,12 @@
 import Page from '../layouts/Page.astro';
 import {
   services,
-  packages,
+  addOns,
   quickLinks,
   pricing,
   seoKeywords
 } from '../data/config';
 
-// Destructure services for easier template access
 const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildServices, software: softwareServices, data: dataServices, remote: remoteServices } = services;
 ---
 
@@ -28,9 +27,9 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
       <div class="callout">
         <div class="callout-content">
           <h2>Not sure what's wrong?</h2>
-          <p>Don't worry - most people aren't. Book a <strong>€20 video diagnosis</strong> and I'll help figure out the problem and give you an honest quote. If you go ahead with the repair, the €20 comes off your bill.</p>
+          <p>Don't worry - most people aren't. Book a <strong>€10 video diagnosis</strong> and I'll help figure out the problem and give you an honest quote. If you go ahead with the repair, the €10 comes off your bill.</p>
         </div>
-        <a href="/book" class="btn btn-primary">Book Video Diagnosis</a>
+        <a href="https://calendly.com/061tech/video-diagnoses" class="btn btn-primary">Book Video Diagnosis</a>
       </div>
     </div>
   </section>
@@ -254,23 +253,23 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
     </div>
   </section>
 
-  <!-- Packages -->
-  <section class="section" id="packages">
+  <!-- Add-Ons -->
+  <section class="section" id="add-ons">
     <div class="container">
-      <h2>Service Packages</h2>
-      <p class="section-desc">Bundle your repair with extras and save.</p>
+      <h2>Add-Ons</h2>
+      <p class="section-desc">Base repairs include a {pricing.baseWarranty} warranty. Add any of these to your repair for extra protection and peace of mind.</p>
       <div class="packages-grid">
-        {packages.map(pkg => (
-          <div class={`package-card ${pkg.popular ? 'package-card--popular' : ''}`}>
-            {pkg.popular && <span class="popular-badge">Most Popular</span>}
-            <h3>{pkg.name}</h3>
-            <p class="package-desc">{pkg.desc}</p>
+        {addOns.map(addon => (
+          <div class={`package-card ${addon.popular ? 'package-card--popular' : ''}`}>
+            {addon.popular && <span class="popular-badge">Most Popular</span>}
+            <h3>{addon.name}</h3>
+            <p class="package-desc">{addon.desc}</p>
             <ul class="package-includes">
-              {pkg.includes.map(item => (
+              {addon.includes.map(item => (
                 <li>{item}</li>
               ))}
             </ul>
-            <span class="package-price">{pkg.price}</span>
+            <span class="package-price">{addon.price}{addon.recurring ? '' : ' per repair'}</span>
           </div>
         ))}
       </div>
@@ -281,21 +280,9 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
   <section class="section">
     <div class="container courier-info">
       <h2>Courier Collection & Delivery</h2>
-      <p>Courier costs are separate from repair costs. Prices depend on device size and location:</p>
-
-      <h3>Laptops</h3>
-      <ul>
-        <li><strong>Limerick City:</strong> €30-40 total (collection + return)</li>
-        <li><strong>County Limerick:</strong> €40-50 total</li>
-      </ul>
-
-      <h3>Desktop PCs</h3>
-      <ul>
-        <li><strong>Limerick City:</strong> €50-60 total (heavier, need careful handling)</li>
-        <li><strong>County Limerick:</strong> €60-70 total</li>
-      </ul>
-
-      <p class="courier-note">Exact costs quoted when you book. You can also arrange your own courier, or drop off/collect in person by arrangement - just ask.</p>
+      <p><strong class="courier-price">{pricing.courier}</strong> flat rate for collection and return - any device, anywhere in Limerick city or county.</p>
+      <p>Courier costs are separate from repair costs. I use a local driver who handles your device with care.</p>
+      <p class="courier-note">You can also arrange your own courier, or drop off/collect in person by arrangement - just ask.</p>
     </div>
   </section>
 
@@ -717,27 +704,17 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
     margin-bottom: var(--space-md);
   }
 
-  .courier-info ul {
-    list-style: none;
-    margin: var(--space-md) 0;
-  }
-
-  .courier-info li {
-    margin-bottom: var(--space-sm);
-  }
-
-  .courier-info h3 {
-    font-size: var(--text-base);
-    margin-top: var(--space-lg);
-    margin-bottom: var(--space-sm);
-    color: var(--text-secondary);
+  .courier-price {
+    font-family: var(--font-mono);
+    font-size: var(--text-xl);
+    color: var(--accent);
   }
 
   .courier-note {
     font-size: var(--text-sm);
     color: var(--text-muted);
     font-style: italic;
-    margin-top: var(--space-lg);
+    margin-top: var(--space-md);
   }
 
   /* CTA */

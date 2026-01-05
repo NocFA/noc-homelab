@@ -46,7 +46,6 @@ const currentPath = Astro.url.pathname;
         </svg>
       </button>
 
-      <!-- Mobile menu button -->
       <button
         type="button"
         class="mobile-menu-btn"
@@ -61,7 +60,6 @@ const currentPath = Astro.url.pathname;
     </div>
   </div>
 
-  <!-- Mobile menu -->
   <div class="mobile-menu" id="mobile-menu" hidden>
     <nav aria-label="Mobile navigation">
       <ul class="mobile-nav-list">
@@ -207,7 +205,6 @@ const currentPath = Astro.url.pathname;
 </style>
 
 <script>
-  // Theme toggle
   const themeToggle = document.getElementById('theme-toggle');
   themeToggle?.addEventListener('click', () => {
     const current = document.documentElement.getAttribute('data-theme');
@@ -216,7 +213,6 @@ const currentPath = Astro.url.pathname;
     localStorage.setItem('theme', next);
   });
 
-  // Mobile menu
   const menuBtn = document.getElementById('mobile-menu-btn');
   const mobileMenu = document.getElementById('mobile-menu');
 

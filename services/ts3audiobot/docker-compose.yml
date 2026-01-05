@@ -1,0 +1,13 @@
+services:
+  ts3audiobot:
+    image: ghcr.io/cookiecr2nk/ts3audiobot-docker:master
+    container_name: ts3audiobot
+    restart: unless-stopped
+    ports:
+      - "58913:58913"  # Web API
+    volumes:
+      - ./data:/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - TZ=Europe/Dublin

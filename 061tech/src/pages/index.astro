@@ -47,15 +47,27 @@ const { problems, upgrades, remoteServices, steps } = homepage;
       <p class="section-intro">Pick what sounds like your problem. Not sure? That's fine - the last option is for you.</p>
       <div class="services-grid">
         {problems.map(problem => (
-          <div class={`service-card ${problem.highlight ? 'service-card--highlight' : ''}`}>
-            <h3>{problem.symptom}</h3>
-            <span class="price">
-              {problem.priceFrom && <span class="price-from">From</span>}
-              {problem.price}
-            </span>
-            <p class="symptom-desc">{problem.desc}</p>
-            <span class="service-name">{problem.service}</span>
-          </div>
+          problem.highlight ? (
+            <a href="https://calendly.com/061tech/video-diagnoses" class="service-card service-card--highlight service-card--link">
+              <h3>{problem.symptom}</h3>
+              <span class="price">
+                {problem.priceFrom && <span class="price-from">From</span>}
+                {problem.price}
+              </span>
+              <p class="symptom-desc">{problem.desc}</p>
+              <span class="service-name">{problem.service}</span>
+            </a>
+          ) : (
+            <div class="service-card">
+              <h3>{problem.symptom}</h3>
+              <span class="price">
+                {problem.priceFrom && <span class="price-from">From</span>}
+                {problem.price}
+              </span>
+              <p class="symptom-desc">{problem.desc}</p>
+              <span class="service-name">{problem.service}</span>
+            </div>
+          )
         ))}
       </div>
       <p class="view-all">
@@ -183,6 +195,17 @@ const { problems, upgrades, remoteServices, steps } = homepage;
   .service-card--highlight .service-name {
     border-top-color: var(--accent);
     color: var(--accent);
+  }
+
+  .service-card--link {
+    text-decoration: none;
+    color: inherit;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+  }
+
+  .service-card--link:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
   /* Remote services grid */

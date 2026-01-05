@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://061tech.ie/sitemap.xml
+Sitemap: https://061tech.ie/sitemap-index.xml

@@ -1,5 +1,6 @@
 ---
 import Page from '../layouts/Page.astro';
+import { videoDiagnosis } from '../data/config';
 
 const steps = [
   {
@@ -10,7 +11,7 @@ const steps = [
       'Fill in the booking form, chat, or email',
       'Describe the problem as best you can',
       'Get an estimate before committing',
-      'Not sure what\'s wrong? €20 video diagnosis available'
+      `Not sure what's wrong? ${videoDiagnosis.price} video diagnosis available`
     ]
   },
   {

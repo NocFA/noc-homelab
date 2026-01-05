@@ -13,16 +13,16 @@ const currentYear = new Date().getFullYear();
       </div>
 
       <div class="footer-contact">
-        <h4>Contact</h4>
+        <p class="footer-heading">Contact</p>
         <ul>
           <li><a href="mailto:hello@061tech.ie">hello@061tech.ie</a></li>
-          <li><a href="https://wa.me/?text=Hi%2C%20I%20need%20help%20with%20my%20computer" target="_blank" rel="noopener">WhatsApp</a></li>
+          <li><span class="coming-soon">WhatsApp (Coming Soon)</span></li>
           <li><a href="#" class="chat-trigger">Live Chat</a></li>
         </ul>
       </div>
 
       <div class="footer-hours">
-        <h4>Availability</h4>
+        <p class="footer-heading">Availability</p>
         <ul>
           <li>Monday - Friday</li>
           <li>Replies within 24 hours</li>
@@ -30,7 +30,7 @@ const currentYear = new Date().getFullYear();
       </div>
 
       <div class="footer-links">
-        <h4>Links</h4>
+        <p class="footer-heading">Links</p>
         <ul>
           <li><a href="/services">Services</a></li>
           <li><a href="/faq">FAQ</a></li>
@@ -88,8 +88,9 @@ const currentYear = new Date().getFullYear();
     font-size: var(--text-sm);
   }
 
-  .footer h4 {
+  .footer-heading {
     font-size: var(--text-sm);
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-muted);
@@ -102,6 +103,7 @@ const currentYear = new Date().getFullYear();
 
   .footer li {
     margin-bottom: var(--space-xs);
+    color: var(--text-secondary);
   }
 
   .footer a {
@@ -144,5 +146,10 @@ const currentYear = new Date().getFullYear();
     color: var(--text-muted);
     font-size: var(--text-sm);
     margin: 0;
+  }
+
+  .coming-soon {
+    color: var(--text-muted);
+    font-style: italic;
   }
 </style>

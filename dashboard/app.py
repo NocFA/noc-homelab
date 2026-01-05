@@ -77,13 +77,13 @@ SERVICES = {
         'port': 9999,
         'log_paths': ['/Users/noc/logs/zurg.out', '/Users/noc/logs/zurg.err', '/Users/noc/applications/zurg/logs/*.log']
     },
-    'coolify': {
-        'name': 'Coolify',
-        'launchd': 'orbstack:coolify',  # Special marker for OrbStack VM
-        'port': 8000,
-        'log_paths': [],  # Logs are inside the VM
-        'description': 'Self-hosted PaaS (Heroku/Vercel alternative)',
-        'vm_name': 'coolify'  # OrbStack VM name (port forwarding enabled, Traefik 8080 disabled)
+    'ts3audiobot': {
+        'name': 'TS3AudioBot',
+        'launchd': 'docker:ts3audiobot',
+        'port': 58913,
+        'compose_dir': '/Users/noc/noc-homelab/services/ts3audiobot',
+        'log_paths': ['/Users/noc/noc-homelab/services/ts3audiobot/data/logs/*.log'],
+        'description': 'TeamSpeak Music Bot'
     }
 }
 
@@ -211,6 +211,16 @@ def index():
                 'url': f"http://noc-local:{service['port']}",
                 'description': service.get('description', 'OrbStack VM Service')
             })
+        # Special handling for Docker Compose services
+        elif service.get('launchd', '').startswith('docker:'):
+            is_online = check_port_listening(service['port'])
+            services_list.append({
+                'name': service['name'],
+                'port': service['port'],
+                'status': 'online' if is_online else 'offline',
+                'url': f"http://noc-local:{service['port']}",
+                'description': service.get('description', 'Docker Service')
+            })
         else:
             is_online = check_port_listening(service['port'])
 
@@ -331,6 +341,32 @@ def control_service(action):
                     logs = result.stdout if result.stdout else result.stderr
                     if not logs:
                         logs = "No logs available"
+                except Exception as e:
+                    logs = f"Error getting logs: {str(e)}"
+                return jsonify({'success': True, 'logs': logs})
+        # Special handling for Docker Compose services
+        elif launchd_name.startswith('docker:'):
+            container_name = launchd_name.replace('docker:', '')
+            compose_dir = service.get('compose_dir', f'/Users/noc/noc-homelab/services/{container_name}')
+            if action == 'start':
+                subprocess.run(['docker', 'compose', 'up', '-d'],
+                             cwd=compose_dir, check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': f'{service["name"]} started'})
+            elif action == 'stop':
+                subprocess.run(['docker', 'compose', 'down'],
+                             cwd=compose_dir, check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': f'{service["name"]} stopped'})
+            elif action == 'restart':
+                subprocess.run(['docker', 'compose', 'restart'],
+                             cwd=compose_dir, check=True, capture_output=True, text=True)
+                return jsonify({'success': True, 'message': f'{service["name"]} restarted'})
+            elif action == 'logs':
+                try:
+                    result = subprocess.run(['docker', 'logs', '--tail', '100', container_name],
+                                          capture_output=True, text=True, timeout=15)
+                    logs = result.stdout if result.stdout else result.stderr
+                    if not logs:
+                        logs = get_service_log(service_key_lower)
                 except Exception as e:
                     logs = f"Error getting logs: {str(e)}"
                 return jsonify({'success': True, 'logs': logs})

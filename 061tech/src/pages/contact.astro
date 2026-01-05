@@ -17,32 +17,40 @@ import Page from '../layouts/Page.astro';
     <div class="container">
       <div class="contact-grid">
 
-        <div class="contact-card contact-card--primary">
+        <div class="contact-card">
           <h2>Live Chat</h2>
-          <p>Quick questions? Chat with me directly.</p>
-          <button type="button" class="btn btn-primary chat-btn">Start Chat</button>
-          <span class="contact-note">Usually reply within minutes</span>
+          <p>Quick questions? Chat directly on the site.</p>
+          <div class="contact-card-footer">
+            <button type="button" class="btn btn-primary contact-btn chat-trigger">Start Chat</button>
+            <span class="contact-note">Fastest response</span>
+          </div>
         </div>
 
-        <div class="contact-card">
+        <div class="contact-card contact-card--disabled">
           <h2>WhatsApp</h2>
-          <p>Send a message, photo of the problem, or voice note.</p>
-          <a href="https://wa.me/?text=Hi%2C%20I%20need%20help%20with%20my%20computer" target="_blank" rel="noopener" class="contact-link">Message on WhatsApp</a>
-          <span class="contact-note">Great for sending photos</span>
+          <p>Message me, send photos, or voice notes.</p>
+          <div class="contact-card-footer">
+            <span class="btn btn-secondary contact-btn disabled">Coming Soon</span>
+            <span class="contact-note">Great for photos of the problem</span>
+          </div>
         </div>
 
         <div class="contact-card">
           <h2>Email</h2>
-          <p>For detailed questions or formal enquiries.</p>
-          <a href="mailto:hello@061tech.ie" class="contact-link">hello@061tech.ie</a>
-          <span class="contact-note">Replies within 24 hours</span>
+          <p>Detailed questions or formal enquiries.</p>
+          <div class="contact-card-footer">
+            <a href="mailto:hello@061tech.ie?subject=Email%20contact%3A%20061%20Tech" class="btn btn-email contact-btn">Send Email</a>
+            <span class="contact-note">For longer queries</span>
+          </div>
         </div>
 
         <div class="contact-card">
-          <h2>Book a Call</h2>
-          <p>Need to talk it through? Schedule a video consultation.</p>
-          <a href="#" class="btn btn-secondary">Schedule Call</a>
-          <span class="contact-note">Free 15-min intro call</span>
+          <h2>Video Diagnosis</h2>
+          <p>Not sure what's wrong? I'll help figure it out on a video call.</p>
+          <div class="contact-card-footer">
+            <a href="https://calendly.com/061tech/video-diagnoses" class="btn btn-secondary contact-btn">Book for €10</a>
+            <span class="contact-note">15 mins · credited toward repair</span>
+          </div>
         </div>
 
       </div>
@@ -63,30 +71,46 @@ import Page from '../layouts/Page.astro';
         <h2>Send a Message</h2>
         <p class="form-intro">Have a question that's not about booking a repair? Send me a message.</p>
 
-        <form class="contact-form" action="https://formspree.io/f/xxxxx" method="POST">
+        <form class="contact-form" id="contact-form" action="https://formspree.io/f/xaqnpewj" method="POST">
+          <input type="hidden" name="_subject" id="form-subject-line" value="061Tech: Contact Form">
+          <input type="text" name="_gotcha" class="hp-field" tabindex="-1" autocomplete="off">
+
           <div class="form-row">
             <div class="form-group">
               <label for="name">Name *</label>
-              <input type="text" id="name" name="name" required>
+              <input type="text" id="name" name="name" required minlength="2" maxlength="100">
             </div>
             <div class="form-group">
               <label for="email">Email *</label>
-              <input type="email" id="email" name="email" required>
+              <input type="email" id="email" name="email" required maxlength="254">
             </div>
           </div>
 
           <div class="form-group">
-            <label for="subject">Subject</label>
-            <input type="text" id="subject" name="subject" placeholder="What's this about?">
+            <label for="subject">Subject *</label>
+            <input type="text" id="subject" name="subject" required placeholder="What's this about?" minlength="3" maxlength="80">
+            <span class="form-hint">Max 80 characters</span>
           </div>
 
           <div class="form-group">
             <label for="message">Message *</label>
-            <textarea id="message" name="message" required placeholder="Your question or message..."></textarea>
+            <textarea id="message" name="message" required minlength="20" maxlength="2000" placeholder="Your question or message..."></textarea>
+            <span class="form-hint">Min 20 characters</span>
           </div>
 
           <button type="submit" class="btn btn-primary">Send Message</button>
         </form>
+
+        <script>
+          const form = document.getElementById('contact-form');
+          const subjectInput = document.getElementById('subject');
+          const subjectLine = document.getElementById('form-subject-line');
+
+          form.addEventListener('submit', function() {
+            const userSubject = subjectInput.value.trim().substring(0, 80);
+            subjectLine.value = '061Tech: Contact Form - ' + userSubject;
+          });
+        </script>
       </div>
     </div>
   </section>
@@ -125,19 +149,13 @@ import Page from '../layouts/Page.astro';
   .contact-grid {
     display: grid;
     gap: var(--space-lg);
-    max-width: 1000px;
+    max-width: 700px;
     margin: 0 auto;
   }
 
   @media (min-width: 640px) {
     .contact-grid {
       grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (min-width: 900px) {
-    .contact-grid {
-      grid-template-columns: repeat(4, 1fr);
     }
   }
 
@@ -157,23 +175,14 @@ import Page from '../layouts/Page.astro';
     margin: 0;
   }
 
-  .chat-btn {
-    display: block;
-    width: 100%;
-    text-align: center;
-    margin-bottom: var(--space-xs);
-  }
-
   .contact-card {
     background: var(--bg-elevated);
     border: 1px solid var(--border);
     padding: var(--space-xl);
     border-radius: 6px;
     text-align: center;
-  }
-
-  .contact-card--primary {
-    border-color: var(--accent);
+    display: flex;
+    flex-direction: column;
   }
 
   .contact-card h2 {
@@ -187,20 +196,28 @@ import Page from '../layouts/Page.astro';
     margin-bottom: var(--space-md);
   }
 
-  .contact-link {
-    display: block;
-    font-size: var(--text-xl);
-    font-weight: 600;
-    color: var(--accent);
-    text-decoration: none;
-    margin-bottom: var(--space-xs);
+  .contact-card--disabled {
+    opacity: 0.6;
   }
 
-  .contact-link:hover {
-    text-decoration: underline;
+  .btn.disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  .contact-card-footer {
+    margin-top: auto;
+  }
+
+  .contact-btn {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-bottom: var(--space-sm);
   }
 
   .contact-note {
+    display: block;
     font-size: var(--text-sm);
     color: var(--text-muted);
   }
@@ -242,6 +259,16 @@ import Page from '../layouts/Page.astro';
     .form-row {
       grid-template-columns: 1fr 1fr;
     }
+  }
+
+  /* Honeypot */
+  .hp-field {
+    position: absolute;
+    left: -9999px;
+    opacity: 0;
+    height: 0;
+    width: 0;
+    pointer-events: none;
   }
 
   /* Service Area */

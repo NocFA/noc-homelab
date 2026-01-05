@@ -1,5 +1,13 @@
 // Site config - prices, services, etc
 
+// Video Diagnosis - centralized for easy updates
+export const videoDiagnosis = {
+  price: '€10',
+  duration: '15 mins',
+  url: 'https://calendly.com/061tech/video-diagnoses',
+  creditNote: 'credited toward repair',
+};
+
 export const brands = {
   gpu: ['Nvidia GeForce RTX', 'AMD Radeon RX', 'Intel ARC'],
   cpu: ['Intel Core i5/i7/i9', 'AMD Ryzen 5/7/9'],
@@ -13,52 +21,50 @@ export const formatBrands = (brandList: string[]) => brandList.join(', ');
 
 export const pricing = {
   hardware: {
-    diagnostics: '€40-65',
-    componentReplacement: '€50-100 + parts',
-    deepCleaning: '€40-65',
+    diagnostics: '€50-80',
+    componentReplacement: '€65-120 + parts',
+    deepCleaning: '€50-80',
     screenReplacement: 'Coming Soon',
   },
   upgrades: {
-    ssd: '€60-90 + parts',
-    ram: '€40-60 + parts',
-    gpu: '€60-100 + parts',
-    cpu: '€80-120 + parts',
-    motherboard: '€100-150 + parts',
-    psu: '€50-80 + parts',
+    ssd: '€75-100 + parts',
+    ram: '€50-75 + parts',
+    gpu: '€75-120 + parts',
+    cpu: '€100-140 + parts',
+    motherboard: '€120-175 + parts',
+    psu: '€65-100 + parts',
   },
   builds: {
-    caseSwap: '€80-120',
-    customPcBuild: '€100-200',
-    fullOverhaul: '€150-250 + parts',
+    caseSwap: '€100-140',
+    customPcBuild: '€125-225 + parts',
+    fullOverhaul: '€175-300 + parts',
   },
   software: {
-    virusRemoval: '€60-80',
-    windowsReinstall: '€65-100',
-    performanceTuneup: '€30-40',
-    softwareInstall: '€30-80',
+    virusRemoval: '€75-100',
+    windowsReinstall: '€80-120',
+    performanceTuneup: '€40-55',
+    softwareInstall: '€40-90',
   },
   data: {
-    recoveryBasic: '€80-120',
-    recoveryAdvanced: '€120-200',
-    migration: '€50-80',
-    backupSetup: '€40-50',
+    recoveryBasic: '€100-140',
+    recoveryAdvanced: '€150-240',
+    migration: '€65-100',
+    backupSetup: '€50-65',
   },
   remote: {
-    videoDiagnosis: '€20',
-    securityHardening: '€20-40',
-    remoteTuneup: '€30-40',
-    softwareSetup: '€30-60',
-    ongoingSupport: '€30/hr',
+    videoDiagnosis: videoDiagnosis.price,
+    securityHardening: '€35-55',
+    remoteTuneup: '€40-55',
+    softwareSetup: '€45-75',
+    ongoingSupport: '€45/hr',
   },
-  packages: {
-    basic: 'Repair cost only',
-    standard: 'Repair + €50',
-    premium: 'Repair + €100',
+  addOns: {
+    carePack: '+€35',
+    protectionPlan: '+€60',
+    annualSupport: '€150/yr',
   },
-  courier: {
-    laptop: { city: '€30-40', county: '€40-50' },
-    desktop: { city: '€50-60', county: '€60-70' },
-  },
+  courier: '€50',
+  baseWarranty: '14 days',
 };
 
 export const turnaround = {
@@ -110,10 +116,27 @@ export const services = {
   ],
 };
 
-export const packages = [
-  { name: 'Basic', desc: 'Just the repair, nothing extra', includes: ['Repair service only', 'Standard warranty'], price: pricing.packages.basic },
-  { name: 'Standard', desc: 'Most popular - repair plus protection', includes: ['Repair service', 'Security hardening', 'Performance tune-up', '30-day warranty'], price: pricing.packages.standard, popular: true },
-  { name: 'Premium', desc: 'Complete peace of mind', includes: ['Repair service', 'Security hardening', 'Performance tune-up', 'Backup setup', '1 hour remote support', '60-day warranty'], price: pricing.packages.premium },
+export const addOns = [
+  {
+    name: 'Care Pack',
+    price: pricing.addOns.carePack,
+    desc: 'Most customers add this',
+    includes: ['Security hardening', 'Performance tune-up', '90-day warranty', 'Priority support'],
+    popular: true,
+  },
+  {
+    name: 'Protection Plan',
+    price: pricing.addOns.protectionPlan,
+    desc: 'Long-term peace of mind',
+    includes: ['Everything in Care Pack', '1-year warranty', 'Priority rebooking', '1 free video diagnosis'],
+  },
+  {
+    name: 'Annual Support',
+    price: pricing.addOns.annualSupport,
+    desc: 'Year-round cover',
+    includes: ['2 remote tune-ups per year', '20% off all repairs', 'Priority booking', 'Unlimited email support'],
+    recurring: true,
+  },
 ];
 
 export const quickLinks = [
@@ -121,9 +144,9 @@ export const quickLinks = [
   { label: "Running slow", anchor: "#upgrades" },
   { label: "Virus/pop-ups", anchor: "#software" },
   { label: "Lost files", anchor: "#data" },
-  { label: "Upgrade parts", anchor: "#upgrades" },
   { label: "Custom PC build", anchor: "#builds" },
   { label: "Remote help", anchor: "#remote" },
+  { label: "Add-ons", anchor: "#add-ons" },
 ];
 
 export const seoKeywords = {
@@ -134,24 +157,24 @@ export const seoKeywords = {
 
 export const homepage = {
   problems: [
-    { symptom: "Won't turn on", price: '€100', priceFrom: true, desc: 'No power, no lights, dead battery', service: 'Hardware Diagnosis & Repair' },
-    { symptom: 'Running really slow', price: '€60', priceFrom: true, desc: 'Takes ages to start, freezes constantly', service: 'SSD Upgrade or Tune-up' },
-    { symptom: 'Virus or pop-ups', price: '€60', priceFrom: true, desc: 'Warnings, strange behaviour, hijacked browser', service: 'Virus Removal & Security' },
-    { symptom: 'Lost important files', price: '€80', priceFrom: true, desc: 'Accidentally deleted, drive not showing', service: 'Data Recovery' },
-    { symptom: 'Need a fresh start', price: '€65', priceFrom: true, desc: 'Too cluttered, want it like new again', service: 'Windows Reinstall' },
-    { symptom: 'Something else?', price: '€20', priceFrom: false, desc: "Not sure what's wrong - let's figure it out", service: 'Video Diagnosis', highlight: true },
+    { symptom: "Won't turn on", price: '€115', priceFrom: true, desc: 'No power, no lights, dead battery', service: 'Hardware Diagnosis & Repair' },
+    { symptom: 'Running really slow', price: '€75', priceFrom: true, desc: 'Takes ages to start, freezes constantly', service: 'SSD Upgrade or Tune-up' },
+    { symptom: 'Virus or pop-ups', price: '€75', priceFrom: true, desc: 'Warnings, strange behaviour, hijacked browser', service: 'Virus Removal & Security' },
+    { symptom: 'Lost important files', price: '€100', priceFrom: true, desc: 'Accidentally deleted, drive not showing', service: 'Data Recovery' },
+    { symptom: 'Need a fresh start', price: '€80', priceFrom: true, desc: 'Too cluttered, want it like new again', service: 'Windows Reinstall' },
+    { symptom: 'Something else?', price: videoDiagnosis.price, priceFrom: false, desc: "Not sure what's wrong - let's figure it out", service: 'Video Diagnosis', highlight: true },
   ],
   upgrades: [
-    { name: 'SSD Upgrade', price: '€60', priceFrom: true, desc: 'The #1 speed boost for any computer' },
-    { name: 'RAM Upgrade', price: '€40', priceFrom: true, desc: 'More memory for multitasking' },
-    { name: 'GPU Upgrade', price: '€60', priceFrom: true, desc: `Better graphics - ${brands.gpu.join(', ')}` },
-    { name: 'Custom PC Build', price: '€100', priceFrom: true, desc: 'I build it, you game on it' },
+    { name: 'SSD Upgrade', price: '€75', priceFrom: true, desc: 'The #1 speed boost for any computer' },
+    { name: 'RAM Upgrade', price: '€50', priceFrom: true, desc: 'More memory for multitasking' },
+    { name: 'GPU Upgrade', price: '€75', priceFrom: true, desc: `Better graphics - ${brands.gpu.join(', ')}` },
+    { name: 'Custom PC Build', price: '€125', priceFrom: true, desc: 'I build it, you game on it' },
   ],
   remoteServices: [
-    { name: 'Security Setup', price: '€30', priceFrom: true, desc: 'VPN, password manager, secure browsing' },
+    { name: 'Security Setup', price: '€35', priceFrom: true, desc: 'VPN, password manager, secure browsing' },
     { name: 'Performance Tune-up', price: '€40', priceFrom: true, desc: 'Remove bloatware, speed up startup' },
-    { name: 'Software Install', price: '€40', priceFrom: true, desc: 'Office 365, email, printers' },
-    { name: 'Ongoing Support', price: '€30/hr', priceFrom: false, desc: 'Remote help when you need it' },
+    { name: 'Software Install', price: '€45', priceFrom: true, desc: 'Office 365, email, printers' },
+    { name: 'Ongoing Support', price: '€45/hr', priceFrom: false, desc: 'Remote help when you need it' },
   ],
   steps: [
     { num: 1, title: 'Book', desc: 'Online form or chat' },

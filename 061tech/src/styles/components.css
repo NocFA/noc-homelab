@@ -1,5 +1,3 @@
-/* Component styles */
-
 .btn {
   display: inline-block;
   padding: 0.75rem 1.5rem;
@@ -49,6 +47,46 @@
 .btn-secondary:active, a.btn-secondary:active {
   top: 3px;
   box-shadow: 0 0 0 var(--text-secondary);
+}
+
+/* WhatsApp button */
+.btn-whatsapp, a.btn-whatsapp, a.btn-whatsapp:hover, a.btn-whatsapp:active {
+  background: #25D366;
+  color: #fff;
+  border: 2px solid #128C7E;
+  box-shadow: 3px 3px 0 #128C7E;
+}
+
+.btn-whatsapp:hover, a.btn-whatsapp:hover {
+  top: 2px;
+  background: #22c55e;
+  color: #fff;
+  box-shadow: 1px 1px 0 #128C7E;
+}
+
+.btn-whatsapp:active, a.btn-whatsapp:active {
+  top: 3px;
+  box-shadow: 0 0 0 #128C7E;
+}
+
+/* Email button */
+.btn-email, a.btn-email, a.btn-email:hover, a.btn-email:active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 2px solid var(--accent);
+  box-shadow: 3px 3px 0 var(--accent);
+}
+
+.btn-email:hover, a.btn-email:hover {
+  top: 2px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  box-shadow: 1px 1px 0 var(--accent);
+}
+
+.btn-email:active, a.btn-email:active {
+  top: 3px;
+  box-shadow: 0 0 0 var(--accent);
 }
 
 .btn-lg {
@@ -138,7 +176,10 @@ textarea { min-height: 120px; resize: vertical; }
   .steps { grid-template-columns: repeat(4, 1fr); }
 }
 
-.step { text-align: center; }
+.step {
+  text-align: center;
+  position: relative;
+}
 
 .step-number {
   display: inline-flex;
@@ -152,6 +193,19 @@ textarea { min-height: 120px; resize: vertical; }
   border-radius: 50%;
   font-weight: 700;
   margin-bottom: var(--space-sm);
+  position: relative;
+}
+
+@media (min-width: 768px) {
+  .step:not(:last-child)::after {
+    content: '→';
+    position: absolute;
+    top: 0.65rem;
+    right: -0.9rem;
+    color: var(--accent);
+    font-size: var(--text-lg);
+    font-weight: 400;
+  }
 }
 
 .step-title {
