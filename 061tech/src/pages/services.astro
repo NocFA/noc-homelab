@@ -75,7 +75,7 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
       <h2>Hardware Repairs</h2>
       <p class="section-desc">For when it won't turn on, makes strange noises, or something's physically broken.</p>
       <div class="table-wrapper">
-        <table>
+        <table class="mobile-cards">
           <thead>
             <tr>
               <th>Service</th>
@@ -89,8 +89,8 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
               <tr class={s.comingSoon ? 'coming-soon' : ''}>
                 <td><strong>{s.service}</strong></td>
                 <td>{s.desc}</td>
-                <td class="price-cell">{s.price}</td>
-                <td>{s.time}</td>
+                <td class="price-cell" data-label="Price">{s.price}</td>
+                <td data-label="Turnaround">{s.time}</td>
               </tr>
             ))}
           </tbody>
@@ -106,7 +106,7 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
       <h2>Component Upgrades</h2>
       <p class="section-desc">Upgrade individual parts to boost performance. Works for laptops and desktop PCs - I'll check compatibility before ordering anything.</p>
       <div class="table-wrapper">
-        <table>
+        <table class="mobile-cards">
           <thead>
             <tr>
               <th>Service</th>
@@ -120,8 +120,8 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
               <tr>
                 <td><strong>{s.service}</strong></td>
                 <td>{s.desc}</td>
-                <td class="price-cell">{s.price}</td>
-                <td>{s.time}</td>
+                <td class="price-cell" data-label="Price">{s.price}</td>
+                <td data-label="Turnaround">{s.time}</td>
               </tr>
             ))}
           </tbody>
@@ -137,7 +137,7 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
       <h2>Build & Assembly Services</h2>
       <p class="section-desc">Major work - new builds, case swaps, or complete overhauls. For when you want serious changes.</p>
       <div class="table-wrapper">
-        <table>
+        <table class="mobile-cards">
           <thead>
             <tr>
               <th>Service</th>
@@ -151,8 +151,8 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
               <tr>
                 <td><strong>{s.service}</strong></td>
                 <td>{s.desc}</td>
-                <td class="price-cell">{s.price}</td>
-                <td>{s.time}</td>
+                <td class="price-cell" data-label="Price">{s.price}</td>
+                <td data-label="Turnaround">{s.time}</td>
               </tr>
             ))}
           </tbody>
@@ -168,7 +168,7 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
       <h2>Software & Security</h2>
       <p class="section-desc">For viruses, pop-ups, slow performance, or when you just want a fresh start.</p>
       <div class="table-wrapper">
-        <table>
+        <table class="mobile-cards">
           <thead>
             <tr>
               <th>Service</th>
@@ -182,8 +182,8 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
               <tr>
                 <td><strong>{s.service}</strong></td>
                 <td>{s.desc}</td>
-                <td class="price-cell">{s.price}</td>
-                <td>{s.time}</td>
+                <td class="price-cell" data-label="Price">{s.price}</td>
+                <td data-label="Turnaround">{s.time}</td>
               </tr>
             ))}
           </tbody>
@@ -198,7 +198,7 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
       <h2>Data Recovery & Backup</h2>
       <p class="section-desc">For when you've lost important files or want to make sure you never do.</p>
       <div class="table-wrapper">
-        <table>
+        <table class="mobile-cards">
           <thead>
             <tr>
               <th>Service</th>
@@ -212,8 +212,8 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
               <tr>
                 <td><strong>{s.service}</strong></td>
                 <td>{s.desc}</td>
-                <td class="price-cell">{s.price}</td>
-                <td>{s.time}</td>
+                <td class="price-cell" data-label="Price">{s.price}</td>
+                <td data-label="Turnaround">{s.time}</td>
               </tr>
             ))}
           </tbody>
@@ -229,7 +229,7 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
       <h2>Remote Services</h2>
       <p class="section-desc">Some things don't need a courier. I can help over the internet.</p>
       <div class="table-wrapper">
-        <table>
+        <table class="mobile-cards">
           <thead>
             <tr>
               <th>Service</th>
@@ -243,8 +243,8 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
               <tr>
                 <td><strong>{s.service}</strong></td>
                 <td>{s.desc}</td>
-                <td class="price-cell">{s.price}</td>
-                <td class="note-cell">{s.note}</td>
+                <td class="price-cell" data-label="Price">{s.price}</td>
+                <td class="note-cell" data-label="Note">{s.note}</td>
               </tr>
             ))}
           </tbody>
@@ -583,6 +583,15 @@ const { hardware: hardwareServices, upgrades: componentUpgrades, builds: buildSe
 
   table {
     min-width: 600px;
+  }
+
+  @media (max-width: 640px) {
+    .table-wrapper {
+      overflow-x: visible;
+    }
+    table.mobile-cards {
+      min-width: 0;
+    }
   }
 
   .price-cell {
