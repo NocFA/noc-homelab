@@ -67,5 +67,5 @@ CREDENTIALS.txt
 *.tmp
 temp/
 tmp/
-*.md
-061tech/CLAUDE.md
+# Separate projects (have their own repos)
+061tech/
