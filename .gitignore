@@ -67,3 +67,4 @@ CREDENTIALS.txt
 *.tmp
 temp/
 tmp/
+*.md
