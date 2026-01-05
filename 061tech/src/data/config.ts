@@ -38,12 +38,12 @@ export const pricing = {
     screenReplacement: 'Coming Soon',
   },
   upgrades: {
-    ssd: '€75-100 + parts',
-    ram: '€50-75 + parts',
-    gpu: '€75-120 + parts',
-    cpu: '€100-140 + parts',
-    motherboard: '€120-175 + parts',
-    psu: '€65-100 + parts',
+    ssd: '€80-100 + parts',
+    ram: '€80-100 + parts',
+    gpu: '€80-100 + parts',
+    cpu: '€100-120 + parts',
+    motherboard: '€140-175 + parts',
+    psu: '€80-100 + parts',
   },
   builds: {
     caseSwap: '€100-140',
@@ -53,8 +53,8 @@ export const pricing = {
   software: {
     virusRemoval: '€75-100',
     windowsReinstall: '€80-120',
-    performanceTuneup: '€40-55',
-    softwareInstall: '€40-90',
+    performanceTuneup: '€50-65',
+    softwareInstall: '€50-90',
   },
   data: {
     recoveryBasic: '€100-140',
@@ -64,10 +64,10 @@ export const pricing = {
   },
   remote: {
     videoDiagnosis: videoDiagnosis.price,
-    securityHardening: '€35-55',
-    remoteTuneup: '€40-55',
-    softwareSetup: '€45-75',
-    ongoingSupport: '€45/hr',
+    securityHardening: '€50-65',
+    remoteTuneup: '€50-65',
+    softwareSetup: '€50-70',
+    ongoingSupport: '€50/hr',
   },
   addOns: {
     carePack: '+€35',
@@ -176,16 +176,16 @@ export const homepage = {
     { symptom: 'Something else?', price: videoDiagnosis.price, priceFrom: false, desc: "Not sure what's wrong - let's figure it out", service: 'Video Diagnosis', highlight: true },
   ],
   upgrades: [
-    { name: 'SSD Upgrade', price: '€75', priceFrom: true, desc: 'The #1 speed boost for any computer' },
-    { name: 'RAM Upgrade', price: '€50', priceFrom: true, desc: 'More memory for multitasking' },
-    { name: 'GPU Upgrade', price: '€75', priceFrom: true, desc: `Better graphics - ${brands.gpu.join(', ')}` },
+    { name: 'SSD Upgrade', price: '€80', priceFrom: true, desc: 'The #1 speed boost for any computer' },
+    { name: 'RAM Upgrade', price: '€80', priceFrom: true, desc: 'More memory for multitasking' },
+    { name: 'GPU Upgrade', price: '€80', priceFrom: true, desc: `Better graphics - ${brands.gpu.join(', ')}` },
     { name: 'Custom PC Build', price: '€125', priceFrom: true, desc: 'I build it, you game on it' },
   ],
   remoteServices: [
-    { name: 'Security Setup', price: '€35', priceFrom: true, desc: 'VPN, password manager, secure browsing' },
-    { name: 'Performance Tune-up', price: '€40', priceFrom: true, desc: 'Remove bloatware, speed up startup' },
-    { name: 'Software Install', price: '€45', priceFrom: true, desc: 'Office 365, email, printers' },
-    { name: 'Ongoing Support', price: '€45/hr', priceFrom: false, desc: 'Remote help when you need it' },
+    { name: 'Security Setup', price: '€50', priceFrom: true, desc: 'VPN, password manager, secure browsing' },
+    { name: 'Performance Tune-up', price: '€50', priceFrom: true, desc: 'Remove bloatware, speed up startup' },
+    { name: 'Software Install', price: '€50', priceFrom: true, desc: 'Office 365, email, printers' },
+    { name: 'Ongoing Support', price: '€50/hr', priceFrom: false, desc: 'Remote help when you need it' },
   ],
   steps: [
     { num: 1, title: 'Book', desc: 'Online form or chat' },
