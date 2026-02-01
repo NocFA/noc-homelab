@@ -12,9 +12,9 @@
     <key>WorkingDirectory</key>
     <string>/Users/noc/multi-scrobbler</string>
     <key>StandardOutPath</key>
-    <string>/Users/noc/multi-scrobbler.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/multi-scrobbler.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/noc/multi-scrobbler.error.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/multi-scrobbler.error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

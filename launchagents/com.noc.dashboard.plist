@@ -6,8 +6,9 @@
     <string>com.noc.dashboard</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/opt/homebrew/bin/python3</string>
-        <string>/Users/noc/noc-homelab/dashboard/app.py</string>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/dashboard.log; : > /Users/noc/Library/Logs/noc-homelab/dashboard.error.log; exec /opt/homebrew/bin/python3 /Users/noc/noc-homelab/dashboard/app.py</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/noc/noc-homelab/dashboard</string>
@@ -16,9 +17,9 @@
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/noc/dashboard.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/dashboard.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/noc/dashboard.error.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/dashboard.error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>

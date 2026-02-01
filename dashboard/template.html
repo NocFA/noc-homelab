@@ -191,7 +191,7 @@
             font-family: 'SF Mono', monospace;
             font-size: 0.85rem;
             white-space: pre-wrap;
-            max-height: 400px;
+            max-height: 60vh;
             overflow-y: auto;
             border: 1px solid rgba(0, 255, 0, 0.1);
         }
@@ -216,13 +216,17 @@
                 <div class="button-group">
                     <button class="btn btn-start" onclick="event.stopPropagation(); controlService('{{ service.name }}', 'start')"
                             {% if service.status == 'online' %}disabled{% endif %}>Start</button>
-                    <button class="btn btn-stop" onclick="event.stopPropagation(); controlService('{{ service.name }}', 'stop')"
-                            {% if service.status == 'offline' %}disabled{% endif %}>Stop</button>
+                    <button class="btn btn-stop" onclick="event.stopPropagation(); controlService('{{ service.name }}', 'stop')">Stop</button>
                     <button class="btn btn-restart" onclick="event.stopPropagation(); controlService('{{ service.name }}', 'restart')">Restart</button>
                 </div>
                 <div class="button-group">
                     <button class="btn btn-logs" onclick="event.stopPropagation(); showLogs('{{ service.name }}')">View Logs</button>
                 </div>
+                {% if service.has_wings %}
+                <div class="button-group">
+                    <button class="btn btn-restart" style="background: linear-gradient(135deg, #667eea, #764ba2);" onclick="event.stopPropagation(); restartWings()">🔄 Restart Wings</button>
+                </div>
+                {% endif %}
                 <div class="click-hint">Click card to visit service</div>
             </div>
             {% endfor %}
@@ -313,6 +317,26 @@
             .catch(error => document.getElementById('logsContent').textContent = 'Error loading logs: ' + error.message);
         }
 
+        function restartWings() {
+            showNotification("Restarting Wings daemon...", "info");
+
+            fetch('/api/pyrodactyl/wings/restart', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification("Wings daemon restarted successfully!", "success");
+                } else {
+                    showNotification(data.message || "Failed to restart Wings", "error");
+                }
+            })
+            .catch(error => {
+                showNotification("Error restarting Wings: " + error.message, "error");
+            });
+        }
+
         function closeLogs() {
             document.getElementById('logsModal').style.display = 'none';
             resumeAutoRefresh();
@@ -328,9 +352,10 @@
                 const statusData = await response.json();
 
                 const serviceNameMap = {
-                    'emby': 'Emby', 'copyparty': 'Copyparty', 'nzbhydra2': 'NZBHydra2',
-                    'nzbget': 'NZBGet', 'maloja': 'Maloja', 'multi-scrobbler': 'Multi-Scrobbler',
-                    'uptime-kuma': 'Uptime Kuma', 'tailscale': 'Tailscale', 'teamspeak': 'TeamSpeak'
+                    'copyparty': 'Copyparty', 'maloja': 'Maloja', 'multi-scrobbler': 'Multi-Scrobbler',
+                    'uptime-kuma': 'Uptime Kuma', 'tailscale': 'Tailscale', 'teamspeak': 'TeamSpeak',
+                    'nextcloud': 'Nextcloud', 'ts3audiobot': 'TS3AudioBot', 'syncthing': 'Syncthing',
+                    'voiceseq': 'VoiceSeq'
                 };
 
                 Object.keys(statusData).forEach(serviceKey => {
@@ -347,9 +372,8 @@
                     badge.dataset.status = status;
 
                     const startBtn = card.querySelector('.btn-start');
-                    const stopBtn = card.querySelector('.btn-stop');
                     startBtn.disabled = status === 'online';
-                    stopBtn.disabled = status === 'offline';
+                    // Stop button always enabled - stop commands work regardless of port status
                     card.querySelector('.btn-restart').disabled = false;
                 });
             } catch (error) {}

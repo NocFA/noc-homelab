@@ -5,6 +5,7 @@ import os
 import glob
 import requests
 import time
+import json
 
 app = Flask(__name__, template_folder='.')
 
@@ -13,41 +14,23 @@ _public_ip_cache = {'ip': None, 'timestamp': 0}
 _cache_duration = 300  # 5 minutes
 
 SERVICES = {
-    'emby': {
-        'name': 'Emby',
-        'launchd': 'disabled',  # Emby is managed via Login Items, no control
-        'port': 8096,
-        'log_paths': ['~/.config/emby-server/logs/embyserver*.txt']
-    },
     'copyparty': {
         'name': 'Copyparty',
         'launchd': 'com.noc.copyparty',
         'port': 8081,
-        'log_paths': ['~/copyparty.log', '~/logs/copyparty.log']
-    },
-    'nzbhydra2': {
-        'name': 'NZBHydra2',
-        'launchd': 'com.noc.nzbhydra2',
-        'port': 5076,
-        'log_paths': ['~/nzbhydra2/logs/nzbhydra2.log', '~/nzbhydra2/config/logs/nzbhydra2.log']
-    },
-    'nzbget': {
-        'name': 'NZBGet',
-        'launchd': 'homebrew.mxcl.nzbget',
-        'port': 6789,
-        'log_paths': ['~/nzbget/config/nzbget.log']
+        'log_paths': ['~/Library/Logs/noc-homelab/copyparty.log', '~/Library/Logs/noc-homelab/copyparty.error.log']
     },
     'maloja': {
         'name': 'Maloja',
         'launchd': 'com.maloja.service',
         'port': 42010,
-        'log_paths': ['~/.local/share/maloja/logs/sqldb.log', '~/.local/share/maloja/logs/dbcache.log', '~/maloja.log']
+        'log_paths': ['~/Library/Logs/noc-homelab/maloja.log', '~/Library/Logs/noc-homelab/maloja.error.log', '~/.local/share/maloja/logs/sqldb.log']
     },
     'multi-scrobbler': {
         'name': 'Multi-Scrobbler',
         'launchd': 'com.multiscrobbler.service',
         'port': 9078,
-        'log_paths': ['~/multi-scrobbler.log', '~/multi-scrobbler.error.log']
+        'log_paths': ['~/Library/Logs/noc-homelab/multi-scrobbler.log', '~/Library/Logs/noc-homelab/multi-scrobbler.error.log']
     },
     'uptime-kuma': {
         'name': 'Uptime Kuma',
@@ -67,15 +50,9 @@ SERVICES = {
         'launchd': 'com.noc.teamspeak',
         'port': 9987,  # Voice port (UDP, but we'll check TCP port 10011 for status)
         'status_port': 10011,  # ServerQuery port for status checking
-        'log_paths': ['/Users/noc/teamspeak3-server_mac/logs/*_1.log', '/Users/noc/noc-homelab/logs/teamspeak.log'],
+        'log_paths': ['/Users/noc/teamspeak3-server_mac/logs/*_1.log', '~/Library/Logs/noc-homelab/teamspeak.log'],
         'web_ports': [30033, 10080],  # File transfer and WebQuery
         'use_wan_ip': True  # Dynamically fetch WAN IP
-    },
-    'zurg': {
-        'name': 'Zurg',
-        'launchd': 'com.zurg.service',
-        'port': 9999,
-        'log_paths': ['/Users/noc/logs/zurg.out', '/Users/noc/logs/zurg.err', '/Users/noc/applications/zurg/logs/*.log']
     },
     'ts3audiobot': {
         'name': 'TS3AudioBot',
@@ -84,6 +61,27 @@ SERVICES = {
         'compose_dir': '/Users/noc/noc-homelab/services/ts3audiobot',
         'log_paths': ['/Users/noc/noc-homelab/services/ts3audiobot/data/logs/*.log'],
         'description': 'TeamSpeak Music Bot'
+    },
+    'nextcloud': {
+        'name': 'Nextcloud',
+        'launchd': 'docker:nextcloud',
+        'port': 9080,
+        'compose_dir': '/Users/noc/noc-homelab/services/nextcloud',
+        'log_paths': ['/Users/noc/noc-homelab/services/nextcloud/data/nextcloud.log'],
+        'description': 'Cloud Storage & Collaboration'
+    },
+    'voiceseq': {
+        'name': 'VoiceSeq',
+        'launchd': 'com.noc.voiceseq',
+        'port': 61998,
+        'log_paths': ['~/Library/Logs/noc-homelab/voiceseq.log', '~/Library/Logs/noc-homelab/voiceseq.error.log']
+    },
+    'syncthing': {
+        'name': 'Syncthing',
+        'launchd': 'homebrew.mxcl.syncthing',
+        'port': 8384,
+        'log_paths': ['~/Library/Application Support/Syncthing/syncthing.log'],
+        'description': 'File Synchronization'
     }
 }
 
@@ -119,34 +117,111 @@ def check_port_listening(port):
     sock.close()
     return result == 0
 
+def check_launchd_service_running(launchd_name):
+    """Check if a launchd service is running via launchctl (port-independent)"""
+    try:
+        result = subprocess.run(['launchctl', 'list', launchd_name],
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            # Service is loaded - check if PID is present in the output
+            # Output format is a plist dict with "PID" = <number>; if running
+            if '"PID"' in result.stdout:
+                return True
+        return False
+    except:
+        return False
+
+def check_service_running(service_key, service):
+    """Check if a service is running using the best available method"""
+    launchd_name = service.get('launchd', '')
+
+    # PM2 services
+    if launchd_name.startswith('pm2:'):
+        pm2_name = launchd_name.replace('pm2:', '')
+        try:
+            result = subprocess.run(['pm2', 'jlist'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                pm2_list = json.loads(result.stdout)
+                for proc in pm2_list:
+                    if proc.get('name') == pm2_name and proc.get('pm2_env', {}).get('status') == 'online':
+                        return True
+        except:
+            pass
+        return False
+
+    # Docker services
+    if launchd_name.startswith('docker:'):
+        container_name = launchd_name.replace('docker:', '')
+        try:
+            result = subprocess.run(['docker', 'ps', '--filter', f'name={container_name}', '--format', '{{.Names}}'],
+                                  capture_output=True, text=True, timeout=5)
+            return container_name in result.stdout
+        except:
+            pass
+        return check_port_listening(service.get('port'))
+
+    # OrbStack VMs
+    if launchd_name.startswith('orbstack:'):
+        return check_port_listening(service.get('port'))
+
+    # Regular launchd services - check via launchctl first, fallback to port
+    if launchd_name and not launchd_name.startswith(('pm2:', 'docker:', 'orbstack:', 'tailscale', 'disabled')):
+        if check_launchd_service_running(launchd_name):
+            return True
+        # Also check homebrew services
+        if 'homebrew' in launchd_name:
+            try:
+                result = subprocess.run(['brew', 'services', 'list'], capture_output=True, text=True, timeout=5)
+                service_name = launchd_name.replace('homebrew.mxcl.', '')
+                for line in result.stdout.split('\n'):
+                    if service_name in line and 'started' in line:
+                        return True
+            except:
+                pass
+
+    # Fallback to port check
+    port = service.get('port')
+    if port:
+        return check_port_listening(port)
+    return False
+
 def get_service_log(service_key):
+    """Get merged logs from all log files, newest at bottom"""
     service = SERVICES.get(service_key, {})
     log_paths = service.get('log_paths', [])
-    
+
+    # Collect all log files
+    log_files = []
     for log_path in log_paths:
         expanded_path = os.path.expanduser(log_path)
-        # Handle glob patterns for Emby logs
         if '*' in expanded_path:
-            files = glob.glob(expanded_path)
-            if files:
-                # Get the most recent file
-                newest_file = max(files, key=os.path.getmtime)
-                try:
-                    result = subprocess.run(['tail', '-n', '100', newest_file], 
-                                          capture_output=True, text=True)
-                    if result.stdout:
-                        return result.stdout
-                except:
-                    continue
+            log_files.extend(glob.glob(expanded_path))
         elif os.path.exists(expanded_path):
-            try:
-                result = subprocess.run(['tail', '-n', '100', expanded_path], 
-                                      capture_output=True, text=True)
-                if result.stdout:
-                    return result.stdout
-            except:
-                continue
-    return "No logs found"
+            log_files.append(expanded_path)
+
+    if not log_files:
+        return "No logs found"
+
+    # Sort files by modification time (oldest first, so newest content is at bottom)
+    log_files.sort(key=lambda f: os.path.getmtime(f))
+
+    # Read last N lines from each file, concatenate
+    all_lines = []
+    lines_per_file = 250
+
+    for log_file in log_files:
+        try:
+            result = subprocess.run(['tail', '-n', str(lines_per_file), log_file],
+                                  capture_output=True, text=True)
+            if result.stdout.strip():
+                all_lines.append(result.stdout.strip())
+        except:
+            continue
+
+    if not all_lines:
+        return "No logs found"
+
+    return '\n'.join(all_lines)
 
 @app.route('/')
 def index():
@@ -214,15 +289,16 @@ def index():
         # Special handling for Docker Compose services
         elif service.get('launchd', '').startswith('docker:'):
             is_online = check_port_listening(service['port'])
-            services_list.append({
+            service_dict = {
                 'name': service['name'],
                 'port': service['port'],
                 'status': 'online' if is_online else 'offline',
                 'url': f"http://noc-local:{service['port']}",
-                'description': service.get('description', 'Docker Service')
-            })
+                'description': 'Docker Service'
+            }
+            services_list.append(service_dict)
         else:
-            is_online = check_port_listening(service['port'])
+            is_online = check_service_running(key, service)
 
             services_list.append({
                 'name': service['name'],
@@ -255,11 +331,9 @@ def get_status():
             # Check ServerQuery port for TeamSpeak status
             status_port = service.get('status_port', service['port'])
             status[key] = check_port_listening(status_port)
-        elif service.get('launchd', '').startswith('orbstack:'):
-            # OrbStack VM - port forwarding enabled, check localhost
-            status[key] = check_port_listening(service['port'])
         else:
-            status[key] = check_port_listening(service['port'])
+            # Use launchctl-based check for all other services
+            status[key] = check_service_running(key, service)
     return jsonify(status)
 
 @app.route('/api/service/<action>', methods=['POST'])
@@ -276,7 +350,7 @@ def control_service(action):
     launchd_name = service['launchd']
     
     try:
-        # Special case: disabled services (like Emby)
+        # Special case: disabled services
         if launchd_name == 'disabled':
             if action == 'logs':
                 logs = get_service_log(service_key_lower)
@@ -629,4 +703,4 @@ def teamspeak_rename_channel():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=False)

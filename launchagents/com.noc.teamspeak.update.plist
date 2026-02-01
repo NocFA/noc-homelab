@@ -7,7 +7,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/noc/noc-homelab/scripts/teamspeak-update.sh</string>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/noc-homelab/logs/teamspeak-update.log; : > /Users/noc/noc-homelab/logs/teamspeak-update-error.log; exec /Users/noc/noc-homelab/scripts/teamspeak-update.sh</string>
     </array>
 
     <key>StartCalendarInterval</key>

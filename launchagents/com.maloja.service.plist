@@ -12,9 +12,9 @@
     <key>WorkingDirectory</key>
     <string>/Users/noc</string>
     <key>StandardOutPath</key>
-    <string>/Users/noc/maloja.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/maloja.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/noc/maloja.error.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/maloja.error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
@@ -23,6 +23,8 @@
         <string>/Users/noc</string>
         <key>MALOJA_SKIP_SETUP</key>
         <string>yes</string>
+        <key>MALOJA_FORCE_PASSWORD</key>
+        <string>changeme123</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>

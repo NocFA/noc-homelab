@@ -6,15 +6,9 @@
     <string>com.noc.copyparty</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/noc/.local/bin/copyparty</string>
-        <string>-p</string>
-        <string>8081</string>
-        <string>-i</string>
-        <string>0.0.0.0</string>
-        <string>-v</string>
-        <string>/:/system:rw</string>
-        <string>-v</string>
-        <string>/Users:/users:rw</string>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/copyparty.log; : > /Users/noc/Library/Logs/noc-homelab/copyparty.error.log; exec /Users/noc/.local/bin/copyparty -p 8081 -i 0.0.0.0 -v /Users:/users:rw</string>
     </array>
     <key>EnvironmentVariables</key>
     <dict>
@@ -26,9 +20,9 @@
     <key>KeepAlive</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/noc/copyparty.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/copyparty.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/noc/copyparty.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/copyparty.error.log</string>
     <key>WorkingDirectory</key>
     <string>/Users/noc</string>
 </dict>

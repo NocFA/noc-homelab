@@ -7,8 +7,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/noc/teamspeak3-server_mac/ts3server</string>
-        <string>inifile=ts3server.ini</string>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/teamspeak.log; : > /Users/noc/Library/Logs/noc-homelab/teamspeak.error.log; exec /Users/noc/teamspeak3-server_mac/ts3server inifile=ts3server.ini</string>
     </array>
 
     <key>WorkingDirectory</key>
@@ -24,10 +25,10 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/Users/noc/noc-homelab/logs/teamspeak.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/teamspeak.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/noc/noc-homelab/logs/teamspeak-error.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/teamspeak.error.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>
