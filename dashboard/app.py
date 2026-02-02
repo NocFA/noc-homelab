@@ -6,12 +6,36 @@ import glob
 import requests
 import time
 import json
+import re
 
 app = Flask(__name__, template_folder='.')
 
 # Cache for public IP
 _public_ip_cache = {'ip': None, 'timestamp': 0}
 _cache_duration = 300  # 5 minutes
+
+def get_system_uptime():
+    """Get system uptime as a formatted string"""
+    try:
+        result = subprocess.run(['/usr/sbin/sysctl', '-n', 'kern.boottime'], capture_output=True, text=True)
+        if result.returncode == 0:
+            match = re.search(r'sec\s*=\s*(\d+)', result.stdout)
+            if match:
+                boot_time = int(match.group(1))
+                uptime_secs = int(time.time()) - boot_time
+                days = uptime_secs // 86400
+                hours = (uptime_secs % 86400) // 3600
+                mins = (uptime_secs % 3600) // 60
+                if days > 0:
+                    return f"{days}d {hours}h"
+                elif hours > 0:
+                    return f"{hours}h {mins}m"
+                else:
+                    return f"{mins}m"
+    except Exception as e:
+        import sys
+        print(f"Uptime error: {e}", file=sys.stderr)
+    return "--"
 
 SERVICES = {
     'copyparty': {
@@ -32,11 +56,13 @@ SERVICES = {
         'port': 9078,
         'log_paths': ['~/Library/Logs/noc-homelab/multi-scrobbler.log', '~/Library/Logs/noc-homelab/multi-scrobbler.error.log']
     },
-    'uptime-kuma': {
-        'name': 'Uptime Kuma',
-        'launchd': 'pm2:uptime-kuma',  # Special marker for PM2
+    'gatus': {
+        'name': 'Gatus',
+        'launchd': 'docker:gatus',
         'port': 3001,
-        'log_paths': ['~/.pm2/logs/uptime-kuma-out.log', '~/.pm2/logs/uptime-kuma-error.log']
+        'compose_dir': '/Users/noc/noc-homelab/services/gatus',
+        'log_paths': ['~/Library/Logs/noc-homelab/gatus.log', '~/Library/Logs/noc-homelab/gatus.error.log'],
+        'description': 'Status Page & Monitoring'
     },
     'tailscale': {
         'name': 'Tailscale',
@@ -134,8 +160,20 @@ def check_launchd_service_running(launchd_name):
 def check_service_running(service_key, service):
     """Check if a service is running using the best available method"""
     launchd_name = service.get('launchd', '')
+    port = service.get('port')
+    
+    # Special case for Tailscale as it doesn't use a standard port check
+    if service_key == 'tailscale':
+        try:
+            # Check if Tailscale process is running
+            result = subprocess.run(['pgrep', '-f', 'Tailscale.app'], capture_output=True)
+            return result.returncode == 0
+        except:
+            return False
 
-    # PM2 services
+    is_process_running = False
+    
+    # 1. Check process status based on type
     if launchd_name.startswith('pm2:'):
         pm2_name = launchd_name.replace('pm2:', '')
         try:
@@ -144,46 +182,49 @@ def check_service_running(service_key, service):
                 pm2_list = json.loads(result.stdout)
                 for proc in pm2_list:
                     if proc.get('name') == pm2_name and proc.get('pm2_env', {}).get('status') == 'online':
-                        return True
+                        is_process_running = True
+                        break
         except:
             pass
-        return False
-
-    # Docker services
-    if launchd_name.startswith('docker:'):
+    elif launchd_name.startswith('docker:'):
         container_name = launchd_name.replace('docker:', '')
         try:
             result = subprocess.run(['docker', 'ps', '--filter', f'name={container_name}', '--format', '{{.Names}}'],
                                   capture_output=True, text=True, timeout=5)
-            return container_name in result.stdout
+            is_process_running = container_name in result.stdout
         except:
             pass
-        return check_port_listening(service.get('port'))
-
-    # OrbStack VMs
-    if launchd_name.startswith('orbstack:'):
-        return check_port_listening(service.get('port'))
-
-    # Regular launchd services - check via launchctl first, fallback to port
-    if launchd_name and not launchd_name.startswith(('pm2:', 'docker:', 'orbstack:', 'tailscale', 'disabled')):
+    elif launchd_name.startswith('orbstack:'):
+        # OrbStack status - we'll treat it as running if the VM is reachable or just fallback to port
+        is_process_running = True
+    elif launchd_name and not launchd_name.startswith('disabled'):
         if check_launchd_service_running(launchd_name):
-            return True
-        # Also check homebrew services
-        if 'homebrew' in launchd_name:
+            is_process_running = True
+        elif 'homebrew' in launchd_name:
             try:
                 result = subprocess.run(['brew', 'services', 'list'], capture_output=True, text=True, timeout=5)
                 service_name = launchd_name.replace('homebrew.mxcl.', '')
                 for line in result.stdout.split('\n'):
                     if service_name in line and 'started' in line:
-                        return True
+                        is_process_running = True
+                        break
             except:
                 pass
+    else:
+        # If no process manager defined, assume we just check the port
+        is_process_running = True
 
-    # Fallback to port check
-    port = service.get('port')
+    # 2. Check port if defined
     if port:
-        return check_port_listening(port)
-    return False
+        # Use status_port if defined (e.g. for TeamSpeak)
+        check_port = service.get('status_port', port)
+        is_port_listening = check_port_listening(check_port)
+        
+        # Service is online ONLY if process is running AND port is listening
+        return is_process_running and is_port_listening
+    
+    # If no port defined, just return process status
+    return is_process_running
 
 def get_service_log(service_key):
     """Get merged logs from all log files, newest at bottom"""
@@ -227,14 +268,14 @@ def get_service_log(service_key):
 def index():
     services_list = []
     for key, service in SERVICES.items():
-        # Special handling for Tailscale
+        is_online = check_service_running(key, service)
+        status_str = 'online' if is_online else 'offline'
+        
+        # Special handling for display metadata
         if key == 'tailscale':
-            # Check if Tailscale is running by checking for the process
             import subprocess as sp
+            webclient_url = 'http://noc-local:5252'
             try:
-                result = sp.run(['pgrep', '-f', 'Tailscale.app'], capture_output=True)
-                is_online = result.returncode == 0
-
                 # Get webclient URL if available
                 ts_result = sp.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/tailscale_manager.py', 'summary'],
                                   capture_output=True, text=True)
@@ -242,25 +283,17 @@ def index():
                     import json
                     ts_data = json.loads(ts_result.stdout)
                     webclient_url = ts_data.get('webclient_url', 'http://noc-local:5252')
-                else:
-                    webclient_url = 'http://noc-local:5252'
             except:
-                is_online = False
-                webclient_url = 'http://noc-local:5252'
+                pass
 
             services_list.append({
                 'name': service['name'],
                 'port': '5252 (WebClient)',
-                'status': 'online' if is_online else 'offline',
+                'status': status_str,
                 'url': webclient_url,
                 'description': 'VPN & Mesh Network'
             })
-        # Special handling for TeamSpeak
         elif key == 'teamspeak':
-            # Check ServerQuery port for status
-            status_port = service.get('status_port', service['port'])
-            is_online = check_port_listening(status_port)
-
             # Dynamically get WAN IP if configured
             if service.get('use_wan_ip'):
                 wan_ip = get_public_ip()
@@ -271,42 +304,23 @@ def index():
             services_list.append({
                 'name': service['name'],
                 'port': f"{service['port']} (Voice)",
-                'status': 'online' if is_online else 'offline',
+                'status': status_str,
                 'url': '/teamspeak',  # Link to admin dashboard
                 'description': 'Voice Chat Server'
             })
-        # Special handling for OrbStack services (like Coolify)
-        elif service.get('launchd', '').startswith('orbstack:'):
-            # Port forwarding enabled - check localhost
-            is_online = check_port_listening(service['port'])
-            services_list.append({
-                'name': service['name'],
-                'port': service['port'],
-                'status': 'online' if is_online else 'offline',
-                'url': f"http://noc-local:{service['port']}",
-                'description': service.get('description', 'OrbStack VM Service')
-            })
-        # Special handling for Docker Compose services
-        elif service.get('launchd', '').startswith('docker:'):
-            is_online = check_port_listening(service['port'])
-            service_dict = {
-                'name': service['name'],
-                'port': service['port'],
-                'status': 'online' if is_online else 'offline',
-                'url': f"http://noc-local:{service['port']}",
-                'description': 'Docker Service'
-            }
-            services_list.append(service_dict)
         else:
-            is_online = check_service_running(key, service)
-
+            port_display = service.get('port', '--')
+            url = f"http://noc-local:{service['port']}" if service.get('port') else "#"
+            
             services_list.append({
                 'name': service['name'],
-                'port': service['port'],
-                'status': 'online' if is_online else 'offline',
-                'url': f"http://noc-local:{service['port']}"
+                'port': port_display,
+                'status': status_str,
+                'url': url,
+                'description': service.get('description', '')
             })
-    return render_template('template.html', services=services_list)
+            
+    return render_template('template.html', services=services_list, uptime=get_system_uptime())
 
 @app.route('/favicon.ico')
 def favicon():
@@ -320,20 +334,7 @@ def teamspeak_admin():
 def get_status():
     status = {}
     for key, service in SERVICES.items():
-        if key == 'tailscale':
-            # Check if Tailscale is running
-            try:
-                result = subprocess.run(['pgrep', '-f', 'Tailscale.app'], capture_output=True)
-                status[key] = result.returncode == 0
-            except:
-                status[key] = False
-        elif key == 'teamspeak':
-            # Check ServerQuery port for TeamSpeak status
-            status_port = service.get('status_port', service['port'])
-            status[key] = check_port_listening(status_port)
-        else:
-            # Use launchctl-based check for all other services
-            status[key] = check_service_running(key, service)
+        status[key] = check_service_running(key, service)
     return jsonify(status)
 
 @app.route('/api/service/<action>', methods=['POST'])

@@ -4,136 +4,223 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NOC-LOCAL Service Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Commit+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-primary: #0a2e30;
+            --bg-secondary: #0f3d40;
+            --bg-elevated: #145252;
+            --text-primary: #f0fdfa;
+            --text-secondary: #99e0d9;
+            --text-muted: #5eaba3;
+            --accent: #f59e0b;
+            --accent-dark: #b45309;
+            --success: #34d399;
+            --error: #f87171;
+            --border: #1a5456;
+            --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: "Commit Mono", ui-monospace, "SF Mono", Consolas, monospace;
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+            font-family: var(--font-body);
             min-height: 100vh;
-            background: linear-gradient(135deg, #1a0033, #000, #1a0033);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
         }
-        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
-        h1 {
-            color: white;
-            text-align: center;
-            margin-bottom: 3rem;
-            font-size: 3.5rem;
-            font-weight: 700;
+        .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+        .header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            font-family: var(--font-mono);
         }
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .header-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--error);
+        }
+        .header-dot:nth-child(2) { background: var(--accent); }
+        .header-dot:nth-child(3) { background: var(--success); }
+        .header-path { margin-left: 0.75rem; }
+        .header-title {
+            font-size: 1rem;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .header-title span { color: var(--text-muted); }
+        .header-prompt { color: var(--accent); }
+        .header-cmd { color: var(--text-primary); }
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 1.1em;
+            background: var(--success);
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+        .header-stats {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.75rem;
+        }
+        .header-stat { color: var(--text-muted); }
+        .header-stat strong { color: var(--text-secondary); }
         .services-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1rem;
         }
         .service-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(40px);
-            border-radius: 24px;
-            padding: 1.8rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
             cursor: pointer;
-            transition: transform 0.2s, background 0.2s, border-color 0.2s;
-        }
-        .service-card:hover {
-            transform: translateY(-5px);
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(255, 255, 255, 0.2);
         }
         .service-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 1.2rem;
+            margin-bottom: 1rem;
         }
         .service-name {
-            font-size: 1.4rem;
+            font-size: 1.125rem;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.95);
+            color: var(--text-primary);
         }
         .status-badge {
-            padding: 0.4rem 1rem;
-            border-radius: 100px;
-            font-size: 0.85rem;
-            font-weight: 500;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         .status-online {
-            background: rgba(16, 185, 129, 0.25);
-            color: #10f981;
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            background: var(--bg-secondary);
+            color: var(--success);
+            border: 1px solid var(--success);
         }
         .status-offline {
-            background: rgba(239, 68, 68, 0.25);
-            color: #ff4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: var(--bg-secondary);
+            color: var(--error);
+            border: 1px solid var(--error);
         }
         .status-pending {
-            background: rgba(251, 146, 60, 0.25);
-            color: #fb923c;
-            border: 1px solid rgba(251, 146, 60, 0.3);
+            background: var(--bg-secondary);
+            color: var(--accent);
+            border: 1px solid var(--accent);
         }
         .service-description {
-            color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 0.8rem;
-            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
         }
         .service-port {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 0.85rem;
-            margin-bottom: 1.5rem;
-            font-family: 'SF Mono', monospace;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-bottom: 1rem;
+            font-family: var(--font-mono);
         }
         .click-hint {
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-size: 0.75rem;
             text-align: center;
             margin-top: 1rem;
         }
         .button-group {
             display: flex;
-            gap: 0.6rem;
-            margin-top: 1rem;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
         }
         .btn {
             flex: 1;
-            padding: 0.7rem 1rem;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            font-size: 0.9rem;
-            font-weight: 500;
+            padding: 0.5rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: 600;
             cursor: pointer;
-            color: white;
             text-decoration: none;
             text-align: center;
-            background: rgba(255, 255, 255, 0.05);
-            transition: background 0.2s, border-color 0.2s;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--text-muted);
+            box-shadow: 3px 3px 0 var(--text-muted);
+            position: relative;
+            top: 0;
+            transition: top 150ms ease, box-shadow 150ms ease;
         }
         .btn:hover {
-            border-color: rgba(255, 255, 255, 0.3);
-            background: rgba(255, 255, 255, 0.1);
+            top: 2px;
+            box-shadow: 1px 1px 0 var(--text-muted);
+        }
+        .btn:active {
+            top: 3px;
+            box-shadow: 0 0 0 var(--text-muted);
         }
         .btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
-        .btn-start { border-color: rgba(16, 185, 129, 0.3); }
-        .btn-stop { border-color: rgba(239, 68, 68, 0.3); }
-        .btn-restart { border-color: rgba(59, 130, 246, 0.3); }
-        .btn-logs { border-color: rgba(99, 102, 241, 0.3); }
+        .btn-start {
+            border-color: var(--success);
+            box-shadow: 3px 3px 0 var(--success);
+        }
+        .btn-start:hover { box-shadow: 1px 1px 0 var(--success); }
+        .btn-start:active { box-shadow: 0 0 0 var(--success); }
+        .btn-stop {
+            border-color: var(--error);
+            box-shadow: 3px 3px 0 var(--error);
+        }
+        .btn-stop:hover { box-shadow: 1px 1px 0 var(--error); }
+        .btn-stop:active { box-shadow: 0 0 0 var(--error); }
+        .btn-restart {
+            border-color: var(--accent);
+            box-shadow: 3px 3px 0 var(--accent);
+        }
+        .btn-restart:hover { box-shadow: 1px 1px 0 var(--accent); }
+        .btn-restart:active { box-shadow: 0 0 0 var(--accent); }
+        .btn-logs {
+            border-color: var(--text-muted);
+            box-shadow: 3px 3px 0 var(--text-muted);
+        }
+        .btn-logs:hover { box-shadow: 1px 1px 0 var(--text-muted); }
+        .btn-logs:active { box-shadow: 0 0 0 var(--text-muted); }
         #notification {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 1rem;
+            right: 1rem;
             padding: 0.75rem 1rem;
-            border-radius: 12px;
-            background: rgba(28, 28, 30, 0.9);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: white;
+            border-radius: 4px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
             display: none;
             z-index: 1000;
-            font-size: 0.9rem;
+            font-size: 0.875rem;
             font-weight: 500;
             max-width: 300px;
         }
-        .notification-success { border-left: 3px solid #30d158; }
-        .notification-error { border-left: 3px solid #ff453a; }
+        .notification-success { border-left: 3px solid var(--success); }
+        .notification-error { border-left: 3px solid var(--error); }
         #logsModal {
             display: none;
             position: fixed;
@@ -141,8 +228,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            backdrop-filter: blur(10px);
+            background: rgba(10, 46, 48, 0.9);
             z-index: 2000;
         }
         .modal-content {
@@ -150,56 +236,81 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 80%;
+            width: 90%;
             max-width: 800px;
-            max-height: 80vh;
-            background: rgba(20, 20, 20, 0.95);
-            backdrop-filter: blur(40px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 2rem;
+            max-height: 85vh;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
             overflow: auto;
         }
         .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
             padding-bottom: 1rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid var(--border);
         }
-        .modal-title { font-size: 1.5rem; font-weight: 600; color: white; }
+        .modal-title { font-size: 1.25rem; font-weight: 600; color: var(--text-primary); }
         .modal-close {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            font-size: 1.2rem;
+            background: var(--bg-secondary);
+            border: 2px solid var(--text-muted);
+            box-shadow: 2px 2px 0 var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            font-size: 1rem;
             cursor: pointer;
-            color: white;
+            color: var(--text-primary);
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+            top: 0;
+            transition: top 150ms ease, box-shadow 150ms ease;
         }
-        .modal-close:hover { background: rgba(255, 255, 255, 0.2); }
+        .modal-close:hover {
+            top: 1px;
+            box-shadow: 1px 1px 0 var(--text-muted);
+        }
+        .modal-close:active {
+            top: 2px;
+            box-shadow: 0 0 0 var(--text-muted);
+        }
         .logs-content {
-            background: rgba(0, 0, 0, 0.6);
-            color: #00ff00;
-            padding: 1.5rem;
-            border-radius: 16px;
-            font-family: 'SF Mono', monospace;
-            font-size: 0.85rem;
+            background: var(--bg-primary);
+            color: var(--success);
+            padding: 1rem;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
             white-space: pre-wrap;
             max-height: 60vh;
             overflow-y: auto;
-            border: 1px solid rgba(0, 255, 0, 0.1);
+            border: 1px solid var(--border);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>NOC-LOCAL Service Dashboard</h1>
+        <div class="header">
+            <div class="header-top">
+                <div class="header-dot"></div>
+                <div class="header-dot"></div>
+                <div class="header-dot"></div>
+                <span class="header-path">~/noc-homelab</span>
+            </div>
+            <div class="header-title">
+                <span class="header-prompt">noc@local</span><span>:</span><span class="header-cmd">./dashboard --services</span><span class="cursor"></span>
+            </div>
+            <div class="header-stats">
+                <span class="header-stat">PID <strong>{{ pid | default('8080') }}</strong></span>
+                <span class="header-stat">SERVICES <strong>{{ services | length }}</strong></span>
+                <span class="header-stat">UPTIME <strong>{{ uptime }}</strong></span>
+            </div>
+        </div>
         <div class="services-grid" id="servicesGrid">
             {% for service in services %}
             <div class="service-card" data-service="{{ service.name }}" data-url="{{ service.url }}" onclick="visitService(this)">
@@ -373,7 +484,8 @@
 
                     const startBtn = card.querySelector('.btn-start');
                     startBtn.disabled = status === 'online';
-                    // Stop button always enabled - stop commands work regardless of port status
+                    // Stop and restart buttons always enabled
+                    card.querySelector('.btn-stop').disabled = false;
                     card.querySelector('.btn-restart').disabled = false;
                 });
             } catch (error) {}
