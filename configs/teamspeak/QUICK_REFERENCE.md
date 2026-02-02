@@ -19,9 +19,7 @@ ts3server://100.111.190.104:9987
 ```
 
 ## Admin Token
-```
-REDACTED_TOKEN
-```
+See `CREDENTIALS.txt` for the current admin token.
 Use in client: **Permissions → Use Privilege Key**
 
 ## Quick Commands

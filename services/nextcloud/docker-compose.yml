@@ -10,12 +10,12 @@ services:
       - ./custom_apps:/var/www/html/custom_apps
       - ./config:/var/www/html/config
       - ./themes:/var/www/html/themes
+    env_file: .env
     environment:
       - TZ=Europe/Dublin
       - MYSQL_HOST=nextcloud-db
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
-      - MYSQL_PASSWORD=REDACTED_NC_PASS
       - REDIS_HOST=nextcloud-redis
       - NEXTCLOUD_TRUSTED_DOMAINS=noc-local localhost
       - OVERWRITEPROTOCOL=http
@@ -33,12 +33,11 @@ services:
     command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
     volumes:
       - ./db:/var/lib/mysql
+    env_file: .env
     environment:
       - TZ=Europe/Dublin
-      - MYSQL_ROOT_PASSWORD=REDACTED_NC_ROOT_PASS
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
-      - MYSQL_PASSWORD=REDACTED_NC_PASS
     networks:
       - nextcloud-network
 

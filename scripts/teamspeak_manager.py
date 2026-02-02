@@ -73,10 +73,28 @@ class TeamSpeakQuery:
             print(f"Error sending command: {e}", file=sys.stderr)
             return None
 
-    def login(self, username='serveradmin', password='REDACTED_PASSWORD'):
+    def login(self, username='serveradmin', password=None):
         """Login to ServerQuery"""
+        if password is None:
+            password = self._load_credentials()
         response = self.send_command(f'login {username} {password}')
         return 'error id=0' in response if response else False
+
+    def _load_credentials(self):
+        """Load ServerQuery password from credentials file"""
+        import os
+        creds_file = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            'configs', 'teamspeak', 'CREDENTIALS.txt'
+        )
+        try:
+            with open(creds_file, 'r') as f:
+                for line in f:
+                    if line.startswith('Password:'):
+                        return line.split(':', 1)[1].strip()
+        except Exception as e:
+            print(f"Error loading credentials: {e}", file=sys.stderr)
+        return ''
 
     def use_server(self, sid=None):
         """Select virtual server"""

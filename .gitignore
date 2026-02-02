@@ -78,3 +78,7 @@ services/nextcloud/db/
 services/nextcloud/themes/
 services/*/data/
 services/*/db/
+
+# Service environment files with secrets
+services/chatwoot/.env
+services/*/.env

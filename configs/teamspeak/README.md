@@ -11,15 +11,15 @@ Complete setup documentation for the NOC Homelab TeamSpeak 3 Server with WAN acc
 
 ## Credentials
 
-**IMPORTANT:** Keep credentials secure. Located in `CREDENTIALS.txt`
+**IMPORTANT:** Keep credentials secure. All credentials are stored in `CREDENTIALS.txt` (gitignored).
 
 ### Server Query Admin
 - **Login:** serveradmin
-- **Password:** REDACTED_PASSWORD
-- **API Key:** REDACTED_API_KEY
+- **Password:** See `CREDENTIALS.txt`
+- **API Key:** See `CREDENTIALS.txt`
 
 ### Admin Privilege Key (Token)
-- **Latest Token:** REDACTED_TOKEN
+- **Latest Token:** See `CREDENTIALS.txt`
 - Use this in TeamSpeak client: Permissions → Use Privilege Key
 
 ## Network Ports
@@ -188,7 +188,7 @@ The `teamspeak_manager.py` script provides programmatic access:
 
 3. **Gain Admin Rights (First Time)**
    - After connecting, go to Permissions → Use Privilege Key
-   - Enter token: `REDACTED_TOKEN`
+   - Enter token from `CREDENTIALS.txt`
    - You now have full admin rights
 
 ## Backups
@@ -329,8 +329,8 @@ The `teamspeak-update.sh` script automates backup creation but requires manual d
 ### WebQuery API Access
 WebQuery is enabled on port 10080 (local only):
 ```bash
-# Example: Get server list
-curl -H "x-api-key: REDACTED_API_KEY" \
+# Example: Get server list (replace API_KEY with value from CREDENTIALS.txt)
+curl -H "x-api-key: YOUR_API_KEY" \
   http://localhost:10080/1/serverlist
 ```
 

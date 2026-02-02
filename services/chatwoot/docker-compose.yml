@@ -40,10 +40,10 @@ services:
     restart: unless-stopped
     volumes:
       - chatwoot_postgres:/var/lib/postgresql/data
+    env_file: .env
     environment:
       - POSTGRES_DB=chatwoot_production
       - POSTGRES_USER=chatwoot
-      - POSTGRES_PASSWORD=REDACTED_DB_PASS
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U chatwoot"]
       interval: 5s
@@ -54,11 +54,12 @@ services:
     image: redis:7-alpine
     container_name: chatwoot-redis
     restart: unless-stopped
-    command: ["redis-server", "--requirepass", "REDACTED_REDIS_PASS"]
+    env_file: .env
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     volumes:
       - chatwoot_redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "REDACTED_REDIS_PASS", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
