@@ -69,3 +69,12 @@ temp/
 tmp/
 # Separate projects (have their own repos)
 061tech/
+
+# Docker service runtime data
+services/nextcloud/config/
+services/nextcloud/custom_apps/
+services/nextcloud/data/
+services/nextcloud/db/
+services/nextcloud/themes/
+services/*/data/
+services/*/db/

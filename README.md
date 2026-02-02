@@ -10,7 +10,7 @@ macOS homelab configuration accessible via Tailscale at `http://noc-local/`.
 | Copyparty | 8081 | File server |
 | Maloja | 42010 | Music scrobbler |
 | Multi-Scrobbler | 9078 | Scrobbler hub |
-| Uptime Kuma | 3001 | Monitoring |
+| Gatus | 3001 | Status page & monitoring |
 | TeamSpeak | 9987 | Voice chat |
 | TS3AudioBot | 58913 | Music bot |
 | Nextcloud | 9080 | Cloud storage |
