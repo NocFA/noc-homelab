@@ -172,28 +172,65 @@ def is_remote_machine_reachable(hostname, timeout=2):
     """Quick check if a remote machine is reachable"""
     return check_remote_port(hostname, 22, timeout)
 
-def get_system_uptime():
-    """Get system uptime as a formatted string"""
+def format_uptime(uptime_secs):
+    """Format uptime seconds into a human-readable string"""
+    days = uptime_secs // 86400
+    hours = (uptime_secs % 86400) // 3600
+    mins = (uptime_secs % 3600) // 60
+    if days > 0:
+        return f"{days}d {hours}h"
+    elif hours > 0:
+        return f"{hours}h {mins}m"
+    else:
+        return f"{mins}m"
+
+def get_system_uptime_secs():
+    """Get local system uptime in seconds"""
     try:
         result = subprocess.run(['/usr/sbin/sysctl', '-n', 'kern.boottime'], capture_output=True, text=True)
         if result.returncode == 0:
             match = re.search(r'sec\s*=\s*(\d+)', result.stdout)
             if match:
                 boot_time = int(match.group(1))
-                uptime_secs = int(time.time()) - boot_time
-                days = uptime_secs // 86400
-                hours = (uptime_secs % 86400) // 3600
-                mins = (uptime_secs % 3600) // 60
-                if days > 0:
-                    return f"{days}d {hours}h"
-                elif hours > 0:
-                    return f"{hours}h {mins}m"
-                else:
-                    return f"{mins}m"
-    except Exception as e:
-        import sys
-        print(f"Uptime error: {e}", file=sys.stderr)
-    return "--"
+                return int(time.time()) - boot_time
+    except Exception:
+        pass
+    return None
+
+def get_system_uptime():
+    """Get system uptime as a formatted string"""
+    secs = get_system_uptime_secs()
+    return format_uptime(secs) if secs is not None else "--"
+
+# Cache for remote uptime
+_remote_uptime_cache = {}
+_remote_uptime_ttl = 30  # seconds
+
+def get_remote_uptime_secs(machine):
+    """Get uptime in seconds from a remote machine with caching"""
+    machine_id = machine['id']
+    now = time.time()
+
+    cached = _remote_uptime_cache.get(machine_id)
+    if cached and (now - cached['timestamp']) < _remote_uptime_ttl:
+        return cached['uptime']
+
+    hostname = machine['hostname']
+    ssh_user = machine.get('ssh_user', 'noc')
+    uptime_secs = None
+
+    if machine.get('platform') == 'windows':
+        result = ssh_command(hostname, ssh_user,
+            'powershell -Command "(Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds"',
+            timeout=5)
+        if result and result.returncode == 0:
+            try:
+                uptime_secs = int(float(result.stdout.strip()))
+            except (ValueError, AttributeError):
+                pass
+
+    _remote_uptime_cache[machine_id] = {'uptime': uptime_secs, 'timestamp': now}
+    return uptime_secs
 
 SERVICES = {
     'copyparty': {
@@ -482,12 +519,17 @@ def index():
             })
             
     # Build machine groups for template
+    local_uptime_secs = get_system_uptime_secs()
+    local_uptime = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
+    uptime_values = [local_uptime_secs] if local_uptime_secs else []
+
     machine_groups = [
         {
             'id': 'noc-local',
             'name': 'noc-local',
             'platform': 'macOS',
             'reachable': True,
+            'uptime': local_uptime,
             'services': services_list
         }
     ]
@@ -512,18 +554,31 @@ def index():
                     'remote': True
                 })
 
+            remote_uptime_secs = get_remote_uptime_secs(machine) if reachable else None
+            remote_uptime = format_uptime(remote_uptime_secs) if remote_uptime_secs else '--'
+            if remote_uptime_secs:
+                uptime_values.append(remote_uptime_secs)
+
             machine_groups.append({
                 'id': machine['id'],
                 'name': machine.get('display_name', machine['id']),
                 'platform': 'Windows' if machine.get('platform') == 'windows' else machine.get('platform', ''),
                 'reachable': reachable,
+                'uptime': remote_uptime,
                 'services': remote_services
             })
+
+    # Compute average uptime across all nodes
+    if uptime_values:
+        avg_secs = sum(uptime_values) // len(uptime_values)
+        avg_uptime = format_uptime(avg_secs)
+    else:
+        avg_uptime = '--'
 
     return render_template('template.html',
                          services=services_list,
                          machine_groups=machine_groups,
-                         uptime=get_system_uptime())
+                         uptime=avg_uptime)
 
 @app.route('/favicon.ico')
 def favicon():
@@ -539,6 +594,11 @@ def get_status():
     for key, service in SERVICES.items():
         status['noc-local'][key] = check_service_running(key, service)
 
+    # Local uptime
+    local_uptime_secs = get_system_uptime_secs()
+    status['noc-local']['_uptime'] = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
+    uptime_values = [local_uptime_secs] if local_uptime_secs else []
+
     # Include remote machine status
     for machine in MACHINES:
         if machine.get('role') == 'agent':
@@ -546,9 +606,21 @@ def get_status():
             reachable = is_remote_machine_reachable(machine['hostname'])
             if reachable:
                 status[machine_id] = get_remote_machine_status(machine)
+                remote_secs = get_remote_uptime_secs(machine)
+                status[machine_id]['_uptime'] = format_uptime(remote_secs) if remote_secs else '--'
+                if remote_secs:
+                    uptime_values.append(remote_secs)
             else:
                 status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
+                status[machine_id]['_uptime'] = '--'
             status[machine_id]['_reachable'] = reachable
+
+    # Average uptime
+    if uptime_values:
+        avg_secs = sum(uptime_values) // len(uptime_values)
+        status['_avg_uptime'] = format_uptime(avg_secs)
+    else:
+        status['_avg_uptime'] = '--'
 
     return jsonify(status)
 
