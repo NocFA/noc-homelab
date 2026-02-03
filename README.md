@@ -168,7 +168,9 @@ python agent.py --port 8080
 
 ## 📚 Documentation
 
-- [Architecture Overview](docs/architecture.md) - System design and API specification
+- [Architecture Overview](docs/architecture.md) - System design and multi-machine API spec
+- [macOS Setup](docs/setup-macos.md) - Installation and service management
+- [Windows Setup](docs/setup-windows.md) - Agent deployment and configuration
 
 ## 📄 License
 
