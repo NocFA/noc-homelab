@@ -20,17 +20,18 @@
           "port": 8096,
           "description": "Media streaming server",
           "url": "http://noc-winlocal:8096",
-          "manager": "process",
-          "process_name": "EmbyServer",
-          "start_cmd": "Start-Process 'C:\\Users\\noc\\AppData\\Roaming\\Emby-Server\\system\\EmbyServer.exe' -ArgumentList '-service'",
-          "stop_cmd": "Stop-Process -Name EmbyServer,embytray -Force -ErrorAction SilentlyContinue"
+          "manager": "scheduled-task",
+          "task_name": "Homelab-Emby",
+          "process_name": "EmbyServer"
         },
         "sunshine": {
           "name": "Sunshine",
           "port": 47990,
           "description": "Game streaming (Moonlight)",
           "url": "https://noc-winlocal:47990",
-          "manager": "windows-service",
+          "manager": "scheduled-task",
+          "task_name": "Homelab-Sunshine",
+          "process_name": "sunshinesvc",
           "service_name": "ApolloService"
         },
         "zurg": {
@@ -56,8 +57,8 @@
           "port": null,
           "description": "Remote desktop gaming",
           "url": null,
-          "manager": "windows-service",
-          "service_name": "Parsec",
+          "manager": "scheduled-task",
+          "task_name": "Homelab-Parsec",
           "process_name": "parsecd"
         },
         "jellyfin": {
@@ -65,8 +66,9 @@
           "port": 8097,
           "description": "Media streaming server",
           "url": "http://noc-winlocal:8097",
-          "manager": "process",
-          "process_name": "jellyfin"
+          "manager": "scheduled-task",
+          "task_name": "Homelab-Jellyfin",
+          "process_name": "Jellyfin.Windows.Tray"
         },
         "gatus": {
           "name": "Gatus",
@@ -74,7 +76,8 @@
           "description": "Service health monitoring",
           "url": "http://noc-winlocal:3001",
           "manager": "scheduled-task",
-          "task_name": "Homelab-Gatus"
+          "task_name": "Homelab-Gatus",
+          "process_name": "gatus"
         }
       }
     }

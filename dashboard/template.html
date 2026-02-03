@@ -659,7 +659,7 @@
             });
         })();
 
-        function startAutoRefresh() { refreshTimer = setInterval(refreshStatus, 3000); }
+        function startAutoRefresh() { refreshTimer = setInterval(refreshStatus, 5000); }
         function pauseAutoRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
         function resumeAutoRefresh() { if (!refreshTimer) startAutoRefresh(); }
 

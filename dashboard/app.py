@@ -14,9 +14,17 @@ app = Flask(__name__, template_folder='.')
 _public_ip_cache = {'ip': None, 'timestamp': 0}
 _cache_duration = 300  # 5 minutes
 
-# Cache for remote machine status
-_remote_status_cache = {}
-_remote_cache_ttl = 10  # seconds
+# Batch cache for remote machine data (processes + uptime in one SSH call)
+_remote_batch_cache = {}
+_remote_batch_ttl = 15  # seconds
+
+# Reachability cache
+_reachability_cache = {}
+_reachability_ttl = 15  # seconds
+
+# Full API status cache (short TTL to absorb rapid polling)
+_api_status_cache = {'data': None, 'timestamp': 0}
+_api_status_ttl = 5  # seconds
 
 def load_machines_config():
     """Load machines configuration from machines.json"""
@@ -29,8 +37,8 @@ def load_machines_config():
 
 MACHINES = load_machines_config()
 
-def check_remote_port(hostname, port, timeout=1.5):
-    """Check if a port is listening on a remote host via Tailscale"""
+def check_remote_port(hostname, port, timeout=0.5):
+    """Check if a port is listening on a remote host (LAN/Tailscale)"""
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
@@ -54,31 +62,42 @@ def ssh_command(hostname, ssh_user, command, timeout=10):
     except Exception:
         return None
 
-def check_remote_process(hostname, ssh_user, process_name):
-    """Check if a process is running on a remote machine via SSH"""
-    result = ssh_command(hostname, ssh_user,
-        f'powershell -Command "Get-Process -Name {process_name} -ErrorAction SilentlyContinue | Measure-Object | Select-Object -ExpandProperty Count"')
-    if result and result.returncode == 0:
-        try:
-            count = int(result.stdout.strip())
-            return count > 0
-        except (ValueError, AttributeError):
-            pass
-    return False
-
-def get_remote_machine_status(machine):
-    """Get status of all services on a remote machine with caching"""
+def _refresh_remote_batch(machine):
+    """Single SSH call to get all process names + uptime from a remote machine"""
     machine_id = machine['id']
     now = time.time()
 
-    # Return cached if fresh
-    cached = _remote_status_cache.get(machine_id)
-    if cached and (now - cached['timestamp']) < _remote_cache_ttl:
-        return cached['services']
+    cached = _remote_batch_cache.get(machine_id)
+    if cached and (now - cached['timestamp']) < _remote_batch_ttl:
+        return cached['data']
 
     hostname = machine['hostname']
     ssh_user = machine.get('ssh_user', 'noc')
+    data = {'processes': set(), 'uptime_secs': None}
+
+    if machine.get('platform') == 'windows':
+        # One SSH call: comma-separated process names on line 1, uptime seconds on line 2
+        result = ssh_command(hostname, ssh_user,
+            'powershell -Command "((Get-Process -EA SilentlyContinue).Name | Sort -Unique) -join [char]44; [int]((Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime).TotalSeconds"',
+            timeout=8)
+        if result and result.returncode == 0:
+            lines = result.stdout.strip().splitlines()
+            if len(lines) >= 1:
+                data['processes'] = set(p.strip().lower() for p in lines[0].split(',') if p.strip())
+            if len(lines) >= 2:
+                try:
+                    data['uptime_secs'] = int(lines[1].strip())
+                except ValueError:
+                    pass
+
+    _remote_batch_cache[machine_id] = {'data': data, 'timestamp': now}
+    return data
+
+def get_remote_machine_status(machine):
+    """Get status of all services on a remote machine using port checks + cached batch data"""
+    hostname = machine['hostname']
     services = machine.get('services', {})
+    batch = _refresh_remote_batch(machine)
     results = {}
 
     for svc_id, svc in services.items():
@@ -89,15 +108,11 @@ def get_remote_machine_status(machine):
             # Port-based check (fast, no SSH needed)
             results[svc_id] = check_remote_port(hostname, port)
         elif process_name:
-            # Process-based check via SSH (for services without ports)
-            results[svc_id] = check_remote_process(hostname, ssh_user, process_name)
+            # Use cached process list from batch SSH call
+            results[svc_id] = process_name.lower() in batch['processes']
         else:
             results[svc_id] = False
 
-    _remote_status_cache[machine_id] = {
-        'services': results,
-        'timestamp': now
-    }
     return results
 
 def control_remote_service(machine, svc_id, action):
@@ -124,16 +139,22 @@ def control_remote_service(machine, svc_id, action):
             cmd = f'sc stop {service_name} & timeout /t 3 /nobreak >nul & sc start {service_name}'
 
     elif manager == 'scheduled-task':
+        # Check if this is a service-backed task (has a Windows service to stop)
+        svc_name = svc.get('service_name', '')
         if action == 'start':
             cmd = f'schtasks /run /tn "{task_name}"'
         elif action == 'stop':
-            if process_name:
+            if svc_name:
+                cmd = f'net stop {svc_name}'
+            elif process_name:
                 cmd = f'taskkill /IM {process_name}.exe /F'
             else:
                 cmd = f'schtasks /end /tn "{task_name}"'
         elif action == 'restart':
-            if process_name:
-                cmd = f'taskkill /IM {process_name}.exe /F & timeout /t 2 /nobreak >nul & schtasks /run /tn "{task_name}"'
+            if svc_name:
+                cmd = f'net stop {svc_name} & ping -n 3 127.0.0.1 >nul & schtasks /run /tn "{task_name}"'
+            elif process_name:
+                cmd = f'taskkill /IM {process_name}.exe /F & ping -n 3 127.0.0.1 >nul & schtasks /run /tn "{task_name}"'
 
     elif manager == 'process':
         if action == 'start':
@@ -147,10 +168,12 @@ def control_remote_service(machine, svc_id, action):
             elif process_name:
                 cmd = f'taskkill /IM {process_name}.exe /F'
         elif action == 'restart':
-            stop_cmd = svc.get('stop_cmd', f'taskkill /IM {process_name}.exe /F' if process_name else '')
-            start_cmd = svc.get('start_cmd', '')
+            stop_cmd = svc.get('stop_cmd')
+            start_cmd = svc.get('start_cmd')
+            if not stop_cmd and process_name:
+                stop_cmd = f'Stop-Process -Name {process_name} -Force -EA SilentlyContinue'
             if stop_cmd and start_cmd:
-                cmd = f'powershell -Command "{stop_cmd}; Start-Sleep 2; {start_cmd}"'
+                cmd = f'powershell -Command "{stop_cmd}; Start-Sleep -Seconds 2; {start_cmd}"'
 
     if not cmd:
         return {'success': False, 'message': f'No {action} command configured for {svc["name"]}'}
@@ -159,18 +182,26 @@ def control_remote_service(machine, svc_id, action):
     if result is None:
         return {'success': False, 'message': 'SSH connection timed out'}
 
-    # Invalidate cache so next status check is fresh
-    _remote_status_cache.pop(machine['id'], None)
+    # Invalidate caches so next status check is fresh
+    _remote_batch_cache.pop(machine['id'], None)
+    _api_status_cache['data'] = None
 
     if result.returncode == 0:
         return {'success': True, 'message': f'{svc["name"]} {action} successful'}
     else:
         error = result.stderr.strip() or result.stdout.strip() or 'Unknown error'
-        return {'success': True, 'message': f'{svc["name"]} {action} sent (exit {result.returncode})'}
+        return {'success': False, 'message': f'{svc["name"]} {action} failed: {error}'}
 
 def is_remote_machine_reachable(hostname, timeout=2):
-    """Quick check if a remote machine is reachable"""
-    return check_remote_port(hostname, 22, timeout)
+    """Quick check if a remote machine is reachable (cached)"""
+    now = time.time()
+    cached = _reachability_cache.get(hostname)
+    if cached and (now - cached['timestamp']) < _reachability_ttl:
+        return cached['reachable']
+
+    reachable = check_remote_port(hostname, 22, timeout)
+    _reachability_cache[hostname] = {'reachable': reachable, 'timestamp': now}
+    return reachable
 
 def format_uptime(uptime_secs):
     """Format uptime seconds into a human-readable string"""
@@ -202,35 +233,10 @@ def get_system_uptime():
     secs = get_system_uptime_secs()
     return format_uptime(secs) if secs is not None else "--"
 
-# Cache for remote uptime
-_remote_uptime_cache = {}
-_remote_uptime_ttl = 30  # seconds
-
 def get_remote_uptime_secs(machine):
-    """Get uptime in seconds from a remote machine with caching"""
-    machine_id = machine['id']
-    now = time.time()
-
-    cached = _remote_uptime_cache.get(machine_id)
-    if cached and (now - cached['timestamp']) < _remote_uptime_ttl:
-        return cached['uptime']
-
-    hostname = machine['hostname']
-    ssh_user = machine.get('ssh_user', 'noc')
-    uptime_secs = None
-
-    if machine.get('platform') == 'windows':
-        result = ssh_command(hostname, ssh_user,
-            'powershell -Command "(Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime | Select-Object -ExpandProperty TotalSeconds"',
-            timeout=5)
-        if result and result.returncode == 0:
-            try:
-                uptime_secs = int(float(result.stdout.strip()))
-            except (ValueError, AttributeError):
-                pass
-
-    _remote_uptime_cache[machine_id] = {'uptime': uptime_secs, 'timestamp': now}
-    return uptime_secs
+    """Get uptime in seconds from the batch cache (no extra SSH call)"""
+    batch = _refresh_remote_batch(machine)
+    return batch.get('uptime_secs')
 
 SERVICES = {
     'copyparty': {
@@ -588,8 +594,12 @@ def favicon():
 def teamspeak_admin():
     return render_template('teamspeak.html')
 
-@app.route('/api/status')
-def get_status():
+def _build_status():
+    """Build full status dict (cached to absorb rapid polling)"""
+    now = time.time()
+    if _api_status_cache['data'] and (now - _api_status_cache['timestamp']) < _api_status_ttl:
+        return _api_status_cache['data']
+
     status = {'noc-local': {}}
     for key, service in SERVICES.items():
         status['noc-local'][key] = check_service_running(key, service)
@@ -622,7 +632,13 @@ def get_status():
     else:
         status['_avg_uptime'] = '--'
 
-    return jsonify(status)
+    _api_status_cache['data'] = status
+    _api_status_cache['timestamp'] = now
+    return status
+
+@app.route('/api/status')
+def get_status():
+    return jsonify(_build_status())
 
 @app.route('/api/remote/service/<action>', methods=['POST'])
 def control_remote_service_api(action):
