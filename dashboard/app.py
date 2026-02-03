@@ -14,6 +14,63 @@ app = Flask(__name__, template_folder='.')
 _public_ip_cache = {'ip': None, 'timestamp': 0}
 _cache_duration = 300  # 5 minutes
 
+# Cache for remote machine status
+_remote_status_cache = {}
+_remote_cache_ttl = 10  # seconds
+
+def load_machines_config():
+    """Load machines configuration from machines.json"""
+    config_path = os.path.join(os.path.dirname(__file__), 'machines.json')
+    try:
+        with open(config_path, 'r') as f:
+            return json.load(f).get('machines', [])
+    except Exception:
+        return []
+
+MACHINES = load_machines_config()
+
+def check_remote_port(hostname, port, timeout=1.5):
+    """Check if a port is listening on a remote host via Tailscale"""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(timeout)
+        result = sock.connect_ex((hostname, port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
+
+def get_remote_machine_status(machine):
+    """Get status of all services on a remote machine with caching"""
+    machine_id = machine['id']
+    now = time.time()
+
+    # Return cached if fresh
+    cached = _remote_status_cache.get(machine_id)
+    if cached and (now - cached['timestamp']) < _remote_cache_ttl:
+        return cached['services']
+
+    hostname = machine['hostname']
+    services = machine.get('services', {})
+    results = {}
+
+    for svc_id, svc in services.items():
+        port = svc.get('port')
+        if port:
+            results[svc_id] = check_remote_port(hostname, port)
+        else:
+            results[svc_id] = False
+
+    _remote_status_cache[machine_id] = {
+        'services': results,
+        'timestamp': now
+    }
+    return results
+
+def is_remote_machine_reachable(hostname, timeout=2):
+    """Quick check if a remote machine is reachable via ICMP or common port"""
+    return check_remote_port(hostname, 22, timeout)
+
 def get_system_uptime():
     """Get system uptime as a formatted string"""
     try:
@@ -291,7 +348,8 @@ def index():
                 'port': '5252 (WebClient)',
                 'status': status_str,
                 'url': webclient_url,
-                'description': 'VPN & Mesh Network'
+                'description': 'VPN & Mesh Network',
+                'remote': False
             })
         elif key == 'teamspeak':
             # Dynamically get WAN IP if configured
@@ -305,8 +363,9 @@ def index():
                 'name': service['name'],
                 'port': f"{service['port']} (Voice)",
                 'status': status_str,
-                'url': '/teamspeak',  # Link to admin dashboard
-                'description': 'Voice Chat Server'
+                'url': '/teamspeak',
+                'description': 'Voice Chat Server',
+                'remote': False
             })
         else:
             port_display = service.get('port', '--')
@@ -317,10 +376,53 @@ def index():
                 'port': port_display,
                 'status': status_str,
                 'url': url,
-                'description': service.get('description', '')
+                'description': service.get('description', ''),
+                'remote': False
             })
             
-    return render_template('template.html', services=services_list, uptime=get_system_uptime())
+    # Build machine groups for template
+    machine_groups = [
+        {
+            'id': 'noc-local',
+            'name': 'noc-local',
+            'platform': 'macOS',
+            'reachable': True,
+            'services': services_list
+        }
+    ]
+
+    # Add remote machines
+    for machine in MACHINES:
+        if machine.get('role') == 'agent':
+            hostname = machine['hostname']
+            reachable = is_remote_machine_reachable(hostname)
+            remote_status = get_remote_machine_status(machine) if reachable else {}
+            remote_services = []
+
+            for svc_id, svc in machine.get('services', {}).items():
+                is_online = remote_status.get(svc_id, False)
+                remote_services.append({
+                    'name': svc['name'],
+                    'port': svc.get('port', '--'),
+                    'status': 'online' if is_online else 'offline',
+                    'url': svc.get('url', '#'),
+                    'description': svc.get('description', ''),
+                    'machine': machine['id'],
+                    'remote': True
+                })
+
+            machine_groups.append({
+                'id': machine['id'],
+                'name': machine.get('display_name', machine['id']),
+                'platform': 'Windows' if machine.get('platform') == 'windows' else machine.get('platform', ''),
+                'reachable': reachable,
+                'services': remote_services
+            })
+
+    return render_template('template.html',
+                         services=services_list,
+                         machine_groups=machine_groups,
+                         uptime=get_system_uptime())
 
 @app.route('/favicon.ico')
 def favicon():
@@ -332,9 +434,21 @@ def teamspeak_admin():
 
 @app.route('/api/status')
 def get_status():
-    status = {}
+    status = {'noc-local': {}}
     for key, service in SERVICES.items():
-        status[key] = check_service_running(key, service)
+        status['noc-local'][key] = check_service_running(key, service)
+
+    # Include remote machine status
+    for machine in MACHINES:
+        if machine.get('role') == 'agent':
+            machine_id = machine['id']
+            reachable = is_remote_machine_reachable(machine['hostname'])
+            if reachable:
+                status[machine_id] = get_remote_machine_status(machine)
+            else:
+                status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
+            status[machine_id]['_reachable'] = reachable
+
     return jsonify(status)
 
 @app.route('/api/service/<action>', methods=['POST'])

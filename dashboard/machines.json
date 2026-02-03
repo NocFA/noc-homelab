@@ -1,0 +1,45 @@
+{
+  "machines": [
+    {
+      "id": "noc-local",
+      "hostname": "noc-local",
+      "display_name": "noc-local",
+      "platform": "darwin",
+      "role": "primary"
+    },
+    {
+      "id": "noc-winlocal",
+      "hostname": "noc-winlocal",
+      "display_name": "noc-winlocal",
+      "platform": "windows",
+      "role": "agent",
+      "agent_port": 8080,
+      "services": {
+        "emby": {
+          "name": "Emby",
+          "port": 8096,
+          "description": "Media streaming server",
+          "url": "http://noc-winlocal:8096"
+        },
+        "sunshine": {
+          "name": "Sunshine",
+          "port": 47990,
+          "description": "Game streaming (Moonlight)",
+          "url": "https://noc-winlocal:47990"
+        },
+        "zurg": {
+          "name": "Zurg",
+          "port": 9999,
+          "description": "Real-Debrid WebDAV",
+          "url": "http://noc-winlocal:9999"
+        },
+        "parsec": {
+          "name": "Parsec",
+          "port": null,
+          "description": "Remote desktop gaming",
+          "url": null
+        }
+      }
+    }
+  ]
+}
