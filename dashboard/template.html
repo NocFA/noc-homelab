@@ -178,7 +178,7 @@
         }
         .machine-status-dot.reachable { background: var(--success); }
         .machine-status-dot.unreachable { background: var(--error); }
-        .service-card.remote .button-group .btn:not(.btn-logs) {
+        .service-card.remote .btn-logs {
             opacity: 0.3;
             cursor: not-allowed;
             pointer-events: none;
@@ -423,20 +423,28 @@
 
         function controlService(name, action) {
             const card = document.querySelector(`[data-service="${name}"]`);
-            if (card) {
-                const badge = card.querySelector('.status-badge');
-                badge.className = 'status-badge status-pending';
-                badge.textContent = 'PENDING';
-                badge.dataset.status = 'pending';
-                card.querySelectorAll('.btn').forEach(btn => {
-                    if (!btn.classList.contains('btn-logs')) btn.disabled = true;
-                });
-            }
+            if (!card) return;
 
-            fetch(`/api/service/${action}`, {
+            const machineId = card.dataset.machine;
+            const isRemote = card.classList.contains('remote');
+
+            const badge = card.querySelector('.status-badge');
+            badge.className = 'status-badge status-pending';
+            badge.textContent = 'PENDING';
+            badge.dataset.status = 'pending';
+            card.querySelectorAll('.btn').forEach(btn => {
+                if (!btn.classList.contains('btn-logs')) btn.disabled = true;
+            });
+
+            const apiUrl = isRemote ? `/api/remote/service/${action}` : `/api/service/${action}`;
+            const body = isRemote
+                ? {service: name, machine: machineId}
+                : {service: name};
+
+            fetch(apiUrl, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({service: name})
+                body: JSON.stringify(body)
             })
             .then(response => response.json())
             .then(data => {
@@ -486,7 +494,8 @@
             'voiceseq': 'VoiceSeq'
         };
         const remoteNameMap = {
-            'emby': 'Emby', 'sunshine': 'Sunshine', 'zurg': 'Zurg', 'parsec': 'Parsec'
+            'emby': 'Emby', 'sunshine': 'Sunshine', 'zurg': 'Zurg',
+            'rclone': 'Rclone Mount', 'parsec': 'Parsec'
         };
 
         async function refreshStatus() {

@@ -13,31 +13,52 @@
       "display_name": "noc-winlocal",
       "platform": "windows",
       "role": "agent",
-      "agent_port": 8080,
+      "ssh_user": "noc",
       "services": {
         "emby": {
           "name": "Emby",
           "port": 8096,
           "description": "Media streaming server",
-          "url": "http://noc-winlocal:8096"
+          "url": "http://noc-winlocal:8096",
+          "manager": "process",
+          "process_name": "EmbyServer",
+          "start_cmd": "Start-Process 'C:\\Users\\noc\\AppData\\Roaming\\Emby-Server\\system\\EmbyServer.exe' -ArgumentList '-service'",
+          "stop_cmd": "Stop-Process -Name EmbyServer,embytray -Force -ErrorAction SilentlyContinue"
         },
         "sunshine": {
           "name": "Sunshine",
           "port": 47990,
           "description": "Game streaming (Moonlight)",
-          "url": "https://noc-winlocal:47990"
+          "url": "https://noc-winlocal:47990",
+          "manager": "windows-service",
+          "service_name": "ApolloService"
         },
         "zurg": {
           "name": "Zurg",
           "port": 9999,
           "description": "Real-Debrid WebDAV",
-          "url": "http://noc-winlocal:9999"
+          "url": "http://noc-winlocal:9999",
+          "manager": "scheduled-task",
+          "task_name": "Homelab-Zurg",
+          "process_name": "zurg"
+        },
+        "rclone": {
+          "name": "Rclone Mount",
+          "port": null,
+          "description": "Zurg WebDAV mount (Z: drive)",
+          "url": null,
+          "manager": "scheduled-task",
+          "task_name": "Homelab-RcloneMount",
+          "process_name": "rclone"
         },
         "parsec": {
           "name": "Parsec",
           "port": null,
           "description": "Remote desktop gaming",
-          "url": null
+          "url": null,
+          "manager": "windows-service",
+          "service_name": "Parsec",
+          "process_name": "parsecd"
         }
       }
     }

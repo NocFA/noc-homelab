@@ -40,6 +40,32 @@ def check_remote_port(hostname, port, timeout=1.5):
     except Exception:
         return False
 
+def ssh_command(hostname, ssh_user, command, timeout=10):
+    """Execute a command on a remote machine via SSH"""
+    try:
+        result = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=3', '-o', 'StrictHostKeyChecking=no',
+             f'{ssh_user}@{hostname}', command],
+            capture_output=True, text=True, timeout=timeout
+        )
+        return result
+    except subprocess.TimeoutExpired:
+        return None
+    except Exception:
+        return None
+
+def check_remote_process(hostname, ssh_user, process_name):
+    """Check if a process is running on a remote machine via SSH"""
+    result = ssh_command(hostname, ssh_user,
+        f'powershell -Command "Get-Process -Name {process_name} -ErrorAction SilentlyContinue | Measure-Object | Select-Object -ExpandProperty Count"')
+    if result and result.returncode == 0:
+        try:
+            count = int(result.stdout.strip())
+            return count > 0
+        except (ValueError, AttributeError):
+            pass
+    return False
+
 def get_remote_machine_status(machine):
     """Get status of all services on a remote machine with caching"""
     machine_id = machine['id']
@@ -51,13 +77,20 @@ def get_remote_machine_status(machine):
         return cached['services']
 
     hostname = machine['hostname']
+    ssh_user = machine.get('ssh_user', 'noc')
     services = machine.get('services', {})
     results = {}
 
     for svc_id, svc in services.items():
         port = svc.get('port')
+        process_name = svc.get('process_name')
+
         if port:
+            # Port-based check (fast, no SSH needed)
             results[svc_id] = check_remote_port(hostname, port)
+        elif process_name:
+            # Process-based check via SSH (for services without ports)
+            results[svc_id] = check_remote_process(hostname, ssh_user, process_name)
         else:
             results[svc_id] = False
 
@@ -67,8 +100,76 @@ def get_remote_machine_status(machine):
     }
     return results
 
+def control_remote_service(machine, svc_id, action):
+    """Start/stop/restart a service on a remote machine via SSH"""
+    hostname = machine['hostname']
+    ssh_user = machine.get('ssh_user', 'noc')
+    svc = machine.get('services', {}).get(svc_id)
+    if not svc:
+        return {'success': False, 'message': 'Unknown service'}
+
+    manager = svc.get('manager', 'process')
+    service_name = svc.get('service_name', '')
+    task_name = svc.get('task_name', '')
+    process_name = svc.get('process_name', '')
+
+    cmd = None
+
+    if manager == 'windows-service':
+        if action == 'start':
+            cmd = f'sc start {service_name}'
+        elif action == 'stop':
+            cmd = f'sc stop {service_name}'
+        elif action == 'restart':
+            cmd = f'sc stop {service_name} & timeout /t 3 /nobreak >nul & sc start {service_name}'
+
+    elif manager == 'scheduled-task':
+        if action == 'start':
+            cmd = f'schtasks /run /tn "{task_name}"'
+        elif action == 'stop':
+            if process_name:
+                cmd = f'taskkill /IM {process_name}.exe /F'
+            else:
+                cmd = f'schtasks /end /tn "{task_name}"'
+        elif action == 'restart':
+            if process_name:
+                cmd = f'taskkill /IM {process_name}.exe /F & timeout /t 2 /nobreak >nul & schtasks /run /tn "{task_name}"'
+
+    elif manager == 'process':
+        if action == 'start':
+            start_cmd = svc.get('start_cmd')
+            if start_cmd:
+                cmd = f'powershell -Command "{start_cmd}"'
+        elif action == 'stop':
+            stop_cmd = svc.get('stop_cmd')
+            if stop_cmd:
+                cmd = f'powershell -Command "{stop_cmd}"'
+            elif process_name:
+                cmd = f'taskkill /IM {process_name}.exe /F'
+        elif action == 'restart':
+            stop_cmd = svc.get('stop_cmd', f'taskkill /IM {process_name}.exe /F' if process_name else '')
+            start_cmd = svc.get('start_cmd', '')
+            if stop_cmd and start_cmd:
+                cmd = f'powershell -Command "{stop_cmd}; Start-Sleep 2; {start_cmd}"'
+
+    if not cmd:
+        return {'success': False, 'message': f'No {action} command configured for {svc["name"]}'}
+
+    result = ssh_command(hostname, ssh_user, cmd, timeout=15)
+    if result is None:
+        return {'success': False, 'message': 'SSH connection timed out'}
+
+    # Invalidate cache so next status check is fresh
+    _remote_status_cache.pop(machine['id'], None)
+
+    if result.returncode == 0:
+        return {'success': True, 'message': f'{svc["name"]} {action} successful'}
+    else:
+        error = result.stderr.strip() or result.stdout.strip() or 'Unknown error'
+        return {'success': True, 'message': f'{svc["name"]} {action} sent (exit {result.returncode})'}
+
 def is_remote_machine_reachable(hostname, timeout=2):
-    """Quick check if a remote machine is reachable via ICMP or common port"""
+    """Quick check if a remote machine is reachable"""
     return check_remote_port(hostname, 22, timeout)
 
 def get_system_uptime():
@@ -451,11 +552,41 @@ def get_status():
 
     return jsonify(status)
 
+@app.route('/api/remote/service/<action>', methods=['POST'])
+def control_remote_service_api(action):
+    """Control a service on a remote machine via SSH"""
+    data = request.get_json()
+    machine_id = data.get('machine')
+    service_name = data.get('service')
+
+    # Find the machine
+    machine = None
+    for m in MACHINES:
+        if m['id'] == machine_id:
+            machine = m
+            break
+
+    if not machine:
+        return jsonify({'success': False, 'message': 'Unknown machine'}), 404
+
+    # Find service by display name
+    svc_id = None
+    for sid, svc in machine.get('services', {}).items():
+        if svc['name'] == service_name:
+            svc_id = sid
+            break
+
+    if not svc_id:
+        return jsonify({'success': False, 'message': 'Unknown service'}), 404
+
+    result = control_remote_service(machine, svc_id, action)
+    return jsonify(result)
+
 @app.route('/api/service/<action>', methods=['POST'])
 def control_service(action):
     data = request.get_json()
     service_key = data.get('service')
-    
+
     # Find service by name
     service_key_lower = service_key.lower().replace(' ', '-')
     if service_key_lower not in SERVICES:
