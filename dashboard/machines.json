@@ -59,6 +59,14 @@
           "manager": "windows-service",
           "service_name": "Parsec",
           "process_name": "parsecd"
+        },
+        "gatus": {
+          "name": "Gatus",
+          "port": 3001,
+          "description": "Service health monitoring",
+          "url": "http://noc-winlocal:3001",
+          "manager": "scheduled-task",
+          "task_name": "Homelab-Gatus"
         }
       }
     }

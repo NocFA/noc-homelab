@@ -1,0 +1,94 @@
+endpoints:
+    # --- Media Services ---
+    - name: "Emby"
+      group: "Media"
+      url: "http://localhost:8096/web/index.html"
+      interval: 10s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Sunshine (Game Streaming)"
+      group: "Media"
+      url: "https://localhost:47990"
+      client:
+          insecure: true
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Zurg"
+      group: "Media"
+      url: "http://localhost:9999"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    # --- Core ---
+    - name: "Internet Connectivity"
+      group: "Core"
+      url: "https://1.1.1.1"
+      interval: 3s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    # --- Cross-Check ---
+    - name: "noc-local Gatus"
+      group: "Cross-Check"
+      url: "http://noc-local:3001"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+external-endpoints:
+    - name: "Parsec"
+      group: "Services"
+      token: "CHANGE_ME_PARSEC_TOKEN"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Rclone Mount"
+      group: "Services"
+      token: "CHANGE_ME_RCLONE_TOKEN"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+alerting:
+    discord:
+        webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
+        title: "🟡 NOCNET monitoring (noc-winlocal)"
+        message-content: <@YOUR_DISCORD_USER_ID>
+
+ui:
+    title: "NOC Homelab Status (noc-winlocal)"
+    header: "NOCNET - Status page (noc-winlocal)"

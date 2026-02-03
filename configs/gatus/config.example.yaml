@@ -8,7 +8,7 @@ endpoints:
           - "[STATUS] == 200"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
@@ -20,7 +20,7 @@ endpoints:
           - "[STATUS] == 200"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
@@ -32,7 +32,7 @@ endpoints:
           - "[CONNECTED] == true"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
@@ -45,7 +45,7 @@ endpoints:
           - "[STATUS] == 200"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
@@ -57,7 +57,7 @@ endpoints:
           - "[STATUS] == 200"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
@@ -69,7 +69,7 @@ endpoints:
           - "[STATUS] == 200"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
@@ -82,53 +82,76 @@ endpoints:
           - "[CONNECTED] == true"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
-    # --- Windows Node (noc-winlocal) ---
-    - name: "Windows Homelab (noc-winlocal)"
-      group: "Windows Node"
-      url: "icmp://noc-winlocal"
-      interval: 5s
-      conditions:
-          - "[CONNECTED] == true"
-      alerts:
-          - type: discord
-            enabled: true
-            send-on-resolved: true
-            failure-threshold: 2
-
-    - name: "Emby"
-      group: "Windows Node"
-      url: "http://noc-winlocal:8096/web/index.html"
-      interval: 10s
-      conditions:
-          - "[STATUS] == 200"
-      alerts:
-          - type: discord
-            enabled: true
-            send-on-resolved: true
-            failure-threshold: 2
-
-    - name: "Sunshine (Game Streaming)"
-      group: "Windows Node"
-      url: "https://noc-winlocal:47990"
-      client:
-          insecure: true
+    - name: "TS3AudioBot"
+      group: "Voice"
+      url: "http://noc-local:58913"
       interval: 30s
       conditions:
           - "[STATUS] == 200"
       alerts:
           - type: discord
-            enabled: true
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    # --- Cloud & Utilities ---
+    - name: "Nextcloud"
+      group: "Cloud"
+      url: "http://noc-local:9080"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Syncthing"
+      group: "Utilities"
+      url: "http://noc-local:8384"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "VoiceSeq"
+      group: "Utilities"
+      url: "http://noc-local:61998"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
+    # --- Cross-Check ---
+    - name: "noc-winlocal Gatus"
+      group: "Cross-Check"
+      url: "http://noc-winlocal:3001"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
             send-on-resolved: true
             failure-threshold: 2
 
 alerting:
     discord:
         webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
-        title: "🟡 NOCNET monitoring"
+        title: "🟡 NOCNET monitoring (noc-local)"
         message-content: <@YOUR_DISCORD_USER_ID>
 
 ui:
