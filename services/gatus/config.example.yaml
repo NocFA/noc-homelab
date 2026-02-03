@@ -1,0 +1,136 @@
+endpoints:
+    # --- Core Infrastructure ---
+    - name: "Dashboard"
+      group: "Core"
+      url: "http://noc-local:8080"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Internet Connectivity"
+      group: "Core"
+      url: "https://1.1.1.1"
+      interval: 3s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Tailscale Mesh"
+      group: "Core"
+      url: "icmp://100.100.100.100"
+      interval: 30s
+      conditions:
+          - "[CONNECTED] == true"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    # --- Media Services ---
+    - name: "Copyparty"
+      group: "Media"
+      url: "http://noc-local:8081"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Maloja"
+      group: "Media"
+      url: "http://noc-local:42010"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Multi-Scrobbler"
+      group: "Media"
+      url: "http://noc-local:9078"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    # --- Voice Services ---
+    - name: "TeamSpeak Server"
+      group: "Voice"
+      url: "tcp://noc-local:10011"
+      interval: 10s
+      conditions:
+          - "[CONNECTED] == true"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    # --- Windows Node (noc-winlocal) ---
+    - name: "Windows Homelab (noc-winlocal)"
+      group: "Windows Node"
+      url: "icmp://noc-winlocal"
+      interval: 5s
+      conditions:
+          - "[CONNECTED] == true"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Emby"
+      group: "Windows Node"
+      url: "http://noc-winlocal:8096/web/index.html"
+      interval: 10s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+    - name: "Sunshine (Game Streaming)"
+      group: "Windows Node"
+      url: "https://noc-winlocal:47990"
+      client:
+          insecure: true
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: true
+            send-on-resolved: true
+            failure-threshold: 2
+
+alerting:
+    discord:
+        webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
+        title: "🟡 NOCNET monitoring"
+        message-content: <@YOUR_DISCORD_USER_ID>
+
+ui:
+    title: "NOC Homelab Status"
+    header: "NOCNET - Status page"

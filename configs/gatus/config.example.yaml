@@ -89,7 +89,7 @@ endpoints:
     # --- Windows Node (noc-winlocal) ---
     - name: "Windows Homelab (noc-winlocal)"
       group: "Windows Node"
-      url: "icmp://192.168.1.114"
+      url: "icmp://noc-winlocal"
       interval: 5s
       conditions:
           - "[CONNECTED] == true"
@@ -101,7 +101,7 @@ endpoints:
 
     - name: "Emby"
       group: "Windows Node"
-      url: "http://192.168.1.114:8096/web/index.html"
+      url: "http://noc-winlocal:8096/web/index.html"
       interval: 10s
       conditions:
           - "[STATUS] == 200"
@@ -113,7 +113,7 @@ endpoints:
 
     - name: "Sunshine (Game Streaming)"
       group: "Windows Node"
-      url: "https://192.168.1.114:47990"
+      url: "https://noc-winlocal:47990"
       client:
           insecure: true
       interval: 30s
@@ -127,9 +127,9 @@ endpoints:
 
 alerting:
     discord:
-        webhook-url: "https://discord.com/api/webhooks/REDACTED_WEBHOOK_ID/REDACTED_DISCORD_WEBHOOK_TOKEN"
+        webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
         title: "🟡 NOCNET monitoring"
-        message-content: <@REDACTED_DISCORD_USER_ID>
+        message-content: <@YOUR_DISCORD_USER_ID>
 
 ui:
     title: "NOC Homelab Status"
