@@ -26,6 +26,18 @@ endpoints:
             send-on-resolved: true
             failure-threshold: 2
 
+    - name: "Jellyfin"
+      group: "Media"
+      url: "http://localhost:8097"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
     - name: "Zurg"
       group: "Media"
       url: "http://localhost:9999"
@@ -88,6 +100,9 @@ alerting:
         webhook-url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN"
         title: "🟡 NOCNET monitoring (noc-winlocal)"
         message-content: <@YOUR_DISCORD_USER_ID>
+
+web:
+    port: 3001
 
 ui:
     title: "NOC Homelab Status (noc-winlocal)"

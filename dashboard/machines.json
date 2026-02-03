@@ -60,6 +60,14 @@
           "service_name": "Parsec",
           "process_name": "parsecd"
         },
+        "jellyfin": {
+          "name": "Jellyfin",
+          "port": 8097,
+          "description": "Media streaming server",
+          "url": "http://noc-winlocal:8097",
+          "manager": "process",
+          "process_name": "jellyfin"
+        },
         "gatus": {
           "name": "Gatus",
           "port": 3001,
