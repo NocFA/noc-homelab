@@ -154,17 +154,33 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            margin-bottom: 1rem;
             padding: 0.75rem 1rem;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
             border-radius: 4px;
             font-family: var(--font-mono);
             font-size: 0.875rem;
+            cursor: pointer;
+            user-select: none;
+            transition: background 150ms ease;
         }
+        .machine-header:hover { background: var(--bg-elevated); }
+        .machine-chevron {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            transition: transform 200ms ease;
+            margin-left: auto;
+        }
+        .machine-section.collapsed .machine-chevron { transform: rotate(-90deg); }
+        .machine-section.collapsed .services-grid { display: none; }
+        .machine-section:not(.collapsed) .machine-header { margin-bottom: 1rem; }
         .machine-name {
             color: var(--success);
             font-weight: 600;
+        }
+        .machine-svc-count {
+            color: var(--text-muted);
+            font-size: 0.75rem;
         }
         .machine-platform {
             color: var(--text-muted);
@@ -347,11 +363,13 @@
         </div>
         {% for group in machine_groups %}
         <div class="machine-section" data-machine="{{ group.id }}">
-            <div class="machine-header">
+            <div class="machine-header" onclick="toggleMachine('{{ group.id }}')">
                 <div class="machine-status-dot {{ 'reachable' if group.reachable else 'unreachable' }}"
                      data-machine-dot="{{ group.id }}"></div>
                 <span class="machine-name">{{ group.name }}</span>
                 <span class="machine-platform">{{ group.platform }}</span>
+                <span class="machine-svc-count" data-machine-count="{{ group.id }}">{{ group.services | length }} services</span>
+                <span class="machine-chevron">&#9660;</span>
             </div>
             <div class="services-grid">
                 {% for service in group.services %}
@@ -555,6 +573,28 @@
             const restartBtn = card.querySelector('.btn-restart');
             if (restartBtn) restartBtn.disabled = false;
         }
+
+        function toggleMachine(machineId) {
+            const section = document.querySelector(`.machine-section[data-machine="${machineId}"]`);
+            if (section) {
+                section.classList.toggle('collapsed');
+                // Persist state in localStorage
+                const collapsed = JSON.parse(localStorage.getItem('collapsedMachines') || '{}');
+                collapsed[machineId] = section.classList.contains('collapsed');
+                localStorage.setItem('collapsedMachines', JSON.stringify(collapsed));
+            }
+        }
+
+        // Restore collapsed state on load
+        (function() {
+            const collapsed = JSON.parse(localStorage.getItem('collapsedMachines') || '{}');
+            Object.keys(collapsed).forEach(machineId => {
+                if (collapsed[machineId]) {
+                    const section = document.querySelector(`.machine-section[data-machine="${machineId}"]`);
+                    if (section) section.classList.add('collapsed');
+                }
+            });
+        })();
 
         function startAutoRefresh() { refreshTimer = setInterval(refreshStatus, 3000); }
         function pauseAutoRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
