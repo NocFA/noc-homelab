@@ -309,6 +309,13 @@ SERVICES = {
         'port': 8384,
         'log_paths': ['~/Library/Application Support/Syncthing/syncthing.log'],
         'description': 'File Synchronization'
+    },
+    'beads-ui': {
+        'name': 'Beads UI',
+        'launchd': 'com.noc.beads-ui',
+        'port': 3000,
+        'log_paths': ['~/Library/Logs/noc-homelab/beads-ui.log', '~/Library/Logs/noc-homelab/beads-ui.error.log'],
+        'description': 'Beads Issue Tracker Dashboard'
     }
 }
 
