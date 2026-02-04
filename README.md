@@ -26,7 +26,7 @@ This repository contains the configuration and management tools for a personal h
 
 - **Multi-machine management** - Single dashboard controls services on macOS and Windows
 - **Tailscale mesh networking** - Secure, zero-config connectivity between all machines
-- **Cross-platform agent** - Unified API for service management on any platform
+- **SSH-based remote control** - Direct control of Windows services via SSH
 - **Web-based dashboard** - Modern UI for monitoring and controlling all services
 
 ## 🖥️ Machines
@@ -34,7 +34,7 @@ This repository contains the configuration and management tools for a personal h
 | Machine | Platform | Role | Services |
 |---------|----------|------|----------|
 | **noc-local** | macOS | Primary | Dashboard, media scrobbling, file sharing, TeamSpeak |
-| **noc-winlocal** | Windows | Media | Emby, Plex, Sunshine, Real-Debrid streaming |
+| **noc-winlocal** | Windows | Media | Emby, Jellyfin, Sunshine, Real-Debrid streaming |
 
 ## 🏗️ Architecture
 
@@ -48,19 +48,20 @@ This repository contains the configuration and management tools for a personal h
             ▼                                                       ▼
   ┌───────────────────┐                               ┌───────────────────┐
   │    noc-local      │                               │   noc-winlocal    │
-  │     (macOS)       │         HTTP API              │    (Windows)      │
+  │     (macOS)       │         SSH Control           │    (Windows)      │
   │                   │◄─────────────────────────────►│                   │
   │  ┌─────────────┐  │                               │  ┌─────────────┐  │
-  │  │  Dashboard  │  │                               │  │   Agent     │  │
-  │  │   :8080     │  │                               │  │   :8080     │  │
+  │  │  Dashboard  │  │                               │  │  Scheduled  │  │
+  │  │   :8080     │  │                               │  │    Tasks    │  │
   │  └─────────────┘  │                               │  └─────────────┘  │
   │                   │                               │                   │
   │  Services:        │                               │  Services:        │
   │  • Copyparty      │                               │  • Emby           │
-  │  • Maloja         │                               │  • Plex           │
+  │  • Maloja         │                               │  • Jellyfin       │
   │  • TeamSpeak      │                               │  • Sunshine       │
   │  • Nextcloud      │                               │  • Zurg/Rclone    │
-  │  • Syncthing      │                               │  • Playnite       │
+  │  • Syncthing      │                               │  • Parsec         │
+  │  • Gatus          │                               │  • Gatus          │
   └───────────────────┘                               └───────────────────┘
 ```
 
@@ -72,20 +73,17 @@ noc-homelab/
 ├── dashboard/           # Flask-based control dashboard
 │   ├── app.py          # Main application
 │   ├── template.html   # Dashboard UI
-│   └── static/         # Assets
-├── agent/              # Cross-platform service agent
-│   ├── agent.py        # Agent HTTP API
-│   └── platforms/      # Platform-specific handlers
-│       ├── darwin.py   # macOS implementation
-│       └── windows.py  # Windows implementation
+│   └── machines.json   # Remote machine definitions
 ├── launchagents/       # macOS LaunchAgent plists
 ├── services/           # Docker Compose services
 │   ├── gatus/          # Status monitoring
 │   ├── nextcloud/      # Cloud storage
-│   └── ts3audiobot/    # TeamSpeak music bot
+│   ├── ts3audiobot/    # TeamSpeak music bot
+│   └── chatwoot/       # Customer support (experimental)
 ├── scripts/            # Utility scripts
 │   ├── tailscale_manager.py
-│   └── teamspeak_manager.py
+│   ├── teamspeak_manager.py
+│   └── sync-beads.sh
 ├── configs/            # Service configurations
 └── docs/               # Documentation
     └── architecture.md
@@ -109,6 +107,7 @@ noc-homelab/
 | **Nextcloud** | 9080 | Cloud storage |
 | **Syncthing** | 8384 | File synchronization |
 | **VoiceSeq** | 61998 | iOS audio upload server |
+| **Beads UI** | 3000 | Issue tracker dashboard |
 | **Tailscale** | 5252 | VPN webclient |
 
 ### noc-winlocal (Windows)
@@ -116,17 +115,20 @@ noc-homelab/
 | Service | Port | Description |
 |---------|------|-------------|
 | **Emby** | 8096 | Media streaming |
-| **Plex** | 32400 | Media streaming |
+| **Jellyfin** | 8097 | Media streaming |
 | **Sunshine** | 47990 | Game streaming |
 | **Zurg** | 9999 | Real-Debrid WebDAV |
-| **Playnite** | - | Game library |
+| **Rclone Mount** | - | Mounts Zurg as Z: drive |
+| **Parsec** | - | Remote desktop gaming |
+| **Gatus** | 3001 | Service health monitoring |
+| **Glances** | 61999 | System metrics |
 
 ## 🛠️ Getting Started
 
 ### Prerequisites
 
 - **macOS**: Homebrew, Python 3.9+, Docker
-- **Windows**: Python 3.9+, Docker Desktop, NSSM (optional)
+- **Windows**: Python 3.9+, NSSM for services
 - **Both**: Tailscale installed and configured
 
 ### Quick Start (macOS)
@@ -151,26 +153,18 @@ launchctl load ~/Library/LaunchAgents/com.noc.dashboard.plist
 ### Quick Start (Windows)
 
 ```powershell
-# Clone the repository
-git clone https://github.com/NocFA/noc-homelab.git
-cd noc-homelab\agent
+# Windows services are managed remotely via SSH from noc-local
+# Ensure SSH server is running and key-based auth is configured
 
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy and edit config
-copy config.example.yaml config.yaml
-notepad config.yaml
-
-# Run the agent
-python agent.py --port 8080
+# Services are started via Scheduled Tasks (Homelab-* prefix)
+# or Windows Services (via NSSM for background services)
 ```
 
 ## 📚 Documentation
 
 - [Architecture Overview](docs/architecture.md) - System design and multi-machine API spec
 - [macOS Setup](docs/setup-macos.md) - Installation and service management
-- [Windows Setup](docs/setup-windows.md) - Agent deployment and configuration
+- [Windows Setup](docs/setup-windows.md) - Service deployment and configuration
 
 ## 📄 License
 

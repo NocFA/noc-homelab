@@ -236,6 +236,7 @@
             .machine-stat {
                 color: var(--text-muted);
                 font-size: 0.75rem;
+                margin-left: 0.5rem;
             }
             .machine-stat strong {
                 color: var(--text-secondary);
@@ -246,7 +247,7 @@
             .machine-uptime {
                 color: var(--text-muted);
                 font-size: 0.7rem;
-                margin-left: auto;
+                margin-left: 0.5rem;
                 white-space: nowrap;
             }
             .machine-uptime strong {
@@ -488,11 +489,12 @@
                     <span class="machine-name">{{ group.name }}</span>
                     <span class="machine-platform">{{ group.platform }}</span>
                     <span class="machine-svc-count" data-machine-count="{{ group.id }}">{{ group.services | length }} services</span>
-                    {% if group.memory_percent is not none %}<span class="machine-stat {{ 'warning' if group.memory_percent > 80 else '' }}">MEM <strong>{{ "%.1f" | format(group.memory_percent) }}%</strong></span>{% endif %}
-                    {% if group.battery_percent is not none %}<span class="machine-stat {{ 'warning' if group.battery_percent < 40 else '' }}">BAT <strong>{{ "%.0f" | format(group.battery_percent) }}%</strong></span>{% endif %}
+                    {% if group.memory_percent is not none %}<span class="machine-stat {{ 'warning' if group.memory_percent > 80 else '' }}" style="margin-left: auto">MEM <strong>{{ "%.1f" | format(group.memory_percent) }}%</strong></span>{% endif %}
+                    {% if group.battery_percent is not none %}<span class="machine-stat {{ 'warning' if group.battery_percent < 40 else '' }}"{% if group.memory_percent is none %} style="margin-left: auto"{% endif %}>BAT <strong>{{ "%.0f" | format(group.battery_percent) }}%</strong></span>{% endif %}
                     <span
                         class="machine-uptime"
                         data-machine-uptime="{{ group.id }}"
+                        {% if group.memory_percent is none and group.battery_percent is none %}style="margin-left: auto"{% endif %}
                         >UP <strong>{{ group.uptime }}</strong></span
                     >
                     <span class="machine-chevron">&#9660;</span>
