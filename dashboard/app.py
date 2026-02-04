@@ -306,7 +306,7 @@ def get_remote_uptime_secs(machine):
     batch = _refresh_remote_batch(machine)
     return batch.get('uptime_secs')
 
-def get_glances_stats(host, port=61999, timeout=2):
+def get_glances_stats(host, port=61999, timeout=5):
     """Fetch memory and battery stats from Glances API"""
     try:
         # Get memory stats

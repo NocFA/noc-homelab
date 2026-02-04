@@ -221,6 +221,7 @@
                 height: 8px;
                 border-radius: 50%;
                 flex-shrink: 0;
+                transition: box-shadow 150ms ease, filter 150ms ease;
             }
             .machine-status-dot.reachable {
                 background: var(--success);
@@ -228,20 +229,9 @@
             .machine-status-dot.unreachable {
                 background: var(--error);
             }
-            .machine-activity {
-                width: 6px;
-                height: 6px;
-                border-radius: 50%;
-                background: var(--bg-elevated);
-                border: 1px solid var(--border);
-                flex-shrink: 0;
-                transition:
-                    background 100ms ease,
-                    box-shadow 100ms ease;
-            }
-            .machine-activity.active {
-                background: var(--accent);
-                box-shadow: 0 0 4px var(--accent);
+            .machine-status-dot.checking {
+                filter: brightness(1.5);
+                box-shadow: 0 0 6px var(--success);
             }
             .machine-stat {
                 color: var(--text-muted);
@@ -249,6 +239,9 @@
             }
             .machine-stat strong {
                 color: var(--text-secondary);
+            }
+            .machine-stat.warning strong {
+                color: var(--error);
             }
             .machine-uptime {
                 color: var(--text-muted);
@@ -492,16 +485,11 @@
                         class="machine-status-dot {{ 'reachable' if group.reachable else 'unreachable' }}"
                         data-machine-dot="{{ group.id }}"
                     ></div>
-                    <div
-                        class="machine-activity"
-                        data-machine-activity="{{ group.id }}"
-                        title="Status check activity"
-                    ></div>
                     <span class="machine-name">{{ group.name }}</span>
                     <span class="machine-platform">{{ group.platform }}</span>
                     <span class="machine-svc-count" data-machine-count="{{ group.id }}">{{ group.services | length }} services</span>
-                    {% if group.memory_percent is not none %}<span class="machine-stat">MEM <strong>{{ "%.1f" | format(group.memory_percent) }}%</strong></span>{% endif %}
-                    {% if group.battery_percent is not none %}<span class="machine-stat">BAT <strong>{{ "%.0f" | format(group.battery_percent) }}%</strong></span>{% endif %}
+                    {% if group.memory_percent is not none %}<span class="machine-stat {{ 'warning' if group.memory_percent > 80 else '' }}">MEM <strong>{{ "%.1f" | format(group.memory_percent) }}%</strong></span>{% endif %}
+                    {% if group.battery_percent is not none %}<span class="machine-stat {{ 'warning' if group.battery_percent < 40 else '' }}">BAT <strong>{{ "%.0f" | format(group.battery_percent) }}%</strong></span>{% endif %}
                     <span
                         class="machine-uptime"
                         data-machine-uptime="{{ group.id }}"
@@ -721,21 +709,12 @@
                 gatus: "Gatus",
             };
 
-            function flashActivity(machineId) {
-                const led = document.querySelector(
-                    `[data-machine-activity="${machineId}"]`,
-                );
-                if (!led) return;
-                led.classList.add("active");
-                setTimeout(() => led.classList.remove("active"), 300);
-            }
-
             async function refreshStatus() {
-                // Flash all activity LEDs at start of check
+                // Brighten all status dots at start of check
                 document
-                    .querySelectorAll(".machine-activity")
-                    .forEach((led) => {
-                        led.classList.add("active");
+                    .querySelectorAll(".machine-status-dot.reachable")
+                    .forEach((dot) => {
+                        dot.classList.add("checking");
                     });
 
                 try {
@@ -814,12 +793,12 @@
                     });
                 } catch (error) {
                 } finally {
-                    // Turn off all activity LEDs after check completes
+                    // Dim status dots after check completes
                     setTimeout(() => {
                         document
-                            .querySelectorAll(".machine-activity")
-                            .forEach((led) => {
-                                led.classList.remove("active");
+                            .querySelectorAll(".machine-status-dot")
+                            .forEach((dot) => {
+                                dot.classList.remove("checking");
                             });
                     }, 200);
                 }
