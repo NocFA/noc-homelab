@@ -90,6 +90,18 @@ services/gatus/config-winlocal.yaml
 # Agent config (machine-specific)
 agent/config.yaml
 
+# Windows-specific sensitive configs
+windows/services/*/config.yml
+windows/services/*/config.yaml
+windows/scripts/library-update.ps1
+windows/services/zurg/data/
+windows/cache/
+windows/logs/
+
+# Allow example configs
+!windows/services/*/config.example.yml
+!windows/scripts/library-update.example.ps1
+
 # AI/development tooling
 .beads/
 .claude/

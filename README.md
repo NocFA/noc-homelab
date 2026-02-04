@@ -20,14 +20,42 @@
 
 ## 📖 Overview
 
-This repository contains the configuration and management tools for a personal homelab infrastructure running across multiple machines. The primary dashboard provides unified control over all services regardless of which machine they're running on.
+This repository contains the configuration and management tools for a professional multi-machine homelab infrastructure. The standout feature is a fully automated Real-Debrid media pipeline on Windows that goes from torrent to organized 4K streaming in seconds.
 
 ### Key Features
 
+- **🎬 Real-Debrid Media Automation** - Cloud torrents → Auto-organized libraries → 4K streaming (see below)
 - **Multi-machine management** - Single dashboard controls services on macOS and Windows
 - **Tailscale mesh networking** - Secure, zero-config connectivity between all machines
 - **SSH-based remote control** - Direct control of Windows services via SSH
 - **Web-based dashboard** - Modern UI for monitoring and controlling all services
+- **One-command deployment** - Setup scripts for fresh installs
+
+## 🎬 Real-Debrid Media Automation (Windows)
+
+The **killer feature** of this homelab is the fully automated media pipeline:
+
+```
+Real-Debrid Cloud → Zurg WebDAV → Rclone Mount → FileBot Auto-Organize → Emby/Jellyfin
+```
+
+**What this means**:
+1. Add torrent to Real-Debrid (browser, app, RSS, or automation like Sonarr/Radarr)
+2. Zurg detects change in 10 seconds, exposes as local files
+3. FileBot automatically organizes into proper folder structure with symlinks
+4. Emby/Jellyfin libraries update automatically
+5. Start streaming in 4K with zero manual work
+
+**Benefits**:
+- No downloads - stream directly from Real-Debrid
+- No storage needed - content stays in cloud
+- Automatic organization - Movies and TV shows properly named
+- 4K REMUX support - VFS caching for smooth playback
+- Library automation - New content appears in media servers automatically
+
+**See full documentation**: [windows/README.md](windows/README.md)
+
+**Quick Start**: `.\setup\setup-windows.ps1` (prompts for API keys, deploys everything)
 
 ## 🖥️ Machines
 
@@ -70,23 +98,39 @@ This repository contains the configuration and management tools for a personal h
 
 ```
 noc-homelab/
-├── dashboard/           # Flask-based control dashboard
-│   ├── app.py          # Main application
-│   ├── template.html   # Dashboard UI
-│   └── machines.json   # Remote machine definitions
-├── launchagents/       # macOS LaunchAgent plists
-├── services/           # Docker Compose services
-│   ├── gatus/          # Status monitoring
-│   ├── nextcloud/      # Cloud storage
-│   ├── ts3audiobot/    # TeamSpeak music bot
-│   └── chatwoot/       # Customer support (experimental)
-├── scripts/            # Utility scripts
+├── dashboard/              # Flask-based control dashboard
+│   ├── app.py             # Main application
+│   ├── template.html      # Dashboard UI
+│   └── machines.json      # Remote machine definitions
+├── launchagents/          # macOS LaunchAgent plists
+├── services/              # Docker Compose services
+│   ├── gatus/             # Status monitoring
+│   ├── nextcloud/         # Cloud storage
+│   ├── ts3audiobot/       # TeamSpeak music bot
+│   └── chatwoot/          # Customer support (experimental)
+├── windows/               # Windows-specific content (NEW)
+│   ├── scripts/           # PowerShell automation scripts
+│   │   ├── library-update.ps1         # FileBot + library scan
+│   │   ├── library-update.example.ps1 # Template
+│   │   ├── filebot-symlinks.ps1       # Manual FileBot runner
+│   │   └── [other management scripts]
+│   ├── services/          # Service configurations
+│   │   └── zurg/
+│   │       ├── config.yml             # Zurg config (gitignored)
+│   │       └── config.example.yml     # Template
+│   ├── scheduled-tasks/   # Windows Scheduled Task XMLs
+│   └── README.md          # Full Real-Debrid pipeline docs
+├── setup/                 # Deployment scripts (NEW)
+│   ├── setup-windows.ps1  # Windows one-command setup
+│   └── setup-macos.sh     # macOS one-command setup
+├── scripts/               # Utility scripts
 │   ├── tailscale_manager.py
 │   ├── teamspeak_manager.py
 │   └── sync-beads.sh
-├── configs/            # Service configurations
-└── docs/               # Documentation
-    └── architecture.md
+├── configs/               # Service configurations
+└── docs/                  # Documentation
+    ├── architecture.md
+    └── deployment.md      # Fresh install guide
 ```
 
 </details>

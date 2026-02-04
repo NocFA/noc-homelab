@@ -1,0 +1,137 @@
+# Zurg Configuration for Real-Debrid
+# Documentation: https://github.com/debridmediamanager/zurg-testing
+#
+# This config sets up Zurg to:
+# 1. Mount Real-Debrid library as WebDAV server
+# 2. Organize content into movies/ and shows/ directories
+# 3. Trigger FileBot processing when library changes
+# 4. Auto-repair broken torrents
+
+zurg: v1
+
+# Real-Debrid API Token
+# Get yours from: https://real-debrid.com/apitoken
+# REQUIRED - Replace with your actual token
+token: YOUR_REAL_DEBRID_API_TOKEN_HERE
+
+# Zurg WebDAV server settings
+# This makes your RD library accessible at http://localhost:9999/dav
+host: "0.0.0.0"      # Listen on all interfaces
+port: 9999           # WebDAV server port
+
+# Library update polling
+# How often to check Real-Debrid for new/changed content
+# 10 seconds = fast updates, but more API calls
+# Recommended: 10-60 seconds
+check_for_changes_every_secs: 10
+
+# Torrent repair settings
+enable_repair: true              # Auto-repair incomplete/broken torrents
+auto_delete_rar_torrents: true   # Delete RAR'd torrents (only keep extracted files)
+
+# Network buffer for streaming
+# Larger buffer = smoother 4K playback, more memory usage
+# 131072 = 128KB (good for 4K REMUX content)
+# 65536 = 64KB (good for 1080p content)
+network_buffer_size: 131072
+
+# Library update hook
+# This command runs whenever RD library changes (new torrents added, content deleted, etc.)
+# Triggers FileBot to organize new media + Emby/Jellyfin library scans
+# Adjust path to match your noc-homelab location
+on_library_update: cmd /c "C:\Users\noc\noc-homelab\windows\scripts\library-update.cmd"
+
+# Directory organization
+# Zurg will organize your RD library into these directories:
+# - /movies - Single-file movies
+# - /shows - TV shows (anything with episodes/seasons)
+directories:
+  shows:
+    group: media
+    group_order: 10
+    filters:
+      - has_episodes: true   # Anything with S01E01 pattern
+
+  movies:
+    group: media
+    group_order: 20
+    only_show_the_biggest_file: true   # Hide sample files, duplicates
+    filters:
+      - regex: /.*/  # Match everything not already matched by shows
+
+# Advanced Configuration (uncomment to use)
+
+# Customize directory patterns (optional)
+# directories:
+#   4k_movies:
+#     group: media
+#     group_order: 15
+#     only_show_the_biggest_file: true
+#     filters:
+#       - regex: /.*2160p.*/
+#       - has_episodes: false
+#
+#   anime:
+#     group: media
+#     group_order: 30
+#     filters:
+#       - regex: /.*(anime).*/i
+
+# Plex optimization (optional)
+# serve_from_rclone: true    # Let rclone handle streaming (better for Plex)
+
+# Debug logging (optional)
+# log_level: debug    # Enable debug logs for troubleshooting
+
+# Rate limiting (optional)
+# api_rate_limit_per_hour: 200    # Max API calls to RD per hour (default: no limit)
+
+## Setup Instructions
+
+# 1. Get Real-Debrid API token:
+#    - Go to https://real-debrid.com/apitoken
+#    - Copy the token
+#
+# 2. Copy this file to config.yml:
+#    Copy-Item config.example.yml config.yml
+#
+# 3. Edit config.yml and replace YOUR_REAL_DEBRID_API_TOKEN_HERE
+#
+# 4. Adjust paths if needed:
+#    - Update on_library_update path to match your installation
+#    - Update port if 9999 is already in use
+#
+# 5. Start Zurg:
+#    .\zurg.exe --config config.yml
+#    Or run via scheduled task: schtasks /run /tn "Homelab-Zurg"
+#
+# 6. Mount WebDAV:
+#    net use Z: http://localhost:9999/dav
+#    Or run: .\mount-zurg.bat
+#
+# 7. Verify mount:
+#    dir Z:\movies
+#    dir Z:\shows
+
+## Troubleshooting
+
+# Zurg won't start:
+# - Check token is correct: https://real-debrid.com/apitoken
+# - Check port 9999 is not in use: netstat -an | findstr :9999
+# - Check config syntax: https://www.yamllint.com/
+
+# Library not updating:
+# - Check check_for_changes_every_secs is not 0
+# - Check on_library_update script exists and is executable
+# - Check logs: C:\Users\noc\noc-homelab\windows\logs\zurg.log
+
+# Mount fails:
+# - Check Zurg is running: Get-Process zurg
+# - Check WebDAV client is enabled: Get-WindowsOptionalFeature -Online -FeatureName WebDAV-Redirector
+# - Enable if needed: Enable-WindowsOptionalFeature -Online -FeatureName WebDAV-Redirector
+# - Try manual mount: net use Z: http://localhost:9999/dav
+
+# Movies/Shows empty:
+# - Check Real-Debrid has active torrents: https://real-debrid.com/torrents
+# - Add a test torrent and wait 10-60 seconds
+# - Check Zurg logs for errors
