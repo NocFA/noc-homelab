@@ -7,6 +7,7 @@ import requests
 import time
 import json
 import re
+import shutil
 
 app = Flask(__name__, template_folder='.')
 
@@ -25,6 +26,73 @@ _reachability_ttl = 15  # seconds
 # Full API status cache (short TTL to absorb rapid polling)
 _api_status_cache = {'data': None, 'timestamp': 0}
 _api_status_ttl = 5  # seconds
+
+# Validation functions for settings editor
+def validate_port(port):
+    """Validate port number (1-65535 or None)"""
+    if port is None:
+        return None
+    if not isinstance(port, int) or port < 1 or port > 65535:
+        raise ValueError(f"Invalid port: {port} (must be 1-65535)")
+    return port
+
+def validate_service_id(service_id):
+    """Validate service ID (lowercase alphanumeric + hyphens only)"""
+    if not re.match(r'^[a-z0-9-]+$', service_id):
+        raise ValueError(f"Invalid service ID: {service_id} (use lowercase alphanumeric + hyphens only)")
+    if len(service_id) > 50:
+        raise ValueError(f"Service ID too long: {service_id} (max 50 chars)")
+    return service_id
+
+def validate_path(path):
+    """Validate file path for security"""
+    dangerous = [';', '|', '`', '$(', '&&', '||']
+    if any(c in path for c in dangerous):
+        raise ValueError(f"Invalid characters in path: {path}")
+    # Allow absolute paths, tilde paths, or relative paths
+    # (glob patterns with * are OK)
+    return path
+
+def save_config_atomic(config_path, data):
+    """Save config file atomically with backup"""
+    backup = config_path + '.backup'
+    if os.path.exists(config_path):
+        shutil.copy2(config_path, backup)
+
+    temp = config_path + '.tmp'
+    try:
+        with open(temp, 'w') as f:
+            json.dump(data, f, indent=2)
+
+        # Validate JSON is readable
+        with open(temp, 'r') as f:
+            json.load(f)
+
+        # Atomic rename
+        os.rename(temp, config_path)
+        return {'success': True}
+    except Exception as e:
+        # Restore from backup on error
+        if os.path.exists(backup):
+            shutil.copy2(backup, config_path)
+        if os.path.exists(temp):
+            os.remove(temp)
+        return {'success': False, 'error': str(e)}
+
+def load_services_config():
+    """Load services configuration from services.json"""
+    config_path = os.path.join(os.path.dirname(__file__), 'services.json')
+    try:
+        with open(config_path, 'r') as f:
+            data = json.load(f)
+            return data.get('services', {})
+    except FileNotFoundError:
+        # File doesn't exist yet - will be created by settings UI
+        app.logger.warning("services.json not found, using hardcoded SERVICES")
+        return None
+    except Exception as e:
+        app.logger.error(f"Failed to load services.json: {e}")
+        return None
 
 def load_machines_config():
     """Load machines configuration from machines.json"""
@@ -238,7 +306,10 @@ def get_remote_uptime_secs(machine):
     batch = _refresh_remote_batch(machine)
     return batch.get('uptime_secs')
 
-SERVICES = {
+# Load services from services.json or fall back to hardcoded config
+_loaded_services = load_services_config()
+
+SERVICES = _loaded_services if _loaded_services else {
     'copyparty': {
         'name': 'Copyparty',
         'launchd': 'com.noc.copyparty',
@@ -317,7 +388,7 @@ SERVICES = {
         'log_paths': ['~/Library/Logs/noc-homelab/beads-ui.log', '~/Library/Logs/noc-homelab/beads-ui.error.log'],
         'description': 'Beads Issue Tracker Dashboard'
     }
-}
+}  # End of hardcoded fallback SERVICES
 
 def get_public_ip():
     """Get public IP address with caching"""
@@ -1042,6 +1113,88 @@ def teamspeak_rename_channel():
             return jsonify({'success': False, 'error': 'Failed to rename channel'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# Settings Editor API Endpoints
+
+@app.route('/settings')
+def settings_page():
+    """Settings editor page"""
+    return render_template('settings.html')
+
+@app.route('/api/settings/config', methods=['GET'])
+def get_settings_config():
+    """Return full configuration for settings editor"""
+    return jsonify({
+        'local_services': SERVICES,
+        'machines': MACHINES,
+        'service_types': ['launchd', 'docker', 'pm2', 'homebrew'],
+        'manager_types': ['scheduled-task', 'windows-service', 'process']
+    })
+
+@app.route('/api/settings/save/local', methods=['POST'])
+def save_local_services():
+    """Save local services to services.json"""
+    try:
+        data = request.get_json()
+        services = data.get('services', {})
+
+        # Validate each service
+        for svc_id, svc in services.items():
+            validate_service_id(svc_id)
+            validate_port(svc.get('port'))
+            for path in svc.get('log_paths', []):
+                validate_path(path)
+
+        # Atomic save
+        config_path = os.path.join(os.path.dirname(__file__), 'services.json')
+        result = save_config_atomic(config_path, {'version': 1, 'services': services})
+
+        if result['success']:
+            return jsonify({'success': True, 'restart_required': True})
+        return jsonify(result), 500
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Error saving services.json: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/settings/save/remote', methods=['POST'])
+def save_remote_machines():
+    """Save machines.json"""
+    try:
+        data = request.get_json()
+        machines = data.get('machines', [])
+
+        # Validate
+        for machine in machines:
+            for svc in machine.get('services', {}).values():
+                validate_port(svc.get('port'))
+
+        config_path = os.path.join(os.path.dirname(__file__), 'machines.json')
+        result = save_config_atomic(config_path, {'machines': machines})
+
+        if result['success']:
+            return jsonify({'success': True, 'restart_required': True})
+        return jsonify(result), 500
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        app.logger.error(f"Error saving machines.json: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/settings/restart-dashboard', methods=['POST'])
+def restart_dashboard():
+    """Exit to trigger LaunchAgent auto-restart"""
+    app.logger.info("Dashboard restart requested via settings")
+
+    def shutdown():
+        time.sleep(0.5)
+        os._exit(0)  # LaunchAgent will restart due to KeepAlive:true
+
+    from threading import Thread
+    Thread(target=shutdown).start()
+
+    return jsonify({'success': True, 'message': 'Restarting...'})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)

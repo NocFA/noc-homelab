@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "services": {
+    "copyparty": {
+      "name": "Copyparty",
+      "launchd": "com.noc.copyparty",
+      "port": 8081,
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/copyparty.log",
+        "~/Library/Logs/noc-homelab/copyparty.error.log"
+      ]
+    },
+    "maloja": {
+      "name": "Maloja",
+      "launchd": "com.maloja.service",
+      "port": 42010,
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/maloja.log",
+        "~/Library/Logs/noc-homelab/maloja.error.log",
+        "~/.local/share/maloja/logs/sqldb.log"
+      ]
+    },
+    "multi-scrobbler": {
+      "name": "Multi-Scrobbler",
+      "launchd": "com.multiscrobbler.service",
+      "port": 9078,
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/multi-scrobbler.log",
+        "~/Library/Logs/noc-homelab/multi-scrobbler.error.log"
+      ]
+    },
+    "gatus": {
+      "name": "Gatus",
+      "launchd": "docker:gatus",
+      "port": 3001,
+      "compose_dir": "/Users/noc/noc-homelab/services/gatus",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/gatus.log",
+        "~/Library/Logs/noc-homelab/gatus.error.log"
+      ],
+      "description": "Status Page & Monitoring"
+    },
+    "tailscale": {
+      "name": "Tailscale",
+      "launchd": "tailscale",
+      "port": null,
+      "log_paths": [
+        "/var/log/tailscaled.log",
+        "~/Library/Logs/Tailscale/"
+      ],
+      "webclient_port": 5252
+    },
+    "teamspeak": {
+      "name": "TeamSpeak",
+      "launchd": "com.noc.teamspeak",
+      "port": 9987,
+      "status_port": 10011,
+      "log_paths": [
+        "/Users/noc/teamspeak3-server_mac/logs/*_1.log",
+        "~/Library/Logs/noc-homelab/teamspeak.log"
+      ],
+      "web_ports": [30033, 10080],
+      "use_wan_ip": true
+    },
+    "ts3audiobot": {
+      "name": "TS3AudioBot",
+      "launchd": "docker:ts3audiobot",
+      "port": 58913,
+      "compose_dir": "/Users/noc/noc-homelab/services/ts3audiobot",
+      "log_paths": [
+        "/Users/noc/noc-homelab/services/ts3audiobot/data/logs/*.log"
+      ],
+      "description": "TeamSpeak Music Bot"
+    },
+    "nextcloud": {
+      "name": "Nextcloud",
+      "launchd": "docker:nextcloud",
+      "port": 9080,
+      "compose_dir": "/Users/noc/noc-homelab/services/nextcloud",
+      "log_paths": [
+        "/Users/noc/noc-homelab/services/nextcloud/data/nextcloud.log"
+      ],
+      "description": "Cloud Storage & Collaboration"
+    },
+    "voiceseq": {
+      "name": "VoiceSeq",
+      "launchd": "com.noc.voiceseq",
+      "port": 61998,
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/voiceseq.log",
+        "~/Library/Logs/noc-homelab/voiceseq.error.log"
+      ]
+    },
+    "syncthing": {
+      "name": "Syncthing",
+      "launchd": "homebrew.mxcl.syncthing",
+      "port": 8384,
+      "log_paths": [
+        "~/Library/Application Support/Syncthing/syncthing.log"
+      ],
+      "description": "File Synchronization"
+    },
+    "beads-ui": {
+      "name": "Beads UI",
+      "launchd": "com.noc.beads-ui",
+      "port": 3000,
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/beads-ui.log",
+        "~/Library/Logs/noc-homelab/beads-ui.error.log"
+      ],
+      "description": "Beads Issue Tracker Dashboard"
+    }
+  }
+}
