@@ -243,6 +243,13 @@
                 background: var(--accent);
                 box-shadow: 0 0 4px var(--accent);
             }
+            .machine-stat {
+                color: var(--text-muted);
+                font-size: 0.75rem;
+            }
+            .machine-stat strong {
+                color: var(--text-secondary);
+            }
             .machine-uptime {
                 color: var(--text-muted);
                 font-size: 0.7rem;
@@ -492,11 +499,9 @@
                     ></div>
                     <span class="machine-name">{{ group.name }}</span>
                     <span class="machine-platform">{{ group.platform }}</span>
-                    <span
-                        class="machine-svc-count"
-                        data-machine-count="{{ group.id }}"
-                        >{{ group.services | length }} services</span
-                    >
+                    <span class="machine-svc-count" data-machine-count="{{ group.id }}">{{ group.services | length }} services</span>
+                    {% if group.memory_percent is not none %}<span class="machine-stat">MEM <strong>{{ "%.1f" | format(group.memory_percent) }}%</strong></span>{% endif %}
+                    {% if group.battery_percent is not none %}<span class="machine-stat">BAT <strong>{{ "%.0f" | format(group.battery_percent) }}%</strong></span>{% endif %}
                     <span
                         class="machine-uptime"
                         data-machine-uptime="{{ group.id }}"

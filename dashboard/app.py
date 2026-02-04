@@ -306,6 +306,32 @@ def get_remote_uptime_secs(machine):
     batch = _refresh_remote_batch(machine)
     return batch.get('uptime_secs')
 
+def get_glances_stats(host, port=61999, timeout=2):
+    """Fetch memory and battery stats from Glances API"""
+    try:
+        # Get memory stats
+        mem_response = requests.get(f'http://{host}:{port}/api/4/mem', timeout=timeout)
+        mem_data = mem_response.json() if mem_response.status_code == 200 else {}
+
+        # Get battery stats (may not exist on desktops)
+        battery_response = requests.get(f'http://{host}:{port}/api/4/sensors', timeout=timeout)
+        battery_data = battery_response.json() if battery_response.status_code == 200 else []
+
+        # Parse battery percentage from sensors
+        battery_percent = None
+        if isinstance(battery_data, list):
+            for sensor in battery_data:
+                if sensor.get('type') == 'battery' and 'value' in sensor:
+                    battery_percent = sensor['value']
+                    break
+
+        return {
+            'memory_percent': mem_data.get('percent'),
+            'battery_percent': battery_percent
+        }
+    except Exception:
+        return {'memory_percent': None, 'battery_percent': None}
+
 # Load services from services.json or fall back to hardcoded config
 _loaded_services = load_services_config()
 
@@ -607,6 +633,9 @@ def index():
     local_uptime = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
     uptime_values = [local_uptime_secs] if local_uptime_secs else []
 
+    # Get Glances stats for local machine
+    local_glances = get_glances_stats('localhost')
+
     machine_groups = [
         {
             'id': 'noc-local',
@@ -614,7 +643,9 @@ def index():
             'platform': 'macOS',
             'reachable': True,
             'uptime': local_uptime,
-            'services': services_list
+            'services': services_list,
+            'memory_percent': local_glances['memory_percent'],
+            'battery_percent': local_glances['battery_percent']
         }
     ]
 
@@ -643,13 +674,18 @@ def index():
             if remote_uptime_secs:
                 uptime_values.append(remote_uptime_secs)
 
+            # Get Glances stats for remote machine
+            remote_glances = get_glances_stats(hostname) if reachable else {'memory_percent': None, 'battery_percent': None}
+
             machine_groups.append({
                 'id': machine['id'],
                 'name': machine.get('display_name', machine['id']),
                 'platform': 'Windows' if machine.get('platform') == 'windows' else machine.get('platform', ''),
                 'reachable': reachable,
                 'uptime': remote_uptime,
-                'services': remote_services
+                'services': remote_services,
+                'memory_percent': remote_glances['memory_percent'],
+                'battery_percent': remote_glances['battery_percent']
             })
 
     # Compute average uptime across all nodes
