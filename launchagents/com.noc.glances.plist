@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.glances</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: &gt; /Users/noc/Library/Logs/noc-homelab/glances.log; : &gt; /Users/noc/Library/Logs/noc-homelab/glances.error.log; exec /opt/homebrew/bin/glances -w --port 61999 &gt;&gt; /Users/noc/Library/Logs/noc-homelab/glances.log 2&gt;&gt; /Users/noc/Library/Logs/noc-homelab/glances.error.log</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/glances.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/glances.error.log</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc</string>
+</dict>
+</plist>

@@ -1,671 +1,901 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NOCNET Service Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Commit+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-primary: #0a2e30;
-            --bg-secondary: #0f3d40;
-            --bg-elevated: #145252;
-            --text-primary: #f0fdfa;
-            --text-secondary: #99e0d9;
-            --text-muted: #5eaba3;
-            --accent: #f59e0b;
-            --accent-dark: #b45309;
-            --success: #34d399;
-            --error: #f87171;
-            --border: #1a5456;
-            --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            --font-mono: "Commit Mono", ui-monospace, "SF Mono", Consolas, monospace;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: var(--font-body);
-            min-height: 100vh;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            -webkit-font-smoothing: antialiased;
-        }
-        .container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
-        .header {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 1.5rem;
-            font-family: var(--font-mono);
-        }
-        .header-top {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.5rem;
-            font-size: 0.75rem;
-            color: var(--text-muted);
-        }
-        .header-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--error);
-        }
-        .header-dot:nth-child(2) { background: var(--accent); }
-        .header-dot:nth-child(3) { background: var(--success); }
-        .header-path { margin-left: 0.75rem; }
-        .header-title {
-            font-size: 1rem;
-            color: var(--success);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        .header-title span { color: var(--text-muted); }
-        .header-prompt { color: var(--accent); }
-        .header-cmd { color: var(--text-primary); }
-        .cursor {
-            display: inline-block;
-            width: 8px;
-            height: 1.1em;
-            background: var(--success);
-            animation: blink 1s step-end infinite;
-            vertical-align: text-bottom;
-        }
-        @keyframes blink { 50% { opacity: 0; } }
-        .header-stats {
-            display: flex;
-            gap: 1.5rem;
-            margin-top: 0.75rem;
-            padding-top: 0.75rem;
-            border-top: 1px solid var(--border);
-            font-size: 0.75rem;
-        }
-        .header-stat { color: var(--text-muted); }
-        .header-stat strong { color: var(--text-secondary); }
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 1rem;
-        }
-        .service-card {
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 1.5rem;
-            cursor: pointer;
-        }
-        .service-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 1rem;
-        }
-        .service-name {
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        .status-badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-        .status-online {
-            background: var(--bg-secondary);
-            color: var(--success);
-            border: 1px solid var(--success);
-        }
-        .status-offline {
-            background: var(--bg-secondary);
-            color: var(--error);
-            border: 1px solid var(--error);
-        }
-        .status-pending {
-            background: var(--bg-secondary);
-            color: var(--accent);
-            border: 1px solid var(--accent);
-        }
-        .service-description {
-            color: var(--text-secondary);
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
-        }
-        .service-port {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            margin-bottom: 1rem;
-            font-family: var(--font-mono);
-        }
-        .click-hint {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-align: center;
-            margin-top: 1rem;
-        }
-        .machine-section { margin-bottom: 2rem; }
-        .machine-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 1rem;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 4px;
-            font-family: var(--font-mono);
-            font-size: 0.875rem;
-            cursor: pointer;
-            user-select: none;
-            transition: background 150ms ease;
-        }
-        .machine-header:hover { background: var(--bg-elevated); }
-        .machine-chevron {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            transition: transform 200ms ease;
-        }
-        .machine-section.collapsed .machine-chevron { transform: rotate(-90deg); }
-        .machine-section.collapsed .services-grid { display: none; }
-        .machine-section:not(.collapsed) .machine-header { margin-bottom: 1rem; }
-        .machine-name {
-            color: var(--success);
-            font-weight: 600;
-        }
-        .machine-svc-count {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-        }
-        .machine-platform {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-        }
-        .machine-status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .machine-status-dot.reachable { background: var(--success); }
-        .machine-status-dot.unreachable { background: var(--error); }
-        .machine-activity {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            flex-shrink: 0;
-            transition: background 100ms ease, box-shadow 100ms ease;
-        }
-        .machine-activity.active {
-            background: var(--accent);
-            box-shadow: 0 0 4px var(--accent);
-        }
-        .machine-uptime {
-            color: var(--text-muted);
-            font-size: 0.7rem;
-            margin-left: auto;
-            white-space: nowrap;
-        }
-        .machine-uptime strong {
-            color: var(--text-secondary);
-        }
-        .service-card.remote .btn-logs {
-            opacity: 0.3;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-        .button-group {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-        }
-        .btn {
-            flex: 1;
-            padding: 0.5rem 0.75rem;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            text-align: center;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            border: 2px solid var(--text-muted);
-            box-shadow: 3px 3px 0 var(--text-muted);
-            position: relative;
-            top: 0;
-            transition: top 150ms ease, box-shadow 150ms ease;
-        }
-        .btn:hover {
-            top: 2px;
-            box-shadow: 1px 1px 0 var(--text-muted);
-        }
-        .btn:active {
-            top: 3px;
-            box-shadow: 0 0 0 var(--text-muted);
-        }
-        .btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
-        .btn-start {
-            border-color: var(--success);
-            box-shadow: 3px 3px 0 var(--success);
-        }
-        .btn-start:hover { box-shadow: 1px 1px 0 var(--success); }
-        .btn-start:active { box-shadow: 0 0 0 var(--success); }
-        .btn-stop {
-            border-color: var(--error);
-            box-shadow: 3px 3px 0 var(--error);
-        }
-        .btn-stop:hover { box-shadow: 1px 1px 0 var(--error); }
-        .btn-stop:active { box-shadow: 0 0 0 var(--error); }
-        .btn-restart {
-            border-color: var(--accent);
-            box-shadow: 3px 3px 0 var(--accent);
-        }
-        .btn-restart:hover { box-shadow: 1px 1px 0 var(--accent); }
-        .btn-restart:active { box-shadow: 0 0 0 var(--accent); }
-        .btn-logs {
-            border-color: var(--text-muted);
-            box-shadow: 3px 3px 0 var(--text-muted);
-        }
-        .btn-logs:hover { box-shadow: 1px 1px 0 var(--text-muted); }
-        .btn-logs:active { box-shadow: 0 0 0 var(--text-muted); }
-        #notification {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            padding: 0.75rem 1rem;
-            border-radius: 4px;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            color: var(--text-primary);
-            display: none;
-            z-index: 1000;
-            font-size: 0.875rem;
-            font-weight: 500;
-            max-width: 300px;
-        }
-        .notification-success { border-left: 3px solid var(--success); }
-        .notification-error { border-left: 3px solid var(--error); }
-        #logsModal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(10, 46, 48, 0.9);
-            z-index: 2000;
-        }
-        .modal-content {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 90%;
-            max-width: 800px;
-            max-height: 85vh;
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 1.5rem;
-            overflow: auto;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        .modal-title { font-size: 1.25rem; font-weight: 600; color: var(--text-primary); }
-        .modal-close {
-            background: var(--bg-secondary);
-            border: 2px solid var(--text-muted);
-            box-shadow: 2px 2px 0 var(--text-muted);
-            width: 32px;
-            height: 32px;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            top: 0;
-            transition: top 150ms ease, box-shadow 150ms ease;
-        }
-        .modal-close:hover {
-            top: 1px;
-            box-shadow: 1px 1px 0 var(--text-muted);
-        }
-        .modal-close:active {
-            top: 2px;
-            box-shadow: 0 0 0 var(--text-muted);
-        }
-        .logs-content {
-            background: var(--bg-primary);
-            color: var(--success);
-            padding: 1rem;
-            border-radius: 4px;
-            font-family: var(--font-mono);
-            font-size: 0.8rem;
-            white-space: pre-wrap;
-            max-height: 60vh;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="header-top">
-                <div class="header-dot"></div>
-                <div class="header-dot"></div>
-                <div class="header-dot"></div>
-                <span class="header-path">~/noc-homelab</span>
-                <a href="/settings" style="margin-left: auto; text-decoration: none; color: var(--text-secondary); opacity: 0.7; transition: opacity 0.2s; font-family: var(--font-mono); font-size: 0.75rem;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Settings">[cfg]</a>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>NOCNET Service Dashboard</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Commit+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg-primary: #0a2e30;
+                --bg-secondary: #0f3d40;
+                --bg-elevated: #145252;
+                --text-primary: #f0fdfa;
+                --text-secondary: #99e0d9;
+                --text-muted: #5eaba3;
+                --accent: #f59e0b;
+                --accent-dark: #b45309;
+                --success: #34d399;
+                --error: #f87171;
+                --border: #1a5456;
+                --font-body:
+                    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+                    Roboto, sans-serif;
+                --font-mono:
+                    "Commit Mono", ui-monospace, "SF Mono", Consolas, monospace;
+            }
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            body {
+                font-family: var(--font-body);
+                min-height: 100vh;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                -webkit-font-smoothing: antialiased;
+            }
+            .container {
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 1rem;
+            }
+            .header {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 1rem 1.5rem;
+                margin-bottom: 1.5rem;
+                font-family: var(--font-mono);
+            }
+            .header-top {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+                font-size: 0.75rem;
+                color: var(--text-muted);
+            }
+            .header-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: var(--error);
+            }
+            .header-dot:nth-child(2) {
+                background: var(--accent);
+            }
+            .header-dot:nth-child(3) {
+                background: var(--success);
+            }
+            .header-path {
+                margin-left: 0.75rem;
+            }
+            .header-title {
+                font-size: 1rem;
+                color: var(--success);
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            .header-title span {
+                color: var(--text-muted);
+            }
+            .header-prompt {
+                color: var(--accent);
+            }
+            .header-cmd {
+                color: var(--text-primary);
+            }
+            .header-stats {
+                display: flex;
+                gap: 1.5rem;
+                margin-top: 0.75rem;
+                padding-top: 0.75rem;
+                border-top: 1px solid var(--border);
+                font-size: 0.75rem;
+            }
+            .header-stat {
+                color: var(--text-muted);
+            }
+            .header-stat strong {
+                color: var(--text-secondary);
+            }
+            .services-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 1rem;
+            }
+            .service-card {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 1.5rem;
+                cursor: pointer;
+            }
+            .service-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 1rem;
+            }
+            .service-name {
+                font-size: 1.125rem;
+                font-weight: 600;
+                color: var(--text-primary);
+            }
+            .status-badge {
+                padding: 0.25rem 0.75rem;
+                border-radius: 4px;
+                font-size: 0.75rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+            }
+            .status-online {
+                background: var(--bg-secondary);
+                color: var(--success);
+                border: 1px solid var(--success);
+            }
+            .status-offline {
+                background: var(--bg-secondary);
+                color: var(--error);
+                border: 1px solid var(--error);
+            }
+            .status-pending {
+                background: var(--bg-secondary);
+                color: var(--accent);
+                border: 1px solid var(--accent);
+            }
+            .service-description {
+                color: var(--text-secondary);
+                margin-bottom: 0.5rem;
+                font-size: 0.875rem;
+            }
+            .service-port {
+                color: var(--text-muted);
+                font-size: 0.75rem;
+                margin-bottom: 1rem;
+                font-family: var(--font-mono);
+            }
+            .click-hint {
+                color: var(--text-muted);
+                font-size: 0.75rem;
+                text-align: center;
+                margin-top: 1rem;
+            }
+            .machine-section {
+                margin-bottom: 2rem;
+            }
+            .machine-header {
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                padding: 0.75rem 1rem;
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                font-family: var(--font-mono);
+                font-size: 0.875rem;
+                cursor: pointer;
+                user-select: none;
+                transition: background 150ms ease;
+            }
+            .machine-header:hover {
+                background: var(--bg-elevated);
+            }
+            .machine-chevron {
+                color: var(--text-muted);
+                font-size: 0.75rem;
+                transition: transform 200ms ease;
+            }
+            .machine-section.collapsed .machine-chevron {
+                transform: rotate(-90deg);
+            }
+            .machine-section.collapsed .services-grid {
+                display: none;
+            }
+            .machine-section:not(.collapsed) .machine-header {
+                margin-bottom: 1rem;
+            }
+            .machine-name {
+                color: var(--success);
+                font-weight: 600;
+            }
+            .machine-svc-count {
+                color: var(--text-muted);
+                font-size: 0.75rem;
+            }
+            .machine-platform {
+                color: var(--text-muted);
+                font-size: 0.75rem;
+            }
+            .machine-status-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                flex-shrink: 0;
+            }
+            .machine-status-dot.reachable {
+                background: var(--success);
+            }
+            .machine-status-dot.unreachable {
+                background: var(--error);
+            }
+            .machine-activity {
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                flex-shrink: 0;
+                transition:
+                    background 100ms ease,
+                    box-shadow 100ms ease;
+            }
+            .machine-activity.active {
+                background: var(--accent);
+                box-shadow: 0 0 4px var(--accent);
+            }
+            .machine-uptime {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                margin-left: auto;
+                white-space: nowrap;
+            }
+            .machine-uptime strong {
+                color: var(--text-secondary);
+            }
+            .service-card.remote .btn-logs {
+                opacity: 0.3;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+            .button-group {
+                display: flex;
+                gap: 0.5rem;
+                margin-top: 0.75rem;
+            }
+            .btn {
+                flex: 1;
+                padding: 0.5rem 0.75rem;
+                border-radius: 4px;
+                font-size: 0.875rem;
+                font-weight: 600;
+                cursor: pointer;
+                text-decoration: none;
+                text-align: center;
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                border: 2px solid var(--text-muted);
+                box-shadow: 3px 3px 0 var(--text-muted);
+                position: relative;
+                top: 0;
+                transition:
+                    top 150ms ease,
+                    box-shadow 150ms ease;
+            }
+            .btn:hover {
+                top: 2px;
+                box-shadow: 1px 1px 0 var(--text-muted);
+            }
+            .btn:active {
+                top: 3px;
+                box-shadow: 0 0 0 var(--text-muted);
+            }
+            .btn:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+                pointer-events: none;
+            }
+            .btn-start {
+                border-color: var(--success);
+                box-shadow: 3px 3px 0 var(--success);
+            }
+            .btn-start:hover {
+                box-shadow: 1px 1px 0 var(--success);
+            }
+            .btn-start:active {
+                box-shadow: 0 0 0 var(--success);
+            }
+            .btn-stop {
+                border-color: var(--error);
+                box-shadow: 3px 3px 0 var(--error);
+            }
+            .btn-stop:hover {
+                box-shadow: 1px 1px 0 var(--error);
+            }
+            .btn-stop:active {
+                box-shadow: 0 0 0 var(--error);
+            }
+            .btn-restart {
+                border-color: var(--accent);
+                box-shadow: 3px 3px 0 var(--accent);
+            }
+            .btn-restart:hover {
+                box-shadow: 1px 1px 0 var(--accent);
+            }
+            .btn-restart:active {
+                box-shadow: 0 0 0 var(--accent);
+            }
+            .btn-logs {
+                border-color: var(--text-muted);
+                box-shadow: 3px 3px 0 var(--text-muted);
+            }
+            .btn-logs:hover {
+                box-shadow: 1px 1px 0 var(--text-muted);
+            }
+            .btn-logs:active {
+                box-shadow: 0 0 0 var(--text-muted);
+            }
+            #notification {
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                padding: 0.75rem 1rem;
+                border-radius: 4px;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                color: var(--text-primary);
+                display: none;
+                z-index: 1000;
+                font-size: 0.875rem;
+                font-weight: 500;
+                max-width: 300px;
+            }
+            .notification-success {
+                border-left: 3px solid var(--success);
+            }
+            .notification-error {
+                border-left: 3px solid var(--error);
+            }
+            #logsModal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(10, 46, 48, 0.9);
+                z-index: 2000;
+            }
+            .modal-content {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 90%;
+                max-width: 800px;
+                max-height: 85vh;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 6px;
+                padding: 1.5rem;
+                overflow: auto;
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 1rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid var(--border);
+            }
+            .modal-title {
+                font-size: 1.25rem;
+                font-weight: 600;
+                color: var(--text-primary);
+            }
+            .modal-close {
+                background: var(--bg-secondary);
+                border: 2px solid var(--text-muted);
+                box-shadow: 2px 2px 0 var(--text-muted);
+                width: 32px;
+                height: 32px;
+                border-radius: 4px;
+                font-size: 1rem;
+                cursor: pointer;
+                color: var(--text-primary);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                position: relative;
+                top: 0;
+                transition:
+                    top 150ms ease,
+                    box-shadow 150ms ease;
+            }
+            .modal-close:hover {
+                top: 1px;
+                box-shadow: 1px 1px 0 var(--text-muted);
+            }
+            .modal-close:active {
+                top: 2px;
+                box-shadow: 0 0 0 var(--text-muted);
+            }
+            .logs-content {
+                background: var(--bg-primary);
+                color: var(--success);
+                padding: 1rem;
+                border-radius: 4px;
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
+                white-space: pre-wrap;
+                max-height: 60vh;
+                overflow-y: auto;
+                border: 1px solid var(--border);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <div class="header-top">
+                    <div class="header-dot"></div>
+                    <div class="header-dot"></div>
+                    <div class="header-dot"></div>
+                    <span class="header-path">~/noc-homelab</span>
+                    <a
+                        href="/settings"
+                        style="
+                            margin-left: auto;
+                            text-decoration: none;
+                            color: var(--text-secondary);
+                            opacity: 0.7;
+                            transition: opacity 0.2s;
+                            font-family: var(--font-mono);
+                            font-size: 0.75rem;
+                        "
+                        onmouseover="this.style.opacity = '1'"
+                        onmouseout="this.style.opacity = '0.7'"
+                        title="Settings"
+                        >[cfg]</a
+                    >
+                </div>
+                <div class="header-title">
+                    <span class="header-prompt">noc@local</span><span>:</span
+                    ><span class="header-cmd">./dashboard --services</span>
+                </div>
+                <div class="header-stats">
+                    <span class="header-stat"
+                        >PID <strong>{{ pid | default('8080') }}</strong></span
+                    >
+                    <span class="header-stat"
+                        >SERVICES <strong>{{ services | length }}</strong></span
+                    >
+                    <span class="header-stat"
+                        >AVG UPTIME
+                        <strong id="avgUptime">{{ uptime }}</strong></span
+                    >
+                </div>
             </div>
-            <div class="header-title">
-                <span class="header-prompt">noc@local</span><span>:</span><span class="header-cmd">./dashboard --services</span><span class="cursor"></span>
-            </div>
-            <div class="header-stats">
-                <span class="header-stat">PID <strong>{{ pid | default('8080') }}</strong></span>
-                <span class="header-stat">SERVICES <strong>{{ services | length }}</strong></span>
-                <span class="header-stat">AVG UPTIME <strong id="avgUptime">{{ uptime }}</strong></span>
-            </div>
-        </div>
-        {% for group in machine_groups %}
-        <div class="machine-section" data-machine="{{ group.id }}">
-            <div class="machine-header" onclick="toggleMachine('{{ group.id }}')">
-                <div class="machine-status-dot {{ 'reachable' if group.reachable else 'unreachable' }}"
-                     data-machine-dot="{{ group.id }}"></div>
-                <div class="machine-activity" data-machine-activity="{{ group.id }}" title="Status check activity"></div>
-                <span class="machine-name">{{ group.name }}</span>
-                <span class="machine-platform">{{ group.platform }}</span>
-                <span class="machine-svc-count" data-machine-count="{{ group.id }}">{{ group.services | length }} services</span>
-                <span class="machine-uptime" data-machine-uptime="{{ group.id }}">UP <strong>{{ group.uptime }}</strong></span>
-                <span class="machine-chevron">&#9660;</span>
-            </div>
-            <div class="services-grid">
-                {% for service in group.services %}
-                <div class="service-card {{ 'remote' if service.remote }}"
-                     data-service="{{ service.name }}"
-                     data-machine="{{ group.id }}"
-                     data-url="{{ service.url }}"
-                     onclick="visitService(this)">
-                    <div class="service-header">
-                        <div class="service-name">{{ service.name }}</div>
-                        <div class="status-badge status-{{ service.status }}" data-status="{{ service.status }}">
-                            {{ service.status | upper }}
+            {% for group in machine_groups %}
+            <div class="machine-section" data-machine="{{ group.id }}">
+                <div
+                    class="machine-header"
+                    onclick="toggleMachine('{{ group.id }}')"
+                >
+                    <div
+                        class="machine-status-dot {{ 'reachable' if group.reachable else 'unreachable' }}"
+                        data-machine-dot="{{ group.id }}"
+                    ></div>
+                    <div
+                        class="machine-activity"
+                        data-machine-activity="{{ group.id }}"
+                        title="Status check activity"
+                    ></div>
+                    <span class="machine-name">{{ group.name }}</span>
+                    <span class="machine-platform">{{ group.platform }}</span>
+                    <span
+                        class="machine-svc-count"
+                        data-machine-count="{{ group.id }}"
+                        >{{ group.services | length }} services</span
+                    >
+                    <span
+                        class="machine-uptime"
+                        data-machine-uptime="{{ group.id }}"
+                        >UP <strong>{{ group.uptime }}</strong></span
+                    >
+                    <span class="machine-chevron">&#9660;</span>
+                </div>
+                <div class="services-grid">
+                    {% for service in group.services %}
+                    <div
+                        class="service-card {{ 'remote' if service.remote }}"
+                        data-service="{{ service.name }}"
+                        data-machine="{{ group.id }}"
+                        data-url="{{ service.url }}"
+                        onclick="visitService(this)"
+                    >
+                        <div class="service-header">
+                            <div class="service-name">{{ service.name }}</div>
+                            <div
+                                class="status-badge status-{{ service.status }}"
+                                data-status="{{ service.status }}"
+                            >
+                                {{ service.status | upper }}
+                            </div>
+                        </div>
+                        {% if service.description %}
+                        <div class="service-description">
+                            {{ service.description }}
+                        </div>
+                        {% endif %}
+                        <div class="service-port">Port: {{ service.port }}</div>
+                        <div class="button-group">
+                            <button
+                                class="btn btn-start"
+                                onclick="event.stopPropagation(); controlService('{{ service.name }}', 'start')"
+                                {%
+                                if
+                                service.status=""
+                                ="online"
+                                %}disabled{%
+                                endif
+                                %}
+                            >
+                                Start
+                            </button>
+                            <button
+                                class="btn btn-stop"
+                                onclick="event.stopPropagation(); controlService('{{ service.name }}', 'stop')"
+                            >
+                                Stop
+                            </button>
+                            <button
+                                class="btn btn-restart"
+                                onclick="event.stopPropagation(); controlService('{{ service.name }}', 'restart')"
+                            >
+                                Restart
+                            </button>
+                        </div>
+                        {% if not service.remote %}
+                        <div class="button-group">
+                            <button
+                                class="btn btn-logs"
+                                onclick="event.stopPropagation(); showLogs('{{ service.name }}')"
+                            >
+                                View Logs
+                            </button>
+                        </div>
+                        {% endif %}
+                        <div class="click-hint">
+                            Click card to visit service
                         </div>
                     </div>
-                    {% if service.description %}
-                    <div class="service-description">{{ service.description }}</div>
-                    {% endif %}
-                    <div class="service-port">Port: {{ service.port }}</div>
-                    <div class="button-group">
-                        <button class="btn btn-start" onclick="event.stopPropagation(); controlService('{{ service.name }}', 'start')"
-                                {% if service.status == 'online' %}disabled{% endif %}>Start</button>
-                        <button class="btn btn-stop" onclick="event.stopPropagation(); controlService('{{ service.name }}', 'stop')">Stop</button>
-                        <button class="btn btn-restart" onclick="event.stopPropagation(); controlService('{{ service.name }}', 'restart')">Restart</button>
-                    </div>
-                    {% if not service.remote %}
-                    <div class="button-group">
-                        <button class="btn btn-logs" onclick="event.stopPropagation(); showLogs('{{ service.name }}')">View Logs</button>
-                    </div>
-                    {% endif %}
-                    <div class="click-hint">Click card to visit service</div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <div id="notification"></div>
+
+        <div id="logsModal" onclick="if (event.target === this) closeLogs();">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title" id="modalTitle">Service Logs</div>
+                    <button class="modal-close" onclick="closeLogs()">
+                        &times;
+                    </button>
+                </div>
+                <div class="logs-content" id="logsContent">Loading logs...</div>
             </div>
         </div>
-        {% endfor %}
-    </div>
 
-    <div id="notification"></div>
+        <script>
+            let refreshTimer = null;
 
-    <div id="logsModal" onclick="if(event.target === this) closeLogs()">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title" id="modalTitle">Service Logs</div>
-                <button class="modal-close" onclick="closeLogs()">&times;</button>
-            </div>
-            <div class="logs-content" id="logsContent">Loading logs...</div>
-        </div>
-    </div>
-
-    <script>
-        let refreshTimer = null;
-
-        function showNotification(message, type) {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = 'notification-' + type;
-            notification.style.display = 'block';
-            setTimeout(() => notification.style.display = 'none', 3000);
-        }
-
-        function visitService(cardElement) {
-            const url = cardElement.dataset.url;
-            const serviceName = cardElement.dataset.service;
-            if (url) {
-                window.open(url, '_blank');
-                showNotification(`Opening ${serviceName}`, 'success');
+            function showNotification(message, type) {
+                const notification = document.getElementById("notification");
+                notification.textContent = message;
+                notification.className = "notification-" + type;
+                notification.style.display = "block";
+                setTimeout(() => (notification.style.display = "none"), 3000);
             }
-        }
 
-        function controlService(name, action) {
-            const card = document.querySelector(`[data-service="${name}"]`);
-            if (!card) return;
-
-            const machineId = card.dataset.machine;
-            const isRemote = card.classList.contains('remote');
-
-            const badge = card.querySelector('.status-badge');
-            badge.className = 'status-badge status-pending';
-            badge.textContent = 'PENDING';
-            badge.dataset.status = 'pending';
-            card.querySelectorAll('.btn').forEach(btn => {
-                if (!btn.classList.contains('btn-logs')) btn.disabled = true;
-            });
-
-            const apiUrl = isRemote ? `/api/remote/service/${action}` : `/api/service/${action}`;
-            const body = isRemote
-                ? {service: name, machine: machineId}
-                : {service: name};
-
-            fetch(apiUrl, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(body)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification(`${name} ${action} successful`, "success");
-                    setTimeout(() => refreshStatus(), 500);
-                    setTimeout(() => refreshStatus(), 1500);
-                    setTimeout(() => refreshStatus(), 3000);
-                } else {
-                    showNotification(data.message || "Operation failed", "error");
-                    setTimeout(() => refreshStatus(), 200);
+            function visitService(cardElement) {
+                const url = cardElement.dataset.url;
+                const serviceName = cardElement.dataset.service;
+                if (url) {
+                    window.open(url, "_blank");
+                    showNotification(`Opening ${serviceName}`, "success");
                 }
-            })
-            .catch(error => {
-                showNotification("Operation failed: " + error.message, "error");
-                setTimeout(() => refreshStatus(), 200);
-            });
-        }
+            }
 
-        function showLogs(name) {
-            pauseAutoRefresh();
-            const modal = document.getElementById('logsModal');
-            document.getElementById('modalTitle').textContent = `${name} Logs`;
-            document.getElementById('logsContent').textContent = 'Loading logs...';
-            modal.style.display = 'block';
+            function controlService(name, action) {
+                const card = document.querySelector(`[data-service="${name}"]`);
+                if (!card) return;
 
-            fetch(`/api/service/logs`, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({service: name})
-            })
-            .then(response => response.json())
-            .then(data => document.getElementById('logsContent').textContent = data.logs || 'No logs available')
-            .catch(error => document.getElementById('logsContent').textContent = 'Error loading logs: ' + error.message);
-        }
+                const machineId = card.dataset.machine;
+                const isRemote = card.classList.contains("remote");
 
-        function closeLogs() {
-            document.getElementById('logsModal').style.display = 'none';
-            resumeAutoRefresh();
-        }
-
-        // Maps for resolving service keys to display names per machine
-        const localNameMap = {
-            'copyparty': 'Copyparty', 'maloja': 'Maloja', 'multi-scrobbler': 'Multi-Scrobbler',
-            'tailscale': 'Tailscale', 'teamspeak': 'TeamSpeak', 'gatus': 'Gatus',
-            'nextcloud': 'Nextcloud', 'ts3audiobot': 'TS3AudioBot', 'syncthing': 'Syncthing',
-            'voiceseq': 'VoiceSeq'
-        };
-        const remoteNameMap = {
-            'emby': 'Emby', 'sunshine': 'Sunshine', 'zurg': 'Zurg',
-            'rclone': 'Rclone Mount', 'parsec': 'Parsec',
-            'jellyfin': 'Jellyfin', 'gatus': 'Gatus'
-        };
-
-        function flashActivity(machineId) {
-            const led = document.querySelector(`[data-machine-activity="${machineId}"]`);
-            if (!led) return;
-            led.classList.add('active');
-            setTimeout(() => led.classList.remove('active'), 300);
-        }
-
-        async function refreshStatus() {
-            // Flash all activity LEDs at start of check
-            document.querySelectorAll('.machine-activity').forEach(led => {
-                led.classList.add('active');
-            });
-
-            try {
-                const response = await fetch(`/api/status?t=${Date.now()}`, {
-                    cache: 'no-store',
-                    headers: {'Cache-Control': 'no-cache'}
-                });
-                if (!response.ok) return;
-                const statusData = await response.json();
-
-                // Update average uptime in header
-                if (statusData._avg_uptime) {
-                    const uptimeEl = document.getElementById('avgUptime');
-                    if (uptimeEl) uptimeEl.textContent = statusData._avg_uptime;
-                }
-
-                // Update local services
-                const localData = statusData['noc-local'] || {};
-                Object.keys(localData).forEach(serviceKey => {
-                    if (serviceKey.startsWith('_')) return;
-                    const status = localData[serviceKey] ? 'online' : 'offline';
-                    const serviceName = localNameMap[serviceKey];
-                    if (!serviceName) return;
-                    updateCardStatus(serviceName, 'noc-local', status);
+                const badge = card.querySelector(".status-badge");
+                badge.className = "status-badge status-pending";
+                badge.textContent = "PENDING";
+                badge.dataset.status = "pending";
+                card.querySelectorAll(".btn").forEach((btn) => {
+                    if (!btn.classList.contains("btn-logs"))
+                        btn.disabled = true;
                 });
 
-                // Update local uptime
-                if (localData._uptime) {
-                    const el = document.querySelector('[data-machine-uptime="noc-local"] strong');
-                    if (el) el.textContent = localData._uptime;
-                }
+                const apiUrl = isRemote
+                    ? `/api/remote/service/${action}`
+                    : `/api/service/${action}`;
+                const body = isRemote
+                    ? { service: name, machine: machineId }
+                    : { service: name };
 
-                // Update remote machines
-                Object.keys(statusData).forEach(machineId => {
-                    if (machineId === 'noc-local' || machineId.startsWith('_')) return;
-                    const machineData = statusData[machineId];
-                    const reachable = machineData._reachable;
+                fetch(apiUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                })
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.success) {
+                            showNotification(
+                                `${name} ${action} successful`,
+                                "success",
+                            );
+                            setTimeout(() => refreshStatus(), 500);
+                            setTimeout(() => refreshStatus(), 1500);
+                            setTimeout(() => refreshStatus(), 3000);
+                        } else {
+                            showNotification(
+                                data.message || "Operation failed",
+                                "error",
+                            );
+                            setTimeout(() => refreshStatus(), 200);
+                        }
+                    })
+                    .catch((error) => {
+                        showNotification(
+                            "Operation failed: " + error.message,
+                            "error",
+                        );
+                        setTimeout(() => refreshStatus(), 200);
+                    });
+            }
 
-                    // Update machine header dot
-                    const dot = document.querySelector(`[data-machine-dot="${machineId}"]`);
-                    if (dot) {
-                        dot.className = `machine-status-dot ${reachable ? 'reachable' : 'unreachable'}`;
+            function showLogs(name) {
+                pauseAutoRefresh();
+                const modal = document.getElementById("logsModal");
+                document.getElementById("modalTitle").textContent =
+                    `${name} Logs`;
+                document.getElementById("logsContent").textContent =
+                    "Loading logs...";
+                modal.style.display = "block";
+
+                fetch(`/api/service/logs`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ service: name }),
+                })
+                    .then((response) => response.json())
+                    .then(
+                        (data) =>
+                            (document.getElementById(
+                                "logsContent",
+                            ).textContent = data.logs || "No logs available"),
+                    )
+                    .catch(
+                        (error) =>
+                            (document.getElementById(
+                                "logsContent",
+                            ).textContent =
+                                "Error loading logs: " + error.message),
+                    );
+            }
+
+            function closeLogs() {
+                document.getElementById("logsModal").style.display = "none";
+                resumeAutoRefresh();
+            }
+
+            // Maps for resolving service keys to display names per machine
+            const localNameMap = {
+                copyparty: "Copyparty",
+                maloja: "Maloja",
+                "multi-scrobbler": "Multi-Scrobbler",
+                tailscale: "Tailscale",
+                teamspeak: "TeamSpeak",
+                gatus: "Gatus",
+                nextcloud: "Nextcloud",
+                ts3audiobot: "TS3AudioBot",
+                syncthing: "Syncthing",
+                voiceseq: "VoiceSeq",
+            };
+            const remoteNameMap = {
+                emby: "Emby",
+                sunshine: "Sunshine",
+                zurg: "Zurg",
+                rclone: "Rclone Mount",
+                parsec: "Parsec",
+                jellyfin: "Jellyfin",
+                gatus: "Gatus",
+            };
+
+            function flashActivity(machineId) {
+                const led = document.querySelector(
+                    `[data-machine-activity="${machineId}"]`,
+                );
+                if (!led) return;
+                led.classList.add("active");
+                setTimeout(() => led.classList.remove("active"), 300);
+            }
+
+            async function refreshStatus() {
+                // Flash all activity LEDs at start of check
+                document
+                    .querySelectorAll(".machine-activity")
+                    .forEach((led) => {
+                        led.classList.add("active");
+                    });
+
+                try {
+                    const response = await fetch(
+                        `/api/status?t=${Date.now()}`,
+                        {
+                            cache: "no-store",
+                            headers: { "Cache-Control": "no-cache" },
+                        },
+                    );
+                    if (!response.ok) return;
+                    const statusData = await response.json();
+
+                    // Update average uptime in header
+                    if (statusData._avg_uptime) {
+                        const uptimeEl = document.getElementById("avgUptime");
+                        if (uptimeEl)
+                            uptimeEl.textContent = statusData._avg_uptime;
                     }
 
-                    // Update per-node uptime
-                    if (machineData._uptime) {
-                        const el = document.querySelector(`[data-machine-uptime="${machineId}"] strong`);
-                        if (el) el.textContent = machineData._uptime;
-                    }
-
-                    Object.keys(machineData).forEach(serviceKey => {
-                        if (serviceKey.startsWith('_')) return;
-                        const status = machineData[serviceKey] ? 'online' : 'offline';
-                        const serviceName = remoteNameMap[serviceKey];
+                    // Update local services
+                    const localData = statusData["noc-local"] || {};
+                    Object.keys(localData).forEach((serviceKey) => {
+                        if (serviceKey.startsWith("_")) return;
+                        const status = localData[serviceKey]
+                            ? "online"
+                            : "offline";
+                        const serviceName = localNameMap[serviceKey];
                         if (!serviceName) return;
-                        updateCardStatus(serviceName, machineId, status);
+                        updateCardStatus(serviceName, "noc-local", status);
                     });
-                });
-            } catch (error) {
-            } finally {
-                // Turn off all activity LEDs after check completes
-                setTimeout(() => {
-                    document.querySelectorAll('.machine-activity').forEach(led => {
-                        led.classList.remove('active');
+
+                    // Update local uptime
+                    if (localData._uptime) {
+                        const el = document.querySelector(
+                            '[data-machine-uptime="noc-local"] strong',
+                        );
+                        if (el) el.textContent = localData._uptime;
+                    }
+
+                    // Update remote machines
+                    Object.keys(statusData).forEach((machineId) => {
+                        if (
+                            machineId === "noc-local" ||
+                            machineId.startsWith("_")
+                        )
+                            return;
+                        const machineData = statusData[machineId];
+                        const reachable = machineData._reachable;
+
+                        // Update machine header dot
+                        const dot = document.querySelector(
+                            `[data-machine-dot="${machineId}"]`,
+                        );
+                        if (dot) {
+                            dot.className = `machine-status-dot ${reachable ? "reachable" : "unreachable"}`;
+                        }
+
+                        // Update per-node uptime
+                        if (machineData._uptime) {
+                            const el = document.querySelector(
+                                `[data-machine-uptime="${machineId}"] strong`,
+                            );
+                            if (el) el.textContent = machineData._uptime;
+                        }
+
+                        Object.keys(machineData).forEach((serviceKey) => {
+                            if (serviceKey.startsWith("_")) return;
+                            const status = machineData[serviceKey]
+                                ? "online"
+                                : "offline";
+                            const serviceName = remoteNameMap[serviceKey];
+                            if (!serviceName) return;
+                            updateCardStatus(serviceName, machineId, status);
+                        });
                     });
-                }, 200);
-            }
-        }
-
-        function updateCardStatus(serviceName, machineId, status) {
-            const card = document.querySelector(`[data-service="${serviceName}"][data-machine="${machineId}"]`);
-            if (!card) return;
-
-            const badge = card.querySelector('.status-badge');
-            badge.className = `status-badge status-${status}`;
-            badge.textContent = status.toUpperCase();
-            badge.dataset.status = status;
-
-            const startBtn = card.querySelector('.btn-start');
-            if (startBtn) startBtn.disabled = status === 'online';
-            const stopBtn = card.querySelector('.btn-stop');
-            if (stopBtn) stopBtn.disabled = false;
-            const restartBtn = card.querySelector('.btn-restart');
-            if (restartBtn) restartBtn.disabled = false;
-        }
-
-        function toggleMachine(machineId) {
-            const section = document.querySelector(`.machine-section[data-machine="${machineId}"]`);
-            if (section) {
-                section.classList.toggle('collapsed');
-                // Persist state in localStorage
-                const collapsed = JSON.parse(localStorage.getItem('collapsedMachines') || '{}');
-                collapsed[machineId] = section.classList.contains('collapsed');
-                localStorage.setItem('collapsedMachines', JSON.stringify(collapsed));
-            }
-        }
-
-        // Restore collapsed state on load
-        (function() {
-            const collapsed = JSON.parse(localStorage.getItem('collapsedMachines') || '{}');
-            Object.keys(collapsed).forEach(machineId => {
-                if (collapsed[machineId]) {
-                    const section = document.querySelector(`.machine-section[data-machine="${machineId}"]`);
-                    if (section) section.classList.add('collapsed');
+                } catch (error) {
+                } finally {
+                    // Turn off all activity LEDs after check completes
+                    setTimeout(() => {
+                        document
+                            .querySelectorAll(".machine-activity")
+                            .forEach((led) => {
+                                led.classList.remove("active");
+                            });
+                    }, 200);
                 }
+            }
+
+            function updateCardStatus(serviceName, machineId, status) {
+                const card = document.querySelector(
+                    `[data-service="${serviceName}"][data-machine="${machineId}"]`,
+                );
+                if (!card) return;
+
+                const badge = card.querySelector(".status-badge");
+                badge.className = `status-badge status-${status}`;
+                badge.textContent = status.toUpperCase();
+                badge.dataset.status = status;
+
+                const startBtn = card.querySelector(".btn-start");
+                if (startBtn) startBtn.disabled = status === "online";
+                const stopBtn = card.querySelector(".btn-stop");
+                if (stopBtn) stopBtn.disabled = false;
+                const restartBtn = card.querySelector(".btn-restart");
+                if (restartBtn) restartBtn.disabled = false;
+            }
+
+            function toggleMachine(machineId) {
+                const section = document.querySelector(
+                    `.machine-section[data-machine="${machineId}"]`,
+                );
+                if (section) {
+                    section.classList.toggle("collapsed");
+                    // Persist state in localStorage
+                    const collapsed = JSON.parse(
+                        localStorage.getItem("collapsedMachines") || "{}",
+                    );
+                    collapsed[machineId] =
+                        section.classList.contains("collapsed");
+                    localStorage.setItem(
+                        "collapsedMachines",
+                        JSON.stringify(collapsed),
+                    );
+                }
+            }
+
+            // Restore collapsed state on load
+            (function () {
+                const collapsed = JSON.parse(
+                    localStorage.getItem("collapsedMachines") || "{}",
+                );
+                Object.keys(collapsed).forEach((machineId) => {
+                    if (collapsed[machineId]) {
+                        const section = document.querySelector(
+                            `.machine-section[data-machine="${machineId}"]`,
+                        );
+                        if (section) section.classList.add("collapsed");
+                    }
+                });
+            })();
+
+            function startAutoRefresh() {
+                refreshTimer = setInterval(refreshStatus, 5000);
+            }
+            function pauseAutoRefresh() {
+                if (refreshTimer) {
+                    clearInterval(refreshTimer);
+                    refreshTimer = null;
+                }
+            }
+            function resumeAutoRefresh() {
+                if (!refreshTimer) startAutoRefresh();
+            }
+
+            startAutoRefresh();
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape") closeLogs();
             });
-        })();
-
-        function startAutoRefresh() { refreshTimer = setInterval(refreshStatus, 5000); }
-        function pauseAutoRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
-        function resumeAutoRefresh() { if (!refreshTimer) startAutoRefresh(); }
-
-        startAutoRefresh();
-        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLogs(); });
-    </script>
-</body>
+        </script>
+    </body>
 </html>

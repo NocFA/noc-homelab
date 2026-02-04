@@ -109,6 +109,16 @@
         "~/Library/Logs/noc-homelab/beads-ui.error.log"
       ],
       "description": "Beads Issue Tracker Dashboard"
+    },
+    "glances": {
+      "name": "Glances",
+      "launchd": "com.noc.glances",
+      "port": 61999,
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/glances.log",
+        "~/Library/Logs/noc-homelab/glances.error.log"
+      ],
+      "description": "System Metrics & Monitoring"
     }
   }
 }

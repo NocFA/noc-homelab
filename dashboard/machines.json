@@ -78,6 +78,15 @@
           "manager": "windows-service",
           "service_name": "Gatus",
           "process_name": "gatus"
+        },
+        "glances": {
+          "name": "Glances",
+          "port": 61999,
+          "description": "System Metrics & Monitoring",
+          "url": "http://noc-winlocal:61999",
+          "manager": "scheduled-task",
+          "task_name": "Homelab-Glances",
+          "process_name": "python"
         }
       }
     }
