@@ -532,13 +532,7 @@
                             <button
                                 class="btn btn-start"
                                 onclick="event.stopPropagation(); controlService('{{ service.name }}', 'start')"
-                                {%
-                                if
-                                service.status=""
-                                ="online"
-                                %}disabled{%
-                                endif
-                                %}
+                                {% if service.status == "online" %}disabled{% endif %}
                             >
                                 Start
                             </button>
