@@ -319,7 +319,7 @@
             </div>
             <div class="header-right">
                 <button class="save-btn" id="saveBtn" onclick="saveConfig()" disabled>Save Changes</button>
-                <button class="restart-btn" id="restartBtn" onclick="restartDashboard()" disabled>Restart Dashboard</button>
+                <button class="restart-btn" id="restartBtn" onclick="restartDashboard()">Restart Dashboard</button>
             </div>
         </div>
         <div class="main-content">
@@ -370,8 +370,10 @@
             html += '<button class="add-service-btn" onclick="addService(\'local\')">+ Add Service</button>';
             html += '</div>';
 
-            // Remote machines
+            // Remote machines (skip primary node - already shown above)
             for (const machine of config.machines) {
+                if (machine.role === 'primary') continue; // Skip noc-local duplicate
+
                 html += '<div class="machine-group">';
                 html += `<div class="machine-label">${machine.display_name || machine.id} (${machine.platform})</div>`;
                 for (const [svcId, svc] of Object.entries(machine.services || {})) {
@@ -660,7 +662,6 @@
                 showMessage('Configuration saved successfully', 'success');
                 hasChanges = false;
                 document.getElementById('saveBtn').disabled = true;
-                document.getElementById('restartBtn').disabled = false;
             } catch (error) {
                 showMessage('Failed to save configuration', 'error');
                 console.error(error);
