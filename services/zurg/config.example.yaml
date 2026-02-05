@@ -1,0 +1,37 @@
+# Zurg Configuration for Real-Debrid
+# Windows Homelab Server
+zurg: v1
+
+token: CHANGE_ME_REALDEBRID_TOKEN
+
+# Zurg settings
+host: "0.0.0.0"
+port: 9999
+
+# Check for RD library changes every 10 seconds
+check_for_changes_every_secs: 10
+
+# Auto-repair broken torrents
+enable_repair: true
+auto_delete_rar_torrents: true
+
+# Network buffer for streaming (128KB for 4K content)
+network_buffer_size: 131072
+
+# Library update hook - runs FileBot + triggers Emby/Plex scan
+on_library_update: cmd /c "C:\Users\noc\homelab\scripts\windows\library-update.cmd"
+
+# Directory organization - using correct filter syntax
+directories:
+  shows:
+    group: media
+    group_order: 10
+    filters:
+      - has_episodes: true
+
+  movies:
+    group: media
+    group_order: 20
+    only_show_the_biggest_file: true
+    filters:
+      - regex: /.*/

@@ -87,20 +87,18 @@ services/*/.env
 services/gatus/config.yaml
 services/gatus/config-winlocal.yaml
 
+# Zurg config and binary (contains Real-Debrid token)
+services/zurg/config.yaml
+services/zurg/zurg.exe
+
+# Windows scripts with API keys
+scripts/windows/library-update.ps1
+
 # Agent config (machine-specific)
 agent/config.yaml
 
-# Windows-specific sensitive configs
-windows/services/*/config.yml
-windows/services/*/config.yaml
-windows/scripts/library-update.ps1
-windows/services/zurg/data/
-windows/cache/
-windows/logs/
-
-# Allow example configs
-!windows/services/*/config.example.yml
-!windows/scripts/library-update.example.ps1
+# Media symlinks directory (runtime)
+media/
 
 # AI/development tooling
 .beads/
