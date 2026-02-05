@@ -88,6 +88,7 @@ services/gatus/config.yaml
 services/gatus/config-winlocal.yaml
 
 # Zurg config and binary (contains Real-Debrid token)
+services/zurg/config.yml
 services/zurg/config.yaml
 services/zurg/zurg.exe
 
