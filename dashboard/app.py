@@ -8,6 +8,8 @@ import time
 import json
 import re
 import shutil
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__, template_folder='.')
 
@@ -23,9 +25,13 @@ _remote_batch_ttl = 15  # seconds
 _reachability_cache = {}
 _reachability_ttl = 15  # seconds
 
-# Full API status cache (short TTL to absorb rapid polling)
+# Full API status cache (populated by background thread)
 _api_status_cache = {'data': None, 'timestamp': 0}
 _api_status_ttl = 5  # seconds
+
+# Glances stats cache (longer TTL, refreshed in background)
+_glances_cache = {}
+_glances_ttl = 30  # seconds
 
 # Validation functions for settings editor
 def validate_port(port):
@@ -306,7 +312,7 @@ def get_remote_uptime_secs(machine):
     batch = _refresh_remote_batch(machine)
     return batch.get('uptime_secs')
 
-def get_glances_stats(host, port=61999, timeout=5):
+def get_glances_stats(host, port=61999, timeout=2):
     """Fetch memory and battery stats from Glances API"""
     try:
         # Get memory stats
@@ -331,6 +337,16 @@ def get_glances_stats(host, port=61999, timeout=5):
         }
     except Exception:
         return {'memory_percent': None, 'battery_percent': None}
+
+def get_glances_stats_cached(host, port=61999):
+    """Get Glances stats with caching (30s TTL)"""
+    now = time.time()
+    cached = _glances_cache.get(host)
+    if cached and (now - cached['timestamp']) < _glances_ttl:
+        return cached['data']
+    data = get_glances_stats(host, port)
+    _glances_cache[host] = {'data': data, 'timestamp': now}
+    return data
 
 # Load services from services.json or fall back to hardcoded config
 _loaded_services = load_services_config()
@@ -571,42 +587,25 @@ def get_service_log(service_key):
 
 @app.route('/')
 def index():
+    # Use cached status from background thread (instant, no blocking)
+    status_data = _build_status()
+    local_status = status_data.get('noc-local', {})
+
     services_list = []
     for key, service in SERVICES.items():
-        is_online = check_service_running(key, service)
+        is_online = local_status.get(key, False)
         status_str = 'online' if is_online else 'offline'
-        
-        # Special handling for display metadata
-        if key == 'tailscale':
-            import subprocess as sp
-            webclient_url = 'http://noc-local:5252'
-            try:
-                # Get webclient URL if available
-                ts_result = sp.run(['/opt/homebrew/bin/python3', '/Users/noc/noc-homelab/scripts/tailscale_manager.py', 'summary'],
-                                  capture_output=True, text=True)
-                if ts_result.returncode == 0:
-                    import json
-                    ts_data = json.loads(ts_result.stdout)
-                    webclient_url = ts_data.get('webclient_url', 'http://noc-local:5252')
-            except:
-                pass
 
+        if key == 'tailscale':
             services_list.append({
                 'name': service['name'],
                 'port': '5252 (WebClient)',
                 'status': status_str,
-                'url': webclient_url,
+                'url': 'http://noc-local:5252',
                 'description': 'VPN & Mesh Network',
                 'remote': False
             })
         elif key == 'teamspeak':
-            # Dynamically get WAN IP if configured
-            if service.get('use_wan_ip'):
-                wan_ip = get_public_ip()
-                server_address = f"{wan_ip}:{service['port']}" if wan_ip else f"noc-local:{service['port']}"
-            else:
-                server_address = f"noc-local:{service['port']}"
-
             services_list.append({
                 'name': service['name'],
                 'port': f"{service['port']} (Voice)",
@@ -618,7 +617,6 @@ def index():
         else:
             port_display = service.get('port', '--')
             url = f"http://noc-local:{service['port']}" if service.get('port') else "#"
-            
             services_list.append({
                 'name': service['name'],
                 'port': port_display,
@@ -627,14 +625,10 @@ def index():
                 'description': service.get('description', ''),
                 'remote': False
             })
-            
-    # Build machine groups for template
-    local_uptime_secs = get_system_uptime_secs()
-    local_uptime = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
-    uptime_values = [local_uptime_secs] if local_uptime_secs else []
 
-    # Get Glances stats for local machine
-    local_glances = get_glances_stats('localhost')
+    # Build machine groups from cached data
+    local_uptime = local_status.get('_uptime', '--')
+    local_glances = get_glances_stats_cached('localhost')
 
     machine_groups = [
         {
@@ -649,16 +643,16 @@ def index():
         }
     ]
 
-    # Add remote machines
+    # Add remote machines from cached data
     for machine in MACHINES:
         if machine.get('role') == 'agent':
-            hostname = machine['hostname']
-            reachable = is_remote_machine_reachable(hostname)
-            remote_status = get_remote_machine_status(machine) if reachable else {}
+            machine_id = machine['id']
+            machine_data = status_data.get(machine_id, {})
+            reachable = machine_data.get('_reachable', False)
             remote_services = []
 
             for svc_id, svc in machine.get('services', {}).items():
-                is_online = remote_status.get(svc_id, False)
+                is_online = machine_data.get(svc_id, False)
                 remote_services.append({
                     'name': svc['name'],
                     'port': svc.get('port', '--'),
@@ -669,13 +663,8 @@ def index():
                     'remote': True
                 })
 
-            remote_uptime_secs = get_remote_uptime_secs(machine) if reachable else None
-            remote_uptime = format_uptime(remote_uptime_secs) if remote_uptime_secs else '--'
-            if remote_uptime_secs:
-                uptime_values.append(remote_uptime_secs)
-
-            # Get Glances stats for remote machine
-            remote_glances = get_glances_stats(hostname) if reachable else {'memory_percent': None, 'battery_percent': None}
+            remote_uptime = machine_data.get('_uptime', '--')
+            remote_glances = get_glances_stats_cached(machine['hostname']) if reachable else {'memory_percent': None, 'battery_percent': None}
 
             machine_groups.append({
                 'id': machine['id'],
@@ -688,12 +677,7 @@ def index():
                 'battery_percent': remote_glances['battery_percent']
             })
 
-    # Compute average uptime across all nodes
-    if uptime_values:
-        avg_secs = sum(uptime_values) // len(uptime_values)
-        avg_uptime = format_uptime(avg_secs)
-    else:
-        avg_uptime = '--'
+    avg_uptime = status_data.get('_avg_uptime', '--')
 
     return render_template('template.html',
                          services=services_list,
@@ -708,47 +692,78 @@ def favicon():
 def teamspeak_admin():
     return render_template('teamspeak.html')
 
+def _check_all_local_services_parallel():
+    """Check all local services in parallel using thread pool"""
+    results = {}
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = {executor.submit(check_service_running, key, svc): key
+                   for key, svc in SERVICES.items()}
+        for future in as_completed(futures, timeout=15):
+            key = futures[future]
+            try:
+                results[key] = future.result()
+            except Exception:
+                results[key] = False
+    return results
+
+def _update_status_cache():
+    """Full status update — runs in background thread or on first request"""
+    try:
+        status = {'noc-local': _check_all_local_services_parallel()}
+
+        # Local uptime
+        local_uptime_secs = get_system_uptime_secs()
+        status['noc-local']['_uptime'] = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
+        uptime_values = [local_uptime_secs] if local_uptime_secs else []
+
+        # Remote machines
+        for machine in MACHINES:
+            if machine.get('role') == 'agent':
+                machine_id = machine['id']
+                reachable = is_remote_machine_reachable(machine['hostname'])
+                if reachable:
+                    status[machine_id] = get_remote_machine_status(machine)
+                    remote_secs = get_remote_uptime_secs(machine)
+                    status[machine_id]['_uptime'] = format_uptime(remote_secs) if remote_secs else '--'
+                    if remote_secs:
+                        uptime_values.append(remote_secs)
+                else:
+                    status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
+                    status[machine_id]['_uptime'] = '--'
+                status[machine_id]['_reachable'] = reachable
+
+        # Average uptime
+        if uptime_values:
+            avg_secs = sum(uptime_values) // len(uptime_values)
+            status['_avg_uptime'] = format_uptime(avg_secs)
+        else:
+            status['_avg_uptime'] = '--'
+
+        # Refresh Glances caches while we're at it
+        get_glances_stats_cached('localhost')
+        for machine in MACHINES:
+            if machine.get('role') == 'agent':
+                hostname = machine['hostname']
+                if is_remote_machine_reachable(hostname):
+                    get_glances_stats_cached(hostname)
+
+        _api_status_cache['data'] = status
+        _api_status_cache['timestamp'] = time.time()
+    except Exception as e:
+        app.logger.error(f"Status update failed: {e}")
+
+def _bg_status_loop():
+    """Background thread that keeps status cache fresh"""
+    while True:
+        _update_status_cache()
+        time.sleep(10)
+
 def _build_status():
-    """Build full status dict (cached to absorb rapid polling)"""
-    now = time.time()
-    if _api_status_cache['data'] and (now - _api_status_cache['timestamp']) < _api_status_ttl:
-        return _api_status_cache['data']
-
-    status = {'noc-local': {}}
-    for key, service in SERVICES.items():
-        status['noc-local'][key] = check_service_running(key, service)
-
-    # Local uptime
-    local_uptime_secs = get_system_uptime_secs()
-    status['noc-local']['_uptime'] = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
-    uptime_values = [local_uptime_secs] if local_uptime_secs else []
-
-    # Include remote machine status
-    for machine in MACHINES:
-        if machine.get('role') == 'agent':
-            machine_id = machine['id']
-            reachable = is_remote_machine_reachable(machine['hostname'])
-            if reachable:
-                status[machine_id] = get_remote_machine_status(machine)
-                remote_secs = get_remote_uptime_secs(machine)
-                status[machine_id]['_uptime'] = format_uptime(remote_secs) if remote_secs else '--'
-                if remote_secs:
-                    uptime_values.append(remote_secs)
-            else:
-                status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
-                status[machine_id]['_uptime'] = '--'
-            status[machine_id]['_reachable'] = reachable
-
-    # Average uptime
-    if uptime_values:
-        avg_secs = sum(uptime_values) // len(uptime_values)
-        status['_avg_uptime'] = format_uptime(avg_secs)
-    else:
-        status['_avg_uptime'] = '--'
-
-    _api_status_cache['data'] = status
-    _api_status_cache['timestamp'] = now
-    return status
+    """Return cached status (populated by background thread)"""
+    if _api_status_cache['data'] is None:
+        # First request before background thread has populated cache
+        _update_status_cache()
+    return _api_status_cache['data'] or {}
 
 @app.route('/api/status')
 def get_status():
@@ -1232,5 +1247,9 @@ def restart_dashboard():
 
     return jsonify({'success': True, 'message': 'Restarting...'})
 
+# Start background status updater thread
+_status_thread = threading.Thread(target=_bg_status_loop, daemon=True)
+_status_thread.start()
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=False)
+    app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)

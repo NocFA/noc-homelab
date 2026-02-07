@@ -700,6 +700,8 @@
                 ts3audiobot: "TS3AudioBot",
                 syncthing: "Syncthing",
                 voiceseq: "VoiceSeq",
+                "beads-ui": "Beads UI",
+                glances: "Glances",
             };
             const remoteNameMap = {
                 emby: "Emby",
@@ -709,6 +711,7 @@
                 parsec: "Parsec",
                 jellyfin: "Jellyfin",
                 gatus: "Gatus",
+                glances: "Glances",
             };
 
             async function refreshStatus() {
@@ -720,13 +723,17 @@
                     });
 
                 try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
                     const response = await fetch(
                         `/api/status?t=${Date.now()}`,
                         {
                             cache: "no-store",
                             headers: { "Cache-Control": "no-cache" },
+                            signal: controller.signal,
                         },
                     );
+                    clearTimeout(timeoutId);
                     if (!response.ok) return;
                     const statusData = await response.json();
 
