@@ -1,0 +1,6 @@
+# Dashboard reverse proxy — allows accessing noc-local:80 without specifying :8080
+# Caddy runs as a LaunchDaemon (root) since port 80 is privileged on macOS
+
+:80 {
+	reverse_proxy localhost:8080
+}
