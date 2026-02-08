@@ -34,11 +34,11 @@
         },
         "glances": {
           "description": "System Metrics & Monitoring",
-          "manager": "scheduled-task",
+          "manager": "windows-service",
           "name": "Glances",
           "port": 61999,
-          "process_name": "python",
-          "task_name": "Homelab-Glances",
+          "process_name": "glances",
+          "service_name": "Glances",
           "url": "http://noc-winlocal:61999"
         },
         "jellyfin": {

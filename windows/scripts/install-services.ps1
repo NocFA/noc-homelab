@@ -70,12 +70,32 @@ $RcloneArgs = @(
 & $NssmPath set rclone-zurg AppRotateFiles 1
 & $NssmPath set rclone-zurg AppRotateBytes 10485760
 
+Write-Host "Installing Glances service..." -ForegroundColor Cyan
+
+$GlancesPath = "$env:USERPROFILE\AppData\Local\Programs\Python\Python312\Scripts\glances.exe"
+
+# Remove existing service if present
+& $NssmPath stop Glances 2>$null
+& $NssmPath remove Glances confirm 2>$null
+
+# Install Glances service
+& $NssmPath install Glances $GlancesPath
+& $NssmPath set Glances AppParameters "-w -p 61999"
+& $NssmPath set Glances DisplayName "Glances System Monitor"
+& $NssmPath set Glances Description "System monitoring with web API on port 61999"
+& $NssmPath set Glances Start SERVICE_AUTO_START
+& $NssmPath set Glances AppStdout "$LogDir\glances-service.log"
+& $NssmPath set Glances AppStderr "$LogDir\glances-service.log"
+& $NssmPath set Glances AppRotateFiles 1
+& $NssmPath set Glances AppRotateBytes 10485760
+
 Write-Host "Starting services..." -ForegroundColor Cyan
 
 # Start services
 & $NssmPath start zurg
 Start-Sleep -Seconds 3
 & $NssmPath start rclone-zurg
+& $NssmPath start Glances
 
 Write-Host ""
 Write-Host "Services installed successfully!" -ForegroundColor Green
@@ -83,6 +103,7 @@ Write-Host ""
 Write-Host "Service Status:" -ForegroundColor Yellow
 & $NssmPath status zurg
 & $NssmPath status rclone-zurg
+& $NssmPath status Glances
 Write-Host ""
 Write-Host "The Z: drive should now be available with your Real-Debrid content."
 Write-Host "Add Z:\__all__ as a library path in Emby to access your media."
