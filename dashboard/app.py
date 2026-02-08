@@ -312,7 +312,7 @@ def get_remote_uptime_secs(machine):
     batch = _refresh_remote_batch(machine)
     return batch.get('uptime_secs')
 
-def get_glances_stats(host, port=61999, timeout=2):
+def get_glances_stats(host, port=61999, timeout=5):
     """Fetch memory and battery stats from Glances API"""
     try:
         # Get memory stats
@@ -350,87 +350,7 @@ def get_glances_stats_cached(host, port=61999):
 
 # Load services from services.json or fall back to hardcoded config
 _loaded_services = load_services_config()
-
-SERVICES = _loaded_services if _loaded_services else {
-    'copyparty': {
-        'name': 'Copyparty',
-        'launchd': 'com.noc.copyparty',
-        'port': 8081,
-        'log_paths': ['~/Library/Logs/noc-homelab/copyparty.log', '~/Library/Logs/noc-homelab/copyparty.error.log']
-    },
-    'maloja': {
-        'name': 'Maloja',
-        'launchd': 'com.maloja.service',
-        'port': 42010,
-        'log_paths': ['~/Library/Logs/noc-homelab/maloja.log', '~/Library/Logs/noc-homelab/maloja.error.log', '~/.local/share/maloja/logs/sqldb.log']
-    },
-    'multi-scrobbler': {
-        'name': 'Multi-Scrobbler',
-        'launchd': 'com.multiscrobbler.service',
-        'port': 9078,
-        'log_paths': ['~/Library/Logs/noc-homelab/multi-scrobbler.log', '~/Library/Logs/noc-homelab/multi-scrobbler.error.log']
-    },
-    'gatus': {
-        'name': 'Gatus',
-        'launchd': 'docker:gatus',
-        'port': 3001,
-        'compose_dir': '/Users/noc/noc-homelab/services/gatus',
-        'log_paths': ['~/Library/Logs/noc-homelab/gatus.log', '~/Library/Logs/noc-homelab/gatus.error.log'],
-        'description': 'Status Page & Monitoring'
-    },
-    'tailscale': {
-        'name': 'Tailscale',
-        'launchd': 'tailscale',  # Special marker for Tailscale (managed via system)
-        'port': None,  # No single port, uses dynamic ports
-        'log_paths': ['/var/log/tailscaled.log', '~/Library/Logs/Tailscale/'],
-        'webclient_port': 5252
-    },
-    'teamspeak': {
-        'name': 'TeamSpeak',
-        'launchd': 'com.noc.teamspeak',
-        'port': 9987,  # Voice port (UDP, but we'll check TCP port 10011 for status)
-        'status_port': 10011,  # ServerQuery port for status checking
-        'log_paths': ['/Users/noc/teamspeak3-server_mac/logs/*_1.log', '~/Library/Logs/noc-homelab/teamspeak.log'],
-        'web_ports': [30033, 10080],  # File transfer and WebQuery
-        'use_wan_ip': True  # Dynamically fetch WAN IP
-    },
-    'ts3audiobot': {
-        'name': 'TS3AudioBot',
-        'launchd': 'docker:ts3audiobot',
-        'port': 58913,
-        'compose_dir': '/Users/noc/noc-homelab/services/ts3audiobot',
-        'log_paths': ['/Users/noc/noc-homelab/services/ts3audiobot/data/logs/*.log'],
-        'description': 'TeamSpeak Music Bot'
-    },
-    'nextcloud': {
-        'name': 'Nextcloud',
-        'launchd': 'docker:nextcloud',
-        'port': 9080,
-        'compose_dir': '/Users/noc/noc-homelab/services/nextcloud',
-        'log_paths': ['/Users/noc/noc-homelab/services/nextcloud/data/nextcloud.log'],
-        'description': 'Cloud Storage & Collaboration'
-    },
-    'voiceseq': {
-        'name': 'VoiceSeq',
-        'launchd': 'com.noc.voiceseq',
-        'port': 61998,
-        'log_paths': ['~/Library/Logs/noc-homelab/voiceseq.log', '~/Library/Logs/noc-homelab/voiceseq.error.log']
-    },
-    'syncthing': {
-        'name': 'Syncthing',
-        'launchd': 'homebrew.mxcl.syncthing',
-        'port': 8384,
-        'log_paths': ['~/Library/Application Support/Syncthing/syncthing.log'],
-        'description': 'File Synchronization'
-    },
-    'beads-ui': {
-        'name': 'Beads UI',
-        'launchd': 'com.noc.beads-ui',
-        'port': 3000,
-        'log_paths': ['~/Library/Logs/noc-homelab/beads-ui.log', '~/Library/Logs/noc-homelab/beads-ui.error.log'],
-        'description': 'Beads Issue Tracker Dashboard'
-    }
-}  # End of hardcoded fallback SERVICES
+SERVICES = _loaded_services if _loaded_services else {}
 
 def get_public_ip():
     """Get public IP address with caching"""
@@ -517,6 +437,9 @@ def check_service_running(service_key, service):
             pass
     elif launchd_name.startswith('orbstack:'):
         # OrbStack status - we'll treat it as running if the VM is reachable or just fallback to port
+        is_process_running = True
+    elif launchd_name.startswith('system:'):
+        # System LaunchDaemon — can't query from user domain, rely on port check
         is_process_running = True
     elif launchd_name and not launchd_name.startswith('disabled'):
         if check_launchd_service_running(launchd_name):
@@ -820,6 +743,13 @@ def control_service(action):
                 return jsonify({'success': True, 'logs': logs})
             else:
                 return jsonify({'success': False, 'message': f'{service["name"]} control is disabled (managed via Login Items)'})
+        # System LaunchDaemons (require root, can only view logs)
+        elif launchd_name.startswith('system:'):
+            if action == 'logs':
+                logs = get_service_log(service_key_lower)
+                return jsonify({'success': True, 'logs': logs})
+            else:
+                return jsonify({'success': False, 'message': f'{service["name"]} is a system daemon (requires root to control)'})
         # Special handling for Tailscale
         elif launchd_name == 'tailscale':
             if action == 'logs':

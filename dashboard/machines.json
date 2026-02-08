@@ -1,94 +1,94 @@
 {
   "machines": [
     {
-      "id": "noc-local",
-      "hostname": "noc-local",
       "display_name": "noc-local",
+      "hostname": "noc-local",
+      "id": "noc-local",
       "platform": "darwin",
       "role": "primary"
     },
     {
-      "id": "noc-winlocal",
-      "hostname": "noc-winlocal",
       "display_name": "noc-winlocal",
+      "hostname": "noc-winlocal",
+      "id": "noc-winlocal",
       "platform": "windows",
       "role": "agent",
-      "ssh_user": "noc",
       "services": {
         "emby": {
+          "description": "Media streaming server",
+          "manager": "scheduled-task",
           "name": "Emby",
           "port": 8096,
-          "description": "Media streaming server",
-          "url": "http://noc-winlocal:8096",
-          "manager": "scheduled-task",
+          "process_name": "EmbyServer",
           "task_name": "Homelab-Emby",
-          "process_name": "EmbyServer"
-        },
-        "sunshine": {
-          "name": "Sunshine",
-          "port": 47990,
-          "description": "Game streaming (Moonlight)",
-          "url": "https://noc-winlocal:47990",
-          "manager": "scheduled-task",
-          "task_name": "Homelab-Sunshine",
-          "process_name": "sunshinesvc",
-          "service_name": "ApolloService"
-        },
-        "zurg": {
-          "name": "Zurg",
-          "port": 9999,
-          "description": "Real-Debrid WebDAV",
-          "url": "http://noc-winlocal:9999",
-          "manager": "scheduled-task",
-          "task_name": "Homelab-Zurg",
-          "process_name": "zurg"
-        },
-        "rclone": {
-          "name": "Rclone Mount",
-          "port": null,
-          "description": "Zurg WebDAV mount (Z: drive)",
-          "url": null,
-          "manager": "scheduled-task",
-          "task_name": "Homelab-RcloneMount",
-          "process_name": "rclone"
-        },
-        "parsec": {
-          "name": "Parsec",
-          "port": null,
-          "description": "Remote desktop gaming",
-          "url": null,
-          "manager": "scheduled-task",
-          "task_name": "Homelab-Parsec",
-          "process_name": "parsecd"
-        },
-        "jellyfin": {
-          "name": "Jellyfin",
-          "port": 8097,
-          "description": "Media streaming server",
-          "url": "http://noc-winlocal:8097",
-          "manager": "scheduled-task",
-          "task_name": "Homelab-Jellyfin",
-          "process_name": "Jellyfin.Windows.Tray"
+          "url": "http://noc-winlocal:8096"
         },
         "gatus": {
+          "description": "Service health monitoring",
+          "manager": "windows-service",
           "name": "Gatus",
           "port": 3001,
-          "description": "Service health monitoring",
-          "url": "http://noc-winlocal:3001",
-          "manager": "windows-service",
+          "process_name": "gatus",
           "service_name": "Gatus",
-          "process_name": "gatus"
+          "url": "http://noc-winlocal:3001"
         },
         "glances": {
+          "description": "System Metrics & Monitoring",
+          "manager": "scheduled-task",
           "name": "Glances",
           "port": 61999,
-          "description": "System Metrics & Monitoring",
-          "url": "http://noc-winlocal:61999",
-          "manager": "scheduled-task",
+          "process_name": "python",
           "task_name": "Homelab-Glances",
-          "process_name": "python"
+          "url": "http://noc-winlocal:61999"
+        },
+        "jellyfin": {
+          "description": "Media streaming server",
+          "manager": "scheduled-task",
+          "name": "Jellyfin",
+          "port": 8097,
+          "process_name": "Jellyfin.Windows.Tray",
+          "task_name": "Homelab-Jellyfin",
+          "url": "http://noc-winlocal:8097"
+        },
+        "parsec": {
+          "description": "Remote desktop gaming",
+          "manager": "scheduled-task",
+          "name": "Parsec",
+          "port": null,
+          "process_name": "parsecd",
+          "task_name": "Homelab-Parsec",
+          "url": null
+        },
+        "rclone": {
+          "description": "Zurg WebDAV mount (Z: drive)",
+          "manager": "scheduled-task",
+          "name": "Rclone Mount",
+          "port": null,
+          "process_name": "rclone",
+          "task_name": "Homelab-RcloneMount",
+          "url": null
+        },
+        "sunshine": {
+          "description": "Game streaming (Moonlight)",
+          "manager": "scheduled-task",
+          "name": "Sunshine",
+          "port": 47990,
+          "process_name": "sunshinesvc",
+          "service_name": "ApolloService",
+          "task_name": "Homelab-Sunshine",
+          "url": "https://noc-winlocal:47990"
+        },
+        "zurg": {
+          "description": "Real-Debrid WebDAV",
+          "manager": "scheduled-task",
+          "name": "Zurg",
+          "port": 9999,
+          "process_name": "zurg",
+          "task_name": "Homelab-Zurg",
+          "url": "http://noc-winlocal:9999"
         }
-      }
+      },
+      "ssh_user": "noc"
     }
   ]
 }
