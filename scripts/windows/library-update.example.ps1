@@ -11,6 +11,15 @@ param(
 $LogFile = "C:\Users\noc\homelab\logs\library-update.log"
 $FileBotExe = "C:\Users\noc\Downloads\apps\FileBot_5.2.0-portable\filebot.exe"
 
+# === LOG ROTATION ===
+# Keep log file under 1MB by truncating old entries
+$MaxLogSize = 1MB
+if ((Test-Path $LogFile) -and (Get-Item $LogFile).Length -gt $MaxLogSize) {
+    # Keep last 500 lines
+    $RecentLines = Get-Content $LogFile -Tail 500
+    $RecentLines | Set-Content $LogFile -Encoding utf8
+}
+
 # === CONFIGURATION ===
 $EmbyUrl = "http://localhost:8096"
 $EmbyApiKey = "CHANGE_ME_EMBY_API_KEY"
@@ -59,12 +68,12 @@ Start-Sleep -Seconds 5
 Log "Running FileBot for movies..."
 & $FileBotExe -rename "Z:\movies" -r --action symlink --db TheMovieDB -non-strict `
     --format "C:/Users/noc/homelab/media/movies/{n} ({y})/{n} ({y})" `
-    --log warning 2>&1 | Out-File -Append -FilePath $LogFile -Encoding utf8
+    --def xattr=false --log warning 2>&1 | Out-File -Append -FilePath $LogFile -Encoding utf8
 
 Log "Running FileBot for shows..."
 & $FileBotExe -rename "Z:\shows" -r --action symlink --db TheTVDB -non-strict `
     --format "C:/Users/noc/homelab/media/shows/{n}/Season {s}/{n} - S{s00}E{e00} - {t}" `
-    --log warning 2>&1 | Out-File -Append -FilePath $LogFile -Encoding utf8
+    --def xattr=false --log warning 2>&1 | Out-File -Append -FilePath $LogFile -Encoding utf8
 
 # === EMBY SCAN ===
 if ($EmbyApiKey) {
