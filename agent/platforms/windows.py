@@ -64,6 +64,11 @@ class WindowsHandler(PlatformHandler):
         if manager == 'docker':
             container = svc_config.get('container', service_id)
             is_running = self._check_docker_container(container)
+        elif manager == 'wsl-docker':
+            distro = svc_config.get('distro', 'Debian')
+            user = svc_config.get('user', 'noc-wsl')
+            container = svc_config.get('container', service_id)
+            is_running = self._check_wsl_docker_container(distro, user, container)
         elif manager == 'nssm':
             is_running = self._check_nssm_service(service_name)
         else:  # windows-service
@@ -106,6 +111,16 @@ class WindowsHandler(PlatformHandler):
         except Exception:
             return False
 
+    def _check_wsl_docker_container(self, distro: str, user: str, container_name: str) -> bool:
+        try:
+            result = subprocess.run(
+                ['wsl', '-u', user, '-d', distro, '--', 'docker', 'ps', '--filter', f'name={container_name}', '--format', '{{.Names}}'],
+                capture_output=True, text=True, timeout=10
+            )
+            return container_name in result.stdout
+        except Exception:
+            return False
+
     def start_service(self, service_id: str, config: Dict) -> bool:
         svc_config = config.get('services', {}).get(service_id, {})
         manager = svc_config.get('manager', 'windows-service')
@@ -117,6 +132,18 @@ class WindowsHandler(PlatformHandler):
                 if compose_dir:
                     subprocess.run(['docker', 'compose', 'up', '-d'], cwd=compose_dir, check=True)
                     return True
+            elif manager == 'wsl-docker':
+                distro = svc_config.get('distro', 'Debian')
+                user = svc_config.get('user', 'noc-wsl')
+                compose_dir = svc_config.get('compose_dir', '~/stoat-chat')
+                profiles = svc_config.get('profiles', [])
+                profile_args = []
+                for p in profiles:
+                    profile_args.extend(['--profile', p])
+                
+                cmd = ['wsl', '-u', user, '-d', distro, '--', 'bash', '-c', f'cd {compose_dir} && docker compose {" ".join(profile_args)} up -d']
+                subprocess.run(cmd, check=True)
+                return True
             elif manager == 'nssm':
                 subprocess.run(['nssm', 'start', service_name], check=True)
                 return True
@@ -138,6 +165,14 @@ class WindowsHandler(PlatformHandler):
                 if compose_dir:
                     subprocess.run(['docker', 'compose', 'down'], cwd=compose_dir, check=True)
                     return True
+            elif manager == 'wsl-docker':
+                distro = svc_config.get('distro', 'Debian')
+                user = svc_config.get('user', 'noc-wsl')
+                compose_dir = svc_config.get('compose_dir', '~/stoat-chat')
+                
+                cmd = ['wsl', '-u', user, '-d', distro, '--', 'bash', '-c', f'cd {compose_dir} && docker compose stop']
+                subprocess.run(cmd, check=True)
+                return True
             elif manager == 'nssm':
                 subprocess.run(['nssm', 'stop', service_name], check=True)
                 return True

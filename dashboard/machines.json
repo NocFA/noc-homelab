@@ -86,6 +86,16 @@
           "process_name": "zurg",
           "task_name": "Homelab-Zurg",
           "url": "http://noc-winlocal:9999"
+        },
+        "stoat": {
+          "name": "Stoat Chat",
+          "port": 80,
+          "description": "Open-source chat platform",
+          "url": "https://voice.nocfa.net",
+          "manager": "process",
+          "start_cmd": "wsl -u noc-wsl -d Debian -- bash -c 'cd ~/stoat-chat && docker compose --profile voice up -d'",
+          "stop_cmd": "wsl -u noc-wsl -d Debian -- bash -c 'cd ~/stoat-chat && docker compose stop'",
+          "process_name": "wsl"
         }
       },
       "ssh_user": "noc"
