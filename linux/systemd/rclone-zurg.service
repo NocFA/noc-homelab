@@ -1,0 +1,33 @@
+[Unit]
+Description=Rclone FUSE Mount for Zurg WebDAV
+After=zurg.service
+Requires=zurg.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/mkdir -p /mnt/zurg
+ExecStart=/usr/bin/rclone mount zurg: /mnt/zurg \
+    --config /home/noc/.config/rclone/rclone.conf \
+    --allow-other \
+    --dir-cache-time 10s \
+    --vfs-cache-mode full \
+    --vfs-cache-max-age 24h \
+    --vfs-cache-max-size 50G \
+    --vfs-cache-min-free-space 5G \
+    --vfs-read-ahead 128M \
+    --vfs-read-chunk-size 4M \
+    --vfs-read-chunk-size-limit 64M \
+    --vfs-fast-fingerprint \
+    --buffer-size 64M \
+    --transfers 8 \
+    --checkers 8 \
+    --attr-timeout 1s \
+    --cache-dir /home/noc/noc-homelab/linux/cache \
+    --log-file /home/noc/noc-homelab/linux/logs/rclone-mount.log \
+    --log-level INFO
+ExecStop=/bin/fusermount -uz /mnt/zurg
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

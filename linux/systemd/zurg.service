@@ -1,0 +1,17 @@
+[Unit]
+Description=Zurg Real-Debrid WebDAV Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=SOPS_AGE_KEY_FILE=/home/noc/noc-homelab/noc-homelab-beads/homelab.agekey
+ExecStartPre=/bin/bash -c 'sops -d /home/noc/noc-homelab/linux/services/zurg/config.yml > /tmp/zurg-config.yml'
+ExecStart=/home/noc/noc-homelab/linux/services/zurg/zurg --config /tmp/zurg-config.yml
+ExecStopPost=/bin/rm -f /tmp/zurg-config.yml
+WorkingDirectory=/home/noc/noc-homelab/linux/services/zurg
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

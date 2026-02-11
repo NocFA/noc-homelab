@@ -1,69 +1,120 @@
+alerting:
+    discord:
+        webhook-url: ENC[AES256_GCM,data:XhWkr4YQnvTwvtB2HXx8d1DW+X5pd+yrrEkXR1cmJEq9jiiG1U9hCZZZAbbGJXXhLFHAgGB5ZUOPWNoTb6dh3mUKRlrILuscRs4e1FPQ4P7uxIbEQgKJcNQLw1gdkeUSMDYpF34wzPA5nl7tSswZk5eKcroInIE6,iv:kb+eORyeQkVn6eDl0+znYKNjExQs+4664ItelVtbJ9k=,tag:MO+J3VwJHp2zCqZCyerahA==,type:str]
+        title: ENC[AES256_GCM,data:3EI8sFNz1mYFUjtz,iv:ij62PI4Hd6o7pFf/rYLLbhjR1i2KqdDtVPB0enM9jmU=,tag:jHEuTNVPKIp7WQY2J9xGVA==,type:str]
+        message-content: ENC[AES256_GCM,data:GRU9S9oBqya6Qzk98sGMl6qRWDX2,iv:K9SEev5jZFB2jum7/IAGyt2D9uUN1nOQJyi/8T1t3uk=,tag:v4cridA7ih2ttjb359IKMw==,type:str]
 web:
-  port: 3001
-
+    port: ENC[AES256_GCM,data:r+6tTw==,iv:Q9KP9eJZEbVxTHk8E5JHG7ZCenwLrDWEoxP50wSGPMA=,tag:Pwh0BSfHD//Zyom6Rj2ehA==,type:int]
 endpoints:
-    # --- Media Pipeline ---
-    - name: "Zurg"
-      group: "Media"
-      url: "http://localhost:9999"
-      interval: 30s
+    - ENC[AES256_GCM,data:MALJWp6CerhVwDBXhTPv43odq8IolFQ=,iv:qCAthpjUqRpO0J+Ga2/vRb/iPbKuxMbz6mV+oedXX+M=,tag:S5GCDn7C3Dzh9mFwwchU+A==,type:comment]
+    - name: ENC[AES256_GCM,data:qiVVzQ==,iv:Z3xdXUAL876mYJTzCe8JQsRdmo5E5/fB3bIRUEy2jKE=,tag:t1eu3JuG2LN4dwRozy5s1Q==,type:str]
+      group: ENC[AES256_GCM,data:g63NR/8=,iv:SGh0oY/2nt0svGwAdIirQ9tuTwa7IugO+qktEbpf6B8=,tag:nakhXfXpfMV7NNWXvnZ1Sg==,type:str]
+      url: ENC[AES256_GCM,data:iliFRKUUL7TKIyrxFGz3a7A0SHr6,iv:/ssYDV5F1Aq5gcQ/r2zXp4GSaf5GG8sKlVfoLY4AXEc=,tag:R6rRG0nOA6Rr+D0jwUwDkw==,type:str]
+      interval: ENC[AES256_GCM,data:jfJF,iv:pZc/8f+DmuKvoSEHgVSwirXamOvYWp8XrmEmC3Yi530=,tag:Ar8KEYJampo/cAeyz7ScJw==,type:str]
       conditions:
-          - "[STATUS] == 200"
-
-    - name: "Emby"
-      group: "Media"
-      url: "http://localhost:8096"
-      interval: 30s
+        - ENC[AES256_GCM,data:yCQlI7C8NRYxjPykDXkj,iv:Yn+QW7PvjEsSpG1WQRGNI1JybtElvBN5ZJJdIXj8/8E=,tag:caHbmhBLm9E5jLnH9B66Vg==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:SPRPT1KkXg==,iv:xbHXAvYAFLiqJI5qdZRfKSH87c8iCIwWS+rL/a6bCY4=,tag:l+LnxdOGWCC0GUBbOn0Eiw==,type:str]
+          enabled: ENC[AES256_GCM,data:fdqFAQ==,iv:dB9/ShJ7rEYGVuQQKZHL30AMs3nWaxtE9l3QJKGo6r4=,tag:ogp4hGkLKJo4ZMUs0EWyzg==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:d1UQtw==,iv:sNvyJcA4npXw1MesKTGHGTESNzJ7zVfmOPI3o0QRuDQ=,tag:nlTkH4CrcFyoMxwkl9p6+Q==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:NQ==,iv:vQJ/ffFPrste4I1gWIwA86788zok9duTwzDsZwh0rss=,tag:VleC389vAT94MQQv3QufrA==,type:int]
+    - name: ENC[AES256_GCM,data:UP/RLQ==,iv:lZj0PZc0MIzDtDUVa+iHdJp3zghmKeYvP2bR3AolVBY=,tag:985OwTQQgxpdJNMxCR9qMw==,type:str]
+      group: ENC[AES256_GCM,data:jmKI1YI=,iv:zr9Du6TllDTqpI0Ei60P/GCOcray98HKgqCpEg0LvR8=,tag:AwuCxMgB5LQXYhlHCu1eOQ==,type:str]
+      url: ENC[AES256_GCM,data:0h8Maqc674iueMAD3CvcAIcQQm2H,iv:HkZYubdoLZO2XPkYBmlID6IpG+dzBk+Scsdh4gWSdL8=,tag:Htdfgf2PsQCY9ZUJy62ynQ==,type:str]
+      interval: ENC[AES256_GCM,data:7Kwp,iv:B1gSl5hy5C1EHAs+CcQNvqJvEm4bmI5XEI3ICQbi6Co=,tag:AL8fEuRbwgPu8vkDbcZwIA==,type:str]
       conditions:
-          - "[STATUS] == 200"
-
-    - name: "Jellyfin"
-      group: "Media"
-      url: "http://localhost:8097"
-      interval: 30s
+        - ENC[AES256_GCM,data:0klszrq3wD/Htxosx3Pc,iv:Oa7y8RI207osep0M3MXuiD6YN/AxGIh7yfCzuggu9fI=,tag:3wq7zVIn2+9Gt1X8Q8iWHw==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:msdd1jQFdQ==,iv:N8l/9iJgaFVt8vLmzNC8q4ocWrmNXopIDGMRHfNpp/U=,tag:25o2YeUHhInxM9xtGfCQVQ==,type:str]
+          enabled: ENC[AES256_GCM,data:LAJ6eg==,iv:anoXSr3XPvvzcO0MM/vQ4iawOJTq+QHeQZypeTkhA6U=,tag:NC1ngrknUvJ0Dxl0+UdCIA==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:FZbIqw==,iv:DsffXufVc4l2PxuqD8qHr2+95kSEQuXQptEa3dp1Kkw=,tag:aNwXydxnnOocDdSgZr3qYA==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:lw==,iv:ha+3+3Hl7yDrUAKDtuRdKmEKiD1I/jMA4fgG4/6TnDE=,tag:hcSLBmCy/athsdEyt3vx6A==,type:int]
+    - name: ENC[AES256_GCM,data:DSg/hPamMQo=,iv:4UFnO63Bo+aXkuwJ9OBOj5TlydhAAt0dOfhcZ4MhD4w=,tag:bV4aTDyw/VhilTC9Yt0HYw==,type:str]
+      group: ENC[AES256_GCM,data:tEqEqOY=,iv:dNsBGahcPPyvJOBCDFPwLa3XF23c1oLYjRXAKPz7dZ8=,tag:pXuBu01TSmSquxZYVs067w==,type:str]
+      url: ENC[AES256_GCM,data:Uj8W60nfARdDYhZmsuRUHBZu2zGB,iv:U4DwjoeNIHxTryXlM1FRgr8p4ddaQU+bL8DveKAti6c=,tag:zVDLXRBXOUwrjOCYHbIkTQ==,type:str]
+      interval: ENC[AES256_GCM,data:P2ae,iv:uFpYxidbCsC84iuGOw/Q0Nx1N/G0KL0gJBKY3Wn2mx4=,tag:tK7sKx5enwAfWedBeZ2dtw==,type:str]
       conditions:
-          - "[STATUS] == 200"
-
-    # --- Core ---
-    - name: "Internet"
-      group: "Core"
-      url: "https://1.1.1.1"
-      interval: 10s
+        - ENC[AES256_GCM,data:axoH6CCLNCpCpGSglmzf,iv:wYfZI3LIMAmHH1M49W4EJ6oohoZ3/b384YgtZvvNT8k=,tag:hbYSH3jpEnO50pCQSGxGhw==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:qfiWiZRYmA==,iv:PextlLe490wYB7HRAVGeYCVvEjKjWMVnYpACBOqHIr4=,tag:NHC/B2IYwzmL8DnrkIYF9w==,type:str]
+          enabled: ENC[AES256_GCM,data:jKl9mg==,iv:xT15LMrMGEI3RsiYjxffgD5ZWOv2sebKdAMA35ChVMo=,tag:rEOYuH0QN+cEhRlKGhpRpQ==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:ZxcodQ==,iv:jRGUiYgvgFljafF0B5LlHlLBc6xxlnmWxt9hFc7/WIE=,tag:yinnaPMa06kGd7ZoLES3Ow==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:bw==,iv:HyUgQ1pxKw+SdKl71LTqDMtUSrCaDRpKvYZ1c9j/pQA=,tag:Hi6Nire1P7i82mGx1ts3+g==,type:int]
+    - ENC[AES256_GCM,data:AKaWXocURNO3TzbRGw==,iv:UlyXCbIYApqRqVo9WfzwzULRh8lVJm9cCI1NV3HfPaA=,tag:4gS0bVQSn44P+ku+jCi7bg==,type:comment]
+    - name: ENC[AES256_GCM,data:x3WlHvXoLQk=,iv:Igwhf0VzqKBH0l8d4hJywZ5NJjYKBhvOFsTI1OQF5Dw=,tag:lGr1gWsATN08Vg/I3ythuQ==,type:str]
+      group: ENC[AES256_GCM,data:lLqLpA==,iv:vbkQvA/kID8NXR8xP3LP7+zErKZx8TGuYhGoT1pkCJQ=,tag:FppuLUeaWcnCcs/oO6P2NQ==,type:str]
+      url: ENC[AES256_GCM,data:W0d0twwksXCy2bP4g2X7,iv:+rXQhQqsDWlDbI+9w61iKq6sBsAbYu+rBBlV8vKzkzY=,tag:OBLOmIQgOCpbBSO1elzDxQ==,type:str]
+      interval: ENC[AES256_GCM,data:J5zs,iv:HvFY287jtqHaURIPVNGvx4MUhcFgULO+0v+gI5jVY34=,tag:0dvMMLXUNUhkiQDAsZ4fLg==,type:str]
       conditions:
-          - "[STATUS] == 200"
-
-    - name: "Tailscale"
-      group: "Core"
-      url: "icmp://100.100.100.100"
-      interval: 30s
+        - ENC[AES256_GCM,data:uD7MiEe1XQ3F0hiDDT2R,iv:NCNiCXlh45jckwXyCvGTRQCVoArBsFiHRHtf8F2rFZM=,tag:w3WM0L/G5sZIxbaSdWYPow==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:nDxikM5PeQ==,iv:K4UvVsJPk4zLi7q5I3R8iv+sPDWqIo8JX/Cd+Vr9O1k=,tag:EB4Eu4ch719jemKbHEGlcw==,type:str]
+          enabled: ENC[AES256_GCM,data:asMJYg==,iv:LznupQmYoSlgrj3CDR8aYcP4L0y0yzpfZLAT1juLXHc=,tag:oO81p4J74+fsT+C2Cco5fA==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:DeL8KA==,iv:NCh2ThHYP2/aeRtwoMkeUaGHcP8doGF01Ed8dVNTyWk=,tag:KjfrhH7SQq6zKwnR28nAKw==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:Pw==,iv:J59Z662dVwLm7Ao3Sggxvq9NLzJtaRdNQp/6nO+dKZA=,tag:MLe9k7zt3TaPpoirpZstHQ==,type:int]
+    - name: ENC[AES256_GCM,data:jbzw6SMAr3vf,iv:XOAcBGi70aoYDLeYMDYXD5zxjqgVphCfwnq7EuAanTs=,tag:/JZ8E0/8N9bcH4cKafcrlQ==,type:str]
+      group: ENC[AES256_GCM,data:DM5AZg==,iv:9W4Bl2ghvVVvkRFv2s+fGFr/Au4YQDBOZLS1T/rpR/E=,tag:7rcXMXlXY7JLRBRMFDTO1A==,type:str]
+      url: ENC[AES256_GCM,data:Kygvh9qp6tVJVldPMi5INle0c7LZIg==,iv:0y6jSF4Xg++ffKEEh9QltNMcLkKHScnstmeT58pd7LY=,tag:RozMbzkJeWVju86xuStwfQ==,type:str]
+      interval: ENC[AES256_GCM,data:NIOX,iv:E6gAzRVicKOJaHBQ6kgrK/xYe2UeLaxSq2h0lqkuF1c=,tag:vklr9Cq1fVjgIM6UO2+B0A==,type:str]
       conditions:
-          - "[CONNECTED] == true"
-
-    # --- Monitoring ---
-    - name: "Glances"
-      group: "Monitoring"
-      url: "http://localhost:61999/api/4/cpu"
-      interval: 30s
+        - ENC[AES256_GCM,data:livBT2qr9fy6/5K90RQTOoZC4w==,iv:5x1iKjcDLdjQf2C3HeW7+Lj+ry1ZexII+gljE64idYc=,tag:1HEI5kcW4ExTdUnS5jH2/Q==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:H1ZXZQOluQ==,iv:odNZMBSGkjEFulMn/s5nEPBWDd3Atf3ujQbg4602zz8=,tag:eMFsK63xX7ZigS7FfYuxhg==,type:str]
+          enabled: ENC[AES256_GCM,data:gvA21A==,iv:e9M6qVLXspqQiBgqOYhl6lZq0Qu3oxDMu71ayZ/j4sM=,tag:Sv6drph2ByDKwDVTnEZIUg==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:fnXLCw==,iv:HIgSyQUiH5/KgT5n7i6+xJOl9JNU2622hJW4922zsws=,tag:L/bTR1/h4vZHmU8ocAEg4Q==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:sg==,iv:sifSdRgyw6aZrHJSnROm7HMKOItrBQa4t11CqG+bx44=,tag:ivmCnSDPBrc2rjHYOtR3Hw==,type:int]
+    - ENC[AES256_GCM,data:5lpU1yNyAn1wjzmSh7JB8ZzA6Q==,iv:Xrik0Y826+QE504VNIpMzkMaydJYtWHMcSTqS1UQZQQ=,tag:25dMzvvM8Db2EsXDDziMbg==,type:comment]
+    - name: ENC[AES256_GCM,data:pQ9Fn0OF6Q==,iv:HUS1M+xuqP4GaD/xCS26GDL6WwntM+VTQLDnNBA2bnc=,tag:6w0m4QNhGZQWMg/Lmfv0Ug==,type:str]
+      group: ENC[AES256_GCM,data:8ckcNkQJk114lg==,iv:NagkXxgdcooEaSGrKIxQZvG3LNFmGEZJ1kiDq9fn4OU=,tag:jBu9Wqw4o7LyZTTsKMdqBw==,type:str]
+      url: ENC[AES256_GCM,data:sb4WAZi8W6IDd6yg7JvjcDxSGeRweVGG8W+wduM+FMw=,iv:XkiorOknaeilTzmUbayPsERFA2QGUISNcomE3tD2lcs=,tag:xb+gQHINF68WiqpTaxQKrQ==,type:str]
+      interval: ENC[AES256_GCM,data:F4n4,iv:U0nhfpkm5rhc1aROtHP224ytlwVCyA0Dw4qeRFynaMM=,tag:HTbVHEqTC7AlQWVC6T5fPw==,type:str]
       conditions:
-          - "[STATUS] == 200"
-
-    - name: "Sunshine"
-      group: "Remote"
-      url: "https://localhost:47990"
+        - ENC[AES256_GCM,data:/rsdL7DF7nHgrpaeeL/d,iv:UsIV8qROZHP5eo/XH1hS4PGzI/uctTJzyrmMkIzlxBw=,tag:JTaUlQQZhmLN+ZjhSg1Y1w==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:zm72gm6bvg==,iv:zkNuQ2V3XRoxtryPCB4v/VbXoDUGxyBwCp/jcT1OO2g=,tag:jnBaQZ6XGLj/nxUVX/mXvg==,type:str]
+          enabled: ENC[AES256_GCM,data:kfBG+w==,iv:hSp1DBFdatm2sr1e471PnjDBFo080Dpubt7Aqwg8rZg=,tag:e2slinrtZ+jTGwxJXJU5Sw==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:wSSQvA==,iv:5+IALpPuaf0Ktdax8a+eFT5j2r8e2RI7k3pW8eMplns=,tag:wRiDcgzXGIpDyGdpmDMkoQ==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:ZA==,iv:WJv9pRowjDGAWIXbRGcyed2Vtyi1amp9L8p7++3aav0=,tag:KP502Phfb2OtAWJbQzTTLg==,type:int]
+    - name: ENC[AES256_GCM,data:ngdchz4cbk0=,iv:HEwSQrfGzTH8GE5NYs141Sp5Ck9lL+CsDqVuGAa8DaE=,tag:HD8jidNjL94neyxAmXk5LA==,type:str]
+      group: ENC[AES256_GCM,data:IToYs60o,iv:hh4NyKXzlGUrfCRiGbqjOrYNAEBBjhzlNfepbQxx02E=,tag:S76BuTkEweD01QW8eiBDPA==,type:str]
+      url: ENC[AES256_GCM,data:HCnOQ9ddYlA3uaA/pOLvqTqIirr/Ubk=,iv:TfV5hqmMZnwCRHAYIIoyAfpo3YricbQYmRCkODJ99Ds=,tag:QP32nE+i+Pcc3vOhIzdZJQ==,type:str]
       client:
-          insecure: true
-      interval: 30s
+        insecure: ENC[AES256_GCM,data:skCi4A==,iv:9P5KWARdzsG1BGfpbxFW1FlxEVj86U6o1zLlLIPbpeA=,tag:R/gi2KGwn/Et+uvGDCpDQA==,type:bool]
+      interval: ENC[AES256_GCM,data:AFAU,iv:VI6o3xv9D6PRmOYmsOSgLsX+IPCmQJyDBAR23qfz3V4=,tag:Is7Kc249o80lslJjPjfqng==,type:str]
       conditions:
-          - "[STATUS] == any(200, 401)"
-
-    # --- Cross-Check ---
-    - name: "noc-local Gatus"
-      group: "Cross-Check"
-      url: "http://192.168.1.129:3001"
-      interval: 30s
+        - ENC[AES256_GCM,data:0luBS0DOP5x7ulDwE3VtdOBah5dbwZf64Q==,iv:i1Gz7JhGSO9/CqLZKs4i8HSKISbDhaJyn6Hk3mPYIQc=,tag:lJrc8i7M/EkYZ75jVhm3iQ==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:SZe7ABLGlA==,iv:05TufnxlCCcEz4heQLyt6GOuCZezNF0zXKr7Y70PVqQ=,tag:jHX15GCb3UJqmEWrYZ5msw==,type:str]
+          enabled: ENC[AES256_GCM,data:qAf18Q==,iv:0shP+ouN/pK5MUUSBgWoFet0ng7wpQBTntg6YvZLAyk=,tag:0OQepVmrA83JDy/xLTkInw==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:VQt4EQ==,iv:LPRgPGcHT9iQbLCs3ySHeJ6W1MLMj5UBa9381Jj91S4=,tag:5hWPPdfad8Iqv389HgbKEQ==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:yw==,iv:1EfVkgt3ktLGi2lZL8Fhhl1kKLpMIjlTDUdv229MFaA=,tag:fNMps+vXfjnFpsDYfRET7Q==,type:int]
+    - ENC[AES256_GCM,data:29kwpZHCYS34ZRLO7FIc5dDjzjI=,iv:udr8jHJGWiacc7c5iz65KsHfs3WLvAxf8tEPeNATxOY=,tag:SmSZ6K0ArAyRsMvuOE9z5w==,type:comment]
+    - name: ENC[AES256_GCM,data:VoNioH6+AtzvhtcLmCLe,iv:ozhdYjcegcI7mT9SdfYe6BZ9XerBuzMG87DEPet8EBQ=,tag:666mgl4ciGGQy43dhG15rg==,type:str]
+      group: ENC[AES256_GCM,data:WY2aq0GvctMwjoE=,iv:vvJpsk/OzPYVLp0lADLBFSCaA9viGEC61zAB5Tr6I30=,tag:AI+piKEkDJczZ+PBSsCaCg==,type:str]
+      url: ENC[AES256_GCM,data:8yjWq/s9nXr3TDU1ar4HWF/j2ymLl9/Xqg==,iv:YqSG2pxj+IG4db4cwXY1C+praTim3gx4e757lLU2C8U=,tag:/ER3KxTvtGvwDunWTke1Wg==,type:str]
+      interval: ENC[AES256_GCM,data:IpMH,iv:qN13ijKwTMYz0+ymYT0/hdxKVFx197N+mJkO7AGHCfY=,tag:uq/f4W+s8dHXH8TZBU2tww==,type:str]
       conditions:
-          - "[STATUS] == 200"
-
+        - ENC[AES256_GCM,data:dJToaHwv2PgVq436Tq6t,iv:ABAPPIefFVmAB/qWv5ugPe1NZsHvWiJyWWneJqhazBg=,tag:NixNCqvbm4Faz7mL0DXR5g==,type:str]
+      alerts:
+        - type: ENC[AES256_GCM,data:tZTdNTkuZA==,iv:SGj/KtHtw24diwwiJYSkX47YUSgUWGsGW/bhDdRZzMY=,tag:hOGo9VXMAPR//M4cLwe6QQ==,type:str]
+          enabled: ENC[AES256_GCM,data:O1KO/A==,iv:1qED9lzrIlf3voU4d5Av5Ss67Xmhlw83gkejhAMPWlc=,tag:4rAiFWkzT6qgQxXTuvLz7Q==,type:bool]
+          send-on-resolved: ENC[AES256_GCM,data:wM/gew==,iv:KhKGm5j3CkYgkOyyXGfkwpMdlg/E+siLzaXa4VIVcXY=,tag:kNjPKOG6164gdJZx8+geFw==,type:bool]
+          failure-threshold: ENC[AES256_GCM,data:xA==,iv:vnpsD9p2INSVCHToOc3fGEVREbPEEMcGyfX2T4AGLQw=,tag:+H9LVUOHhvcSxj+byoGOBQ==,type:int]
 ui:
-    title: "noc-tux Status"
-    header: "NOCNET - noc-tux"
+    title: ENC[AES256_GCM,data:oUyz+wrsMzcQJWgiEXk=,iv:RPGOaUF9OgpwBWeO/gPcvzSY/HeCMiiHCVg6UFQgikU=,tag:PvmPs2ZTKCSYwH9v1RwDag==,type:str]
+    header: ENC[AES256_GCM,data:0qUnXi7f5aubYpX91k07kw==,iv:qevBUSoVknbIasI7ajvvAJDkBbtIqDdL5FI9rulW3Es=,tag:qZVjnIieoNBIFliRcGIAsQ==,type:str]
+sops:
+    age:
+        - recipient: age1jdd07e42w6hgjncpsz0uxe0nruqgpexsl8nhh2vauwn9w0r53paqm9s87h
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBvVExMcDFmdm5VOTZzSndI
+            UTlIQXlRRjVHMVBQdTB1ZUFHVElJSjEvZkI4Ck4rcDRRZjVtRUE3STUya1ZOdXpN
+            TVA3VVZraFFHLzhBTFRIOUJkYkxIS0kKLS0tIDFBTm9TZmpGYThjalNvdnJYd0lS
+            SFhuelRRUEQyRWQ5cVl1YzhiQWdYQW8Kf1e59rrumU6oyF3vJLBuVeh8Pkaru1cz
+            kvCOknh0TYJ6D80HQrfgUVJtTakhoxL0uJt0/OftTosk4nQLdzVSmQ==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2026-02-11T16:06:20Z"
+    mac: ENC[AES256_GCM,data:A1N4NzB1s1dgU6rRiB99+HcFYzpaMrB/eMKOVCY6Vo8X88GqDmI1CD7HCBZDUFHbRKqcStamsMAFE18SyDH7vdLPTFFCOiQ2zTdvuaQDtAvc9J7IIAj01Wl6defdDIUGhh2gsCQv8JQ0PQMmIpNYpggkqAYvu2xqn34+KvywsLM=,iv:RS02/Rob+ruyf9HVmzFMwXTDmr+bcrd5+KyKS0m1PnE=,tag:jJ6AdY+zuURn3H5qVIwqqQ==,type:str]
+    unencrypted_suffix: _unencrypted
+    version: 3.11.0
