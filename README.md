@@ -5,7 +5,7 @@
 <h1 align="center">NOC Homelab</h1>
 
 <p align="center">
-  <em>A distributed homelab spanning macOS and Windows machines, connected via Tailscale mesh VPN</em>
+  <em>A distributed homelab spanning macOS and Linux machines, connected via Tailscale mesh VPN</em>
 </p>
 
 <p align="center">
@@ -62,7 +62,7 @@ Real-Debrid Cloud → Zurg WebDAV → Rclone Mount → FileBot Auto-Organize →
 | Machine | Platform | Role | Services |
 |---------|----------|------|----------|
 | **noc-local** | macOS | Primary | Dashboard, media scrobbling, file sharing, TeamSpeak |
-| **noc-winlocal** | Windows | Media | Emby, Jellyfin, Sunshine, Real-Debrid streaming |
+| **noc-tux** | Linux | Media | Emby, Jellyfin, Sunshine, Real-Debrid streaming |
 
 ## 🏗️ Architecture
 
@@ -75,12 +75,12 @@ Real-Debrid Cloud → Zurg WebDAV → Rclone Mount → FileBot Auto-Organize →
             │                                                       │
             ▼                                                       ▼
   ┌───────────────────┐                               ┌───────────────────┐
-  │    noc-local      │                               │   noc-winlocal    │
-  │     (macOS)       │         SSH Control           │    (Windows)      │
+  │    noc-local      │                               │     noc-tux        │
+  │     (macOS)       │        Agent API              │     (Linux)       │
   │                   │◄─────────────────────────────►│                   │
   │  ┌─────────────┐  │                               │  ┌─────────────┐  │
-  │  │  Dashboard  │  │                               │  │  Scheduled  │  │
-  │  │   :8080     │  │                               │  │    Tasks    │  │
+  │  │  Dashboard  │  │                               │  │   Agent     │  │
+  │  │   :8080     │  │                               │  │   :8080     │  │
   │  └─────────────┘  │                               │  └─────────────┘  │
   │                   │                               │                   │
   │  Services:        │                               │  Services:        │
@@ -88,7 +88,7 @@ Real-Debrid Cloud → Zurg WebDAV → Rclone Mount → FileBot Auto-Organize →
   │  • Maloja         │                               │  • Jellyfin       │
   │  • TeamSpeak      │                               │  • Sunshine       │
   │  • Nextcloud      │                               │  • Zurg/Rclone    │
-  │  • Syncthing      │                               │  • Parsec         │
+  │  • Syncthing      │                               │  • Glances        │
   │  • Gatus          │                               │  • Gatus          │
   └───────────────────┘                               └───────────────────┘
 ```
@@ -154,7 +154,7 @@ noc-homelab/
 | **Beads UI** | 3000 | Issue tracker dashboard |
 | **Tailscale** | 5252 | VPN webclient |
 
-### noc-winlocal (Windows)
+### noc-tux (Linux)
 
 | Service | Port | Description |
 |---------|------|-------------|
@@ -162,8 +162,8 @@ noc-homelab/
 | **Jellyfin** | 8097 | Media streaming |
 | **Sunshine** | 47990 | Game streaming |
 | **Zurg** | 9999 | Real-Debrid WebDAV |
-| **Rclone Mount** | - | Mounts Zurg as Z: drive |
-| **Parsec** | - | Remote desktop gaming |
+| **Rclone Zurg** | - | FUSE mount at /mnt/zurg |
+| **Arcane** | 3552 | Docker management UI |
 | **Gatus** | 3001 | Service health monitoring |
 | **Glances** | 61999 | System metrics |
 

@@ -8,94 +8,64 @@
       "role": "primary"
     },
     {
-      "display_name": "noc-winlocal",
-      "hostname": "noc-winlocal",
-      "id": "noc-winlocal",
-      "platform": "windows",
+      "display_name": "noc-tux",
+      "hostname": "100.91.104.124",
+      "id": "noc-tux",
+      "platform": "linux",
       "role": "agent",
+      "agent_port": 8080,
       "services": {
-        "emby": {
-          "description": "Media streaming server",
-          "manager": "scheduled-task",
-          "name": "Emby",
-          "port": 8096,
-          "process_name": "EmbyServer",
-          "task_name": "Homelab-Emby",
-          "url": "http://noc-winlocal:8096"
+        "arcane": {
+          "name": "Arcane",
+          "description": "Docker Management UI",
+          "port": 3552,
+          "url": "http://100.91.104.124:3552"
         },
         "gatus": {
-          "description": "Service health monitoring",
-          "manager": "windows-service",
           "name": "Gatus",
+          "description": "Service health monitoring",
           "port": 3001,
-          "process_name": "gatus",
-          "service_name": "Gatus",
-          "url": "http://noc-winlocal:3001"
+          "url": "http://100.91.104.124:3001"
         },
         "glances": {
-          "description": "System Metrics & Monitoring",
-          "manager": "windows-service",
           "name": "Glances",
+          "description": "System Metrics & Monitoring",
           "port": 61999,
-          "process_name": "glances",
-          "service_name": "Glances",
-          "url": "http://noc-winlocal:61999"
-        },
-        "jellyfin": {
-          "description": "Media streaming server",
-          "manager": "scheduled-task",
-          "name": "Jellyfin",
-          "port": 8097,
-          "process_name": "Jellyfin.Windows.Tray",
-          "task_name": "Homelab-Jellyfin",
-          "url": "http://noc-winlocal:8097"
-        },
-        "parsec": {
-          "description": "Remote desktop gaming",
-          "manager": "scheduled-task",
-          "name": "Parsec",
-          "port": null,
-          "process_name": "parsecd",
-          "task_name": "Homelab-Parsec",
-          "url": null
-        },
-        "rclone": {
-          "description": "Zurg WebDAV mount (Z: drive)",
-          "manager": "scheduled-task",
-          "name": "Rclone Mount",
-          "port": null,
-          "process_name": "rclone",
-          "task_name": "Homelab-RcloneMount",
-          "url": null
-        },
-        "sunshine": {
-          "description": "Game streaming (Moonlight)",
-          "manager": "scheduled-task",
-          "name": "Sunshine",
-          "port": 47990,
-          "process_name": "sunshinesvc",
-          "service_name": "ApolloService",
-          "task_name": "Homelab-Sunshine",
-          "url": "https://noc-winlocal:47990"
-        },
-        "zurg": {
-          "description": "Real-Debrid WebDAV",
-          "manager": "scheduled-task",
-          "name": "Zurg",
-          "port": 9999,
-          "process_name": "zurg",
-          "task_name": "Homelab-Zurg",
-          "url": "http://noc-winlocal:9999"
+          "url": "http://100.91.104.124:61999"
         },
         "stoat": {
           "name": "Stoat Chat",
-          "port": 80,
           "description": "Open-source chat platform",
-          "url": "https://voice.nocfa.net",
-          "manager": "process",
-          "start_cmd": "wsl -u noc-wsl -d Debian -- bash -c 'cd ~/stoat-chat && docker compose --profile voice up -d'",
-          "stop_cmd": "wsl -u noc-wsl -d Debian -- bash -c 'cd ~/stoat-chat && docker compose stop'",
-          "process_name": "wsl"
+          "port": 80,
+          "url": "https://voice.nocfa.net"
+        },
+        "zurg": {
+          "name": "Zurg",
+          "description": "Real-Debrid WebDAV",
+          "port": 9999,
+          "url": "http://100.91.104.124:9999"
+        },
+        "rclone-zurg": {
+          "name": "Rclone Zurg",
+          "description": "FUSE mount for Zurg WebDAV"
+        },
+        "emby": {
+          "name": "Emby",
+          "description": "Media streaming server",
+          "port": 8096,
+          "url": "http://100.91.104.124:8096"
+        },
+        "jellyfin": {
+          "name": "Jellyfin",
+          "description": "Media streaming server",
+          "port": 8097,
+          "url": "http://100.91.104.124:8097"
+        },
+        "sunshine": {
+          "name": "Sunshine",
+          "description": "Game streaming server",
+          "port": 47990,
+          "url": "http://100.91.104.124:47990"
         }
       },
       "ssh_user": "noc"

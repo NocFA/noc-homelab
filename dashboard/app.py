@@ -136,8 +136,22 @@ def ssh_command(hostname, ssh_user, command, timeout=10):
     except Exception:
         return None
 
+def _query_agent_api(hostname, agent_port, endpoint, method='GET', json_data=None, timeout=5):
+    """Query a remote machine's agent API"""
+    url = f'http://{hostname}:{agent_port}{endpoint}'
+    try:
+        if method == 'GET':
+            resp = requests.get(url, timeout=timeout)
+        else:
+            resp = requests.post(url, json=json_data, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        pass
+    return None
+
 def _refresh_remote_batch(machine):
-    """Single SSH call to get all process names + uptime from a remote machine"""
+    """Get service status + uptime from a remote machine (agent API or SSH)"""
     machine_id = machine['id']
     now = time.time()
 
@@ -147,9 +161,20 @@ def _refresh_remote_batch(machine):
 
     hostname = machine['hostname']
     ssh_user = machine.get('ssh_user', 'noc')
-    data = {'processes': set(), 'uptime_secs': None}
+    data = {'processes': set(), 'uptime_secs': None, 'agent_status': None}
 
-    if machine.get('platform') == 'windows':
+    if machine.get('role') == 'agent':
+        agent_port = machine.get('agent_port', 8080)
+        # Query agent API for service status
+        status = _query_agent_api(hostname, agent_port, '/api/agent/status')
+        if status is not None:
+            data['agent_status'] = status
+        # Query agent API for uptime
+        info = _query_agent_api(hostname, agent_port, '/api/agent/info')
+        if info and 'uptime' in info:
+            data['uptime_secs'] = info['uptime']
+
+    elif machine.get('platform') == 'windows':
         # One SSH call: comma-separated process names on line 1, uptime seconds on line 2
         result = ssh_command(hostname, ssh_user,
             'powershell -Command "((Get-Process -EA SilentlyContinue).Name | Sort -Unique) -join [char]44; [int]((Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime).TotalSeconds"',
@@ -168,21 +193,27 @@ def _refresh_remote_batch(machine):
     return data
 
 def get_remote_machine_status(machine):
-    """Get status of all services on a remote machine using port checks + cached batch data"""
+    """Get status of all services on a remote machine"""
     hostname = machine['hostname']
     services = machine.get('services', {})
     batch = _refresh_remote_batch(machine)
     results = {}
 
+    # Agent machines: use agent API response directly
+    if machine.get('role') == 'agent' and batch.get('agent_status') is not None:
+        agent_status = batch['agent_status']
+        for svc_id in services:
+            results[svc_id] = agent_status.get(svc_id, False)
+        return results
+
+    # Fallback: port checks + process list (Windows / non-agent machines)
     for svc_id, svc in services.items():
         port = svc.get('port')
         process_name = svc.get('process_name')
 
         if port:
-            # Port-based check (fast, no SSH needed)
             results[svc_id] = check_remote_port(hostname, port)
         elif process_name:
-            # Use cached process list from batch SSH call
             results[svc_id] = process_name.lower() in batch['processes']
         else:
             results[svc_id] = False
@@ -190,13 +221,33 @@ def get_remote_machine_status(machine):
     return results
 
 def control_remote_service(machine, svc_id, action):
-    """Start/stop/restart a service on a remote machine via SSH"""
-    hostname = machine['hostname']
-    ssh_user = machine.get('ssh_user', 'noc')
+    """Start/stop/restart a service on a remote machine"""
     svc = machine.get('services', {}).get(svc_id)
     if not svc:
         return {'success': False, 'message': 'Unknown service'}
 
+    # Agent machines: forward to agent API
+    if machine.get('role') == 'agent':
+        hostname = machine['hostname']
+        agent_port = machine.get('agent_port', 8080)
+        result = _query_agent_api(
+            hostname, agent_port,
+            f'/api/agent/service/{action}',
+            method='POST',
+            json_data={'service': svc_id},
+            timeout=15
+        )
+        # Invalidate caches
+        _remote_batch_cache.pop(machine['id'], None)
+        _api_status_cache['data'] = None
+
+        if result is None:
+            return {'success': False, 'message': f'Agent unreachable on {hostname}:{agent_port}'}
+        return result
+
+    # Windows machines: SSH commands
+    hostname = machine['hostname']
+    ssh_user = machine.get('ssh_user', 'noc')
     manager = svc.get('manager', 'process')
     service_name = svc.get('service_name', '')
     task_name = svc.get('task_name', '')
@@ -213,7 +264,6 @@ def control_remote_service(machine, svc_id, action):
             cmd = f'sc stop {service_name} & timeout /t 3 /nobreak >nul & sc start {service_name}'
 
     elif manager == 'scheduled-task':
-        # Check if this is a service-backed task (has a Windows service to stop)
         svc_name = svc.get('service_name', '')
         if action == 'start':
             cmd = f'schtasks /run /tn "{task_name}"'
@@ -256,7 +306,7 @@ def control_remote_service(machine, svc_id, action):
     if result is None:
         return {'success': False, 'message': 'SSH connection timed out'}
 
-    # Invalidate caches so next status check is fresh
+    # Invalidate caches
     _remote_batch_cache.pop(machine['id'], None)
     _api_status_cache['data'] = None
 
@@ -266,15 +316,16 @@ def control_remote_service(machine, svc_id, action):
         error = result.stderr.strip() or result.stdout.strip() or 'Unknown error'
         return {'success': False, 'message': f'{svc["name"]} {action} failed: {error}'}
 
-def is_remote_machine_reachable(hostname, timeout=2):
+def is_remote_machine_reachable(hostname, port=22, timeout=2):
     """Quick check if a remote machine is reachable (cached)"""
     now = time.time()
-    cached = _reachability_cache.get(hostname)
+    cache_key = f'{hostname}:{port}'
+    cached = _reachability_cache.get(cache_key)
     if cached and (now - cached['timestamp']) < _reachability_ttl:
         return cached['reachable']
 
-    reachable = check_remote_port(hostname, 22, timeout)
-    _reachability_cache[hostname] = {'reachable': reachable, 'timestamp': now}
+    reachable = check_remote_port(hostname, port, timeout)
+    _reachability_cache[cache_key] = {'reachable': reachable, 'timestamp': now}
     return reachable
 
 def format_uptime(uptime_secs):
@@ -592,7 +643,7 @@ def index():
             machine_groups.append({
                 'id': machine['id'],
                 'name': machine.get('display_name', machine['id']),
-                'platform': 'Windows' if machine.get('platform') == 'windows' else machine.get('platform', ''),
+                'platform': {'windows': 'Windows', 'linux': 'Linux', 'darwin': 'macOS'}.get(machine.get('platform', ''), machine.get('platform', '')),
                 'reachable': reachable,
                 'uptime': remote_uptime,
                 'services': remote_services,
@@ -643,7 +694,9 @@ def _update_status_cache():
         for machine in MACHINES:
             if machine.get('role') == 'agent':
                 machine_id = machine['id']
-                reachable = is_remote_machine_reachable(machine['hostname'])
+                # For agent machines, check reachability via agent port
+                check_port = machine.get('agent_port', 22)
+                reachable = is_remote_machine_reachable(machine['hostname'], check_port)
                 if reachable:
                     status[machine_id] = get_remote_machine_status(machine)
                     remote_secs = get_remote_uptime_secs(machine)
@@ -667,7 +720,8 @@ def _update_status_cache():
         for machine in MACHINES:
             if machine.get('role') == 'agent':
                 hostname = machine['hostname']
-                if is_remote_machine_reachable(hostname):
+                check_port = machine.get('agent_port', 22)
+                if is_remote_machine_reachable(hostname, check_port):
                     get_glances_stats_cached(hostname)
 
         _api_status_cache['data'] = status

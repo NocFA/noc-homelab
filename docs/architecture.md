@@ -16,8 +16,8 @@ The NOC Homelab is a distributed service management system spanning multiple mac
               │                           │                           │
               ▼                           ▼                           ▼
     ┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-    │   noc-local     │         │  noc-winlocal   │         │   (future)      │
-    │    (macOS)      │         │   (Windows)     │         │                 │
+    │   noc-local     │         │  noc-tux   │         │   (future)      │
+    │    (macOS)      │         │   (Linux)     │         │                 │
     │                 │         │                 │         │                 │
     │ ┌─────────────┐ │         │ ┌─────────────┐ │         │                 │
     │ │  Dashboard  │◄┼─────────┼─┤   Agent     │ │         │                 │
@@ -45,15 +45,15 @@ The NOC Homelab is a distributed service management system spanning multiple mac
 
 **Hostnames**: `noc-local`, `100.x.x.x` (Tailscale IP)
 
-### noc-winlocal (Windows) - Secondary
+### noc-tux (Linux) - Secondary
 
 | Role | Description |
 |------|-------------|
 | **Agent** | Lightweight HTTP API at port 8080 |
-| **Service Manager** | Windows Services, Docker, scheduled tasks |
+| **Service Manager** | systemd (user + system), Docker |
 | **Reporter** | Reports status to primary dashboard |
 
-**Hostnames**: `noc-winlocal`, `100.x.x.x` (Tailscale IP)
+**Hostnames**: `noc-tux`, `100.x.x.x` (Tailscale IP)
 
 ## Agent API Specification
 
@@ -73,8 +73,8 @@ Returns machine metadata.
 
 ```json
 {
-  "hostname": "noc-winlocal",
-  "platform": "windows",
+  "hostname": "noc-tux",
+  "platform": "linux",
   "version": "1.0.0",
   "uptime": 86400,
   "services_count": 5
@@ -171,7 +171,7 @@ Health check endpoint for monitoring.
 ├─────────────────────────────────────────────────────┤
 │  MACHINES config                                     │
 │  ├─ noc-local: {hostname, type: "primary"}          │
-│  └─ noc-winlocal: {hostname, type: "agent"}         │
+│  └─ noc-tux: {hostname, type: "agent"}         │
 ├─────────────────────────────────────────────────────┤
 │  SERVICES dict (local services)                     │
 │  ├─ copyparty: {machine: "noc-local", ...}         │
@@ -203,10 +203,10 @@ Health check endpoint for monitoring.
       "agent_port": 8080
     },
     {
-      "id": "noc-winlocal",
-      "hostname": "noc-winlocal",
-      "display_name": "Windows PC",
-      "platform": "windows",
+      "id": "noc-tux",
+      "hostname": "noc-tux",
+      "display_name": "noc-tux",
+      "platform": "linux",
       "role": "agent",
       "agent_port": 8080
     }
@@ -225,14 +225,14 @@ Health check endpoint for monitoring.
 | Docker | `docker compose up -d` | `docker compose down` | `docker ps` |
 | PM2 | `pm2 start` | `pm2 stop` | `pm2 jlist` |
 
-### Windows (noc-winlocal)
+### Linux (noc-tux)
 
 | Type | Start | Stop | Status |
 |------|-------|------|--------|
-| Windows Service | `sc start` | `sc stop` | `sc query` |
+| systemd (system) | `sudo systemctl start` | `sudo systemctl stop` | `systemctl is-active` |
+| systemd (user) | `systemctl --user start` | `systemctl --user stop` | `systemctl --user is-active` |
 | Docker | `docker compose up -d` | `docker compose down` | `docker ps` |
-| Scheduled Task | `schtasks /run` | `schtasks /end` | `schtasks /query` |
-| NSSM | `nssm start` | `nssm stop` | `nssm status` |
+| Process | Custom start cmd | Custom stop cmd | `pgrep` |
 
 ## Security Considerations
 
@@ -302,6 +302,7 @@ noc-homelab/
 │       ├── __init__.py
 │       ├── base.py        # Abstract base class
 │       ├── darwin.py      # macOS service handlers
+│       ├── linux.py       # Linux service handlers
 │       └── windows.py     # Windows service handlers
 ├── services/              # Docker Compose services
 │   ├── gatus/
@@ -319,7 +320,7 @@ noc-homelab/
 - Runs: Dashboard + Agent + Local services
 - Clone: `git clone` to `/Users/noc/noc-homelab`
 
-**noc-winlocal (Windows)**:
-- Runs: Agent only (dashboard proxies to it)
-- Clone: `git clone` to `C:\Users\noc\noc-homelab`
-- Agent as Windows Service via NSSM
+**noc-tux (Linux)**:
+- Runs: Agent only (dashboard queries it via HTTP)
+- Clone: `git clone` to `/home/noc/noc-homelab`
+- Agent as systemd user service

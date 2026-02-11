@@ -3,38 +3,35 @@
 
 # Machine identification (used by dashboard)
 machine:
-  id: noc-winlocal
-  display_name: Windows PC
+  id: my-machine
+  display_name: My Machine
   role: agent  # 'primary' or 'agent'
 
 # Services managed by this agent
 services:
-  # Example: Windows Service
-  plex:
-    name: Plex Media Server
-    manager: windows-service  # windows-service, nssm, docker
-    service_name: PlexService
-    port: 32400
+  # Example: systemd system service
+  emby:
+    name: Emby
+    manager: systemd
+    service_name: emby-server
+    scope: system  # system or user
+    port: 8096
     description: Media streaming server
-    log_paths:
-      - C:\Users\noc\AppData\Local\Plex Media Server\Logs\Plex Media Server.log
+
+  # Example: systemd user service
+  zurg:
+    name: Zurg
+    manager: systemd
+    service_name: zurg
+    scope: user
+    port: 9999
+    description: Real-Debrid WebDAV
 
   # Example: Docker container
-  jellyfin:
-    name: Jellyfin
+  arcane:
+    name: Arcane
     manager: docker
-    container: jellyfin
-    compose_dir: C:\Users\noc\homelab\services\jellyfin
-    port: 8096
-    description: Media server
-    log_paths: []
-
-  # Example: NSSM-managed service
-  sonarr:
-    name: Sonarr
-    manager: nssm
-    service_name: Sonarr
-    port: 8989
-    description: TV show management
-    log_paths:
-      - C:\ProgramData\Sonarr\logs\sonarr.txt
+    container: arcane
+    compose_dir: /home/noc/noc-homelab/services/arcane
+    port: 3552
+    description: Docker Management UI
