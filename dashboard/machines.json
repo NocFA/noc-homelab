@@ -65,7 +65,7 @@
           "name": "Sunshine",
           "description": "Game streaming server",
           "port": 47990,
-          "url": "http://100.91.104.124:47990"
+          "url": "https://100.91.104.124:47990"
         }
       },
       "ssh_user": "noc"
