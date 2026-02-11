@@ -364,17 +364,16 @@ def get_remote_uptime_secs(machine):
     return batch.get('uptime_secs')
 
 def get_glances_stats(host, port=61999, timeout=5):
-    """Fetch memory and battery stats from Glances API"""
+    """Fetch memory and battery stats from Glances API v4"""
     try:
-        # Get memory stats
-        mem_response = requests.get(f'http://{host}:{port}/api/4/mem', timeout=timeout)
+        base = f'http://{host}:{port}/api/4'
+
+        mem_response = requests.get(f'{base}/mem', timeout=timeout)
         mem_data = mem_response.json() if mem_response.status_code == 200 else {}
 
-        # Get battery stats (may not exist on desktops)
-        battery_response = requests.get(f'http://{host}:{port}/api/4/sensors', timeout=timeout)
+        battery_response = requests.get(f'{base}/sensors', timeout=timeout)
         battery_data = battery_response.json() if battery_response.status_code == 200 else []
 
-        # Parse battery percentage from sensors
         battery_percent = None
         if isinstance(battery_data, list):
             for sensor in battery_data:
