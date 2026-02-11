@@ -37,7 +37,7 @@
           "name": "Stoat Chat",
           "description": "Open-source chat platform",
           "port": 80,
-          "url": "https://voice.nocfa.net"
+          "url": "https://comms.nocfa.net"
         },
         "zurg": {
           "name": "Zurg",

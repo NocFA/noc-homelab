@@ -1,0 +1,7 @@
+tunnel: 8e5208a7-eeae-440a-bdf2-8aa1a8dd7280
+credentials-file: /etc/cloudflared/8e5208a7-eeae-440a-bdf2-8aa1a8dd7280.json
+
+ingress:
+  - hostname: comms.nocfa.net
+    service: http://caddy:80
+  - service: http_status:404
