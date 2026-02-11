@@ -1,0 +1,69 @@
+web:
+  port: 3001
+
+endpoints:
+    # --- Media Pipeline ---
+    - name: "Zurg"
+      group: "Media"
+      url: "http://localhost:9999"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+
+    - name: "Emby"
+      group: "Media"
+      url: "http://localhost:8096"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+
+    - name: "Jellyfin"
+      group: "Media"
+      url: "http://localhost:8097"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+
+    # --- Core ---
+    - name: "Internet"
+      group: "Core"
+      url: "https://1.1.1.1"
+      interval: 10s
+      conditions:
+          - "[STATUS] == 200"
+
+    - name: "Tailscale"
+      group: "Core"
+      url: "icmp://100.100.100.100"
+      interval: 30s
+      conditions:
+          - "[CONNECTED] == true"
+
+    # --- Monitoring ---
+    - name: "Glances"
+      group: "Monitoring"
+      url: "http://localhost:61999/api/4/cpu"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+
+    - name: "Sunshine"
+      group: "Remote"
+      url: "https://localhost:47990"
+      client:
+          insecure: true
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+
+    # --- Cross-Check ---
+    - name: "noc-local Gatus"
+      group: "Cross-Check"
+      url: "http://192.168.1.129:3001"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+
+ui:
+    title: "noc-tux Status"
+    header: "NOCNET - noc-tux"
