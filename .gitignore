@@ -82,18 +82,15 @@ services/*/db/
 # Service environment files with secrets
 services/chatwoot/.env
 services/*/.env
+!services/stoat/.env
 
 # Gatus config (contains Discord webhook secrets)
 services/gatus/config.yaml
 services/gatus/config-winlocal.yaml
 
-# Zurg config and binary (contains Real-Debrid token)
-services/zurg/config.yml
-services/zurg/config.yaml
+# Zurg binary (downloaded, not committed)
 services/zurg/zurg.exe
-
-# Windows scripts with API keys
-scripts/windows/library-update.ps1
+linux/services/zurg/zurg
 
 # Agent config (machine-specific)
 agent/config.yaml
@@ -103,7 +100,9 @@ media/
 
 # AI/development tooling
 .beads/
+beads.db*
 .claude/
 AGENTS.md
 CLAUDE.md
 .gitattributes
+noc-homelab-beads/

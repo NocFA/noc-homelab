@@ -1,0 +1,190 @@
+services:
+  # --- Core Data ---
+  database:
+    image: mongo:7
+    container_name: stoat-database
+    volumes:
+      - stoat-mongo:/data/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: stoat-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - stoat-redis:/data
+    restart: unless-stopped
+
+  rabbit:
+    image: rabbitmq:3-management-alpine
+    container_name: stoat-rabbit
+    environment:
+      RABBITMQ_DEFAULT_USER: revolt
+      RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
+    volumes:
+      - stoat-rabbit:/var/lib/rabbitmq
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: stoat-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - stoat-minio:/data
+    restart: unless-stopped
+
+  # --- Revolt Backend ---
+  api:
+    image: ghcr.io/revoltchat/server:master
+    container_name: stoat-api
+    depends_on:
+      database:
+        condition: service_started
+      redis:
+        condition: service_started
+      rabbit:
+        condition: service_started
+    environment:
+      REVOLT_MONGO_URI: mongodb://database
+      REVOLT_REDIS_URI: redis://:${REDIS_PASSWORD}@redis
+      REVOLT_RABBIT_URI: amqp://revolt:${RABBIT_PASSWORD}@rabbit
+      REVOLT_S3_ENDPOINT: http://minio:9000
+      REVOLT_S3_REGION: minio
+      REVOLT_S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      REVOLT_S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      REVOLT_VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      REVOLT_CONFIG: /Revolt.toml
+    volumes:
+      - ./Revolt.toml:/Revolt.toml:ro
+    restart: unless-stopped
+
+  events:
+    image: ghcr.io/revoltchat/bonfire:master
+    container_name: stoat-events
+    depends_on:
+      - database
+      - redis
+      - rabbit
+    environment:
+      REVOLT_MONGO_URI: mongodb://database
+      REVOLT_REDIS_URI: redis://:${REDIS_PASSWORD}@redis
+      REVOLT_RABBIT_URI: amqp://revolt:${RABBIT_PASSWORD}@rabbit
+      REVOLT_CONFIG: /Revolt.toml
+    volumes:
+      - ./Revolt.toml:/Revolt.toml:ro
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/revoltchat/client:master
+    container_name: stoat-web
+    environment:
+      REVOLT_PUBLIC_URL: https://${STOAT_DOMAIN}/api
+    restart: unless-stopped
+
+  autumn:
+    image: ghcr.io/revoltchat/autumn:master
+    container_name: stoat-autumn
+    depends_on:
+      - database
+      - minio
+    environment:
+      AUTUMN_MONGO_URI: mongodb://database
+      AUTUMN_S3_ENDPOINT: http://minio:9000
+      AUTUMN_S3_REGION: minio
+      AUTUMN_S3_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AUTUMN_S3_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+    restart: unless-stopped
+
+  january:
+    image: ghcr.io/revoltchat/january:master
+    container_name: stoat-january
+    restart: unless-stopped
+
+  gifbox:
+    image: ghcr.io/insertish/gifbox:latest
+    container_name: stoat-gifbox
+    restart: unless-stopped
+
+  crond:
+    image: ghcr.io/revoltchat/crond:master
+    container_name: stoat-crond
+    depends_on:
+      - database
+      - redis
+    environment:
+      REVOLT_MONGO_URI: mongodb://database
+      REVOLT_REDIS_URI: redis://:${REDIS_PASSWORD}@redis
+    restart: unless-stopped
+
+  pushd:
+    image: ghcr.io/revoltchat/pushd:master
+    container_name: stoat-pushd
+    depends_on:
+      - database
+      - redis
+    environment:
+      REVOLT_MONGO_URI: mongodb://database
+      REVOLT_REDIS_URI: redis://:${REDIS_PASSWORD}@redis
+      REVOLT_VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+    restart: unless-stopped
+
+  # --- Voice (profile: voice) ---
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: stoat-livekit
+    command: --config /etc/livekit.yaml
+    volumes:
+      - ./livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "50000-50100:50000-50100/udp"
+    profiles:
+      - voice
+    restart: unless-stopped
+
+  voice-ingress:
+    image: ghcr.io/nicholasgasior/revolt-voice-ingress:latest
+    container_name: stoat-voice-ingress
+    depends_on:
+      - livekit
+    environment:
+      LIVEKIT_URL: ws://livekit:7880
+      LIVEKIT_KEY: ${LIVEKIT_KEY}
+      LIVEKIT_SECRET: ${LIVEKIT_SECRET}
+    profiles:
+      - voice
+    restart: unless-stopped
+
+  # --- Edge ---
+  caddy:
+    image: caddy:2-alpine
+    container_name: stoat-caddy
+    ports:
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - stoat-caddy-data:/data
+    depends_on:
+      - api
+      - events
+      - web
+      - autumn
+      - january
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: stoat-cloudflared
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
+    restart: unless-stopped
+
+volumes:
+  stoat-mongo:
+  stoat-redis:
+  stoat-rabbit:
+  stoat-minio:
+  stoat-caddy-data:

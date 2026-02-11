@@ -66,6 +66,12 @@
           "description": "Game streaming server",
           "port": 47990,
           "url": "https://100.91.104.124:47990"
+        },
+        "nomachine": {
+          "name": "NoMachine",
+          "description": "Remote desktop server",
+          "port": 4000,
+          "url": "http://100.91.104.124:4000"
         }
       },
       "ssh_user": "noc"

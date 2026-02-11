@@ -1,0 +1,46 @@
+{
+	auto_https off
+}
+
+:80 {
+	# API
+	handle /api/* {
+		uri strip_prefix /api
+		header_up Content-Type application/json
+		reverse_proxy api:14702
+	}
+
+	# WebSocket events
+	handle /ws {
+		reverse_proxy events:9700
+	}
+
+	# File uploads/downloads
+	handle /autumn/* {
+		uri strip_prefix /autumn
+		reverse_proxy autumn:3000
+	}
+
+	# Link embeds/proxying
+	handle /january/* {
+		uri strip_prefix /january
+		reverse_proxy january:7000
+	}
+
+	# GIF search
+	handle /gifbox/* {
+		uri strip_prefix /gifbox
+		reverse_proxy gifbox:3000
+	}
+
+	# Voice/LiveKit
+	handle /livekit/* {
+		uri strip_prefix /livekit
+		reverse_proxy livekit:7880
+	}
+
+	# Web client (default)
+	handle {
+		reverse_proxy web:5000
+	}
+}
