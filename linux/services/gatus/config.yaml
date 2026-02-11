@@ -54,7 +54,7 @@ endpoints:
           insecure: true
       interval: 30s
       conditions:
-          - "[STATUS] == 200"
+          - "[STATUS] == any(200, 401)"
 
     # --- Cross-Check ---
     - name: "noc-local Gatus"
