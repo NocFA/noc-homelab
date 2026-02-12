@@ -1,5 +1,6 @@
-tunnel: 8e5208a7-eeae-440a-bdf2-8aa1a8dd7280
-credentials-file: /etc/cloudflared/8e5208a7-eeae-440a-bdf2-8aa1a8dd7280.json
+tunnel: a62a82b9-ac9d-4f23-b2b0-9f8a51ee3b83
+credentials-file: /etc/cloudflared/a62a82b9-ac9d-4f23-b2b0-9f8a51ee3b83.json.dec
+protocol: http2
 
 ingress:
   - hostname: comms.nocfa.net

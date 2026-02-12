@@ -70,6 +70,9 @@ tmp/
 # Separate projects (have their own repos)
 061tech/
 
+# SOPS decrypted files (plaintext secrets, never commit)
+*.dec
+
 # Docker service runtime data
 services/nextcloud/config/
 services/nextcloud/custom_apps/
