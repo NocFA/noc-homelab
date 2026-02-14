@@ -35,7 +35,7 @@ services:
       - authentik-internal
 
   authentik-server:
-    image: ghcr.io/goauthentik/server:2025.2
+    image: ghcr.io/goauthentik/server:2025.12
     container_name: authentik-server
     restart: unless-stopped
     command: server
@@ -51,6 +51,9 @@ services:
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
     labels:
       traefik.enable: "true"
       traefik.docker.network: traefik
@@ -70,7 +73,7 @@ services:
       - traefik
 
   authentik-worker:
-    image: ghcr.io/goauthentik/server:2025.2
+    image: ghcr.io/goauthentik/server:2025.12
     container_name: authentik-worker
     restart: unless-stopped
     command: worker
@@ -86,6 +89,9 @@ services:
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD}
+      AUTHENTIK_BOOTSTRAP_TOKEN: ${AUTHENTIK_BOOTSTRAP_TOKEN}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
