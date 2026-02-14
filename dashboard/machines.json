@@ -38,12 +38,24 @@
           "description": "Matrix homeserver",
           "url": "https://matrix.nocfa.net"
         },
-        "element": {
+        "matrix-postgres": {
+          "name": "Matrix Postgres",
+          "description": "Matrix database"
+        },
+        "matrix-traefik": {
+          "name": "Matrix Traefik",
+          "description": "Matrix reverse proxy"
+        },
+        "matrix-coturn": {
+          "name": "Matrix Coturn",
+          "description": "TURN/STUN server for Matrix calls"
+        },
+        "matrix-client-element": {
           "name": "Element Web",
           "description": "Matrix web client",
           "url": "https://element.nocfa.net"
         },
-        "synapse-admin": {
+        "matrix-synapse-admin": {
           "name": "Synapse Admin",
           "description": "Matrix admin dashboard",
           "url": "https://matrix.nocfa.net/synapse-admin/"
