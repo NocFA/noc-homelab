@@ -1,184 +1,178 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/walkxcode/dashboard-icons/main/svg/home-assistant.svg" width="100" />
-</p>
+# noc-homelab
 
-<h1 align="center">NOC Homelab</h1>
+A two-machine homelab running macOS and Linux, connected over Tailscale. Manages media streaming, Matrix communications, game streaming, and monitoring through a central dashboard and agent API.
 
-<p align="center">
-  <em>A distributed homelab spanning macOS and Linux machines, connected via Tailscale mesh VPN</em>
-</p>
-
-<p align="center">
-  <a href="#-overview">Overview</a> •
-  <a href="#-architecture">Architecture</a> •
-  <a href="#-services">Services</a> •
-  <a href="#-getting-started">Getting Started</a> •
-  <a href="docs/architecture.md">Docs</a>
-</p>
+![Dashboard](docs/dashboard.png)
 
 ---
 
-## 📖 Overview
+## Machines
 
-This repository contains the configuration and management tools for a professional multi-machine homelab infrastructure. The standout feature is a fully automated Real-Debrid media pipeline on Windows that goes from torrent to organized 4K streaming in seconds.
+| Machine | OS | Role | Connectivity |
+|---|---|---|---|
+| **noc-local** | macOS (Sonoma) | Dashboard host, local services | LAN + Tailscale |
+| **noc-tux** | Ubuntu 24.04 LTS | Agent, media, Matrix, streaming | Tailscale `100.91.104.124` |
 
-### Key Features
-
-- **🎬 Real-Debrid Media Automation** - Cloud torrents → Auto-organized libraries → 4K streaming (see below)
-- **Multi-machine management** - Single dashboard controls services on macOS and Windows
-- **Tailscale mesh networking** - Secure, zero-config connectivity between all machines
-- **SSH-based remote control** - Direct control of Windows services via SSH
-- **Web-based dashboard** - Modern UI for monitoring and controlling all services
-- **One-command deployment** - Setup scripts for fresh installs
-
-## 🎬 Real-Debrid Media Automation (Windows)
-
-The **killer feature** of this homelab is the fully automated media pipeline:
+## Architecture
 
 ```
-Real-Debrid Cloud → Zurg WebDAV → Rclone Mount → FileBot Auto-Organize → Emby/Jellyfin
+noc-local (macOS)                          noc-tux (Ubuntu)
+┌──────────────────────┐                   ┌──────────────────────┐
+│  Dashboard :8080     │◄── Agent API ───► │  Agent :8080         │
+│                      │    (Tailscale)    │                      │
+│  Copyparty           │                   │  Matrix Stack        │
+│  Maloja              │                   │    Synapse           │
+│  Multi-Scrobbler     │                   │    Element Web       │
+│  TeamSpeak           │                   │    Synapse Admin     │
+│  Nextcloud           │                   │    Postgres/Traefik  │
+│  Syncthing           │                   │    Coturn (TURN)     │
+│  Gatus               │                   │                      │
+│  Glances             │                   │  Media Pipeline      │
+│  Caddy               │                   │    Zurg → Rclone     │
+│  Beads UI            │                   │    FileBot           │
+│  Tailscale           │                   │    Emby / Jellyfin   │
+│  VoiceSeq            │                   │                      │
+└──────────────────────┘                   │  Sunshine / NoMachine│
+                                           │  Gatus / Glances     │
+                                           │  Arcane (Docker UI)  │
+                                           └──────────────────────┘
 ```
 
-**What this means**:
-1. Add torrent to Real-Debrid (browser, app, RSS, or automation like Sonarr/Radarr)
-2. Zurg detects change in 10 seconds, exposes as local files
-3. FileBot automatically organizes into proper folder structure with symlinks
-4. Emby/Jellyfin libraries update automatically
-5. Start streaming in 4K with zero manual work
+The dashboard on noc-local polls the agent API on noc-tux for real-time service status. Service control (start/stop/restart) is forwarded through the agent, which manages systemd units and Docker containers.
 
-**Benefits**:
-- No downloads - stream directly from Real-Debrid
-- No storage needed - content stays in cloud
-- Automatic organization - Movies and TV shows properly named
-- 4K REMUX support - VFS caching for smooth playback
-- Library automation - New content appears in media servers automatically
+## Services
 
-**See full documentation**: [windows/README.md](windows/README.md)
+### noc-local
 
-**Quick Start**: `.\setup\setup-windows.ps1` (prompts for API keys, deploys everything)
+| Service | Port | Manager | Description |
+|---|---|---|---|
+| Dashboard | 8080 | launchd | Central control plane |
+| Copyparty | 8081 | launchd | File server with web UI |
+| Maloja | 42010 | launchd | Music scrobble server |
+| Multi-Scrobbler | 9078 | launchd | Scrobbler aggregator |
+| TeamSpeak | 9987 | launchd | Voice chat server |
+| TS3AudioBot | 58913 | launchd | TeamSpeak music bot |
+| Nextcloud | 9080 | Docker | Cloud storage |
+| Syncthing | 8384 | launchd | File sync |
+| Gatus | 3001 | launchd | Health monitoring |
+| Glances | 61999 | launchd | System metrics API |
+| Caddy | 80/443 | launchd | Reverse proxy |
+| Beads UI | 3000 | launchd | Issue tracker dashboard |
+| VoiceSeq | 61998 | launchd | iOS audio upload |
+| Tailscale | -- | system | Mesh VPN |
 
-## 🖥️ Machines
+### noc-tux
 
-| Machine | Platform | Role | Services |
-|---------|----------|------|----------|
-| **noc-local** | macOS | Primary | Dashboard, media scrobbling, file sharing, TeamSpeak |
-| **noc-tux** | Linux | Media | Emby, Jellyfin, Sunshine, Real-Debrid streaming |
+| Service | Port | Manager | Description |
+|---|---|---|---|
+| **Matrix Synapse** | -- | systemd | Matrix homeserver |
+| **Element Web** | -- | systemd | Matrix web client |
+| **Synapse Admin** | -- | systemd | Matrix admin UI |
+| Matrix Postgres | -- | systemd | Matrix database |
+| Matrix Traefik | 443 | systemd | Matrix reverse proxy + TLS |
+| Matrix Coturn | 3478 | systemd | TURN/STUN for calls |
+| Emby | 8096 | systemd | Media streaming |
+| Jellyfin | 8097 | systemd | Media streaming |
+| Zurg | 9999 | systemd (user) | Real-Debrid WebDAV |
+| Rclone Zurg | -- | systemd (user) | FUSE mount at `/mnt/zurg` |
+| Sunshine | 47990 | systemd (user) | Game streaming (HEVC/AV1) |
+| NoMachine | 4000 | systemd | Remote desktop |
+| Gatus | 3001 | systemd (user) | Health monitoring |
+| Glances | 61999 | systemd | System metrics API |
+| Arcane | 3552 | Docker | Docker management UI |
 
-## 🏗️ Architecture
+## Media Pipeline
 
 ```
-                    ┌──────────────────────────────────────────┐
-                    │            Tailscale Mesh VPN            │
-                    └──────────────────────────────────────────┘
-                                        │
-            ┌───────────────────────────┴───────────────────────────┐
-            │                                                       │
-            ▼                                                       ▼
-  ┌───────────────────┐                               ┌───────────────────┐
-  │    noc-local      │                               │     noc-tux        │
-  │     (macOS)       │        Agent API              │     (Linux)       │
-  │                   │◄─────────────────────────────►│                   │
-  │  ┌─────────────┐  │                               │  ┌─────────────┐  │
-  │  │  Dashboard  │  │                               │  │   Agent     │  │
-  │  │   :8080     │  │                               │  │   :8080     │  │
-  │  └─────────────┘  │                               │  └─────────────┘  │
-  │                   │                               │                   │
-  │  Services:        │                               │  Services:        │
-  │  • Copyparty      │                               │  • Emby           │
-  │  • Maloja         │                               │  • Jellyfin       │
-  │  • TeamSpeak      │                               │  • Sunshine       │
-  │  • Nextcloud      │                               │  • Zurg/Rclone    │
-  │  • Syncthing      │                               │  • Glances        │
-  │  • Gatus          │                               │  • Gatus          │
-  └───────────────────┘                               └───────────────────┘
+Real-Debrid Cloud
+       │ (API poll every 10s)
+       ▼
+Zurg (WebDAV, port 9999)
+       │
+       ▼
+Rclone FUSE mount (/mnt/zurg)
+       │ (on_library_update hook)
+       ▼
+library-update.sh
+  ├── Cleanup stale symlinks
+  ├── FileBot: movies → media/movies/
+  ├── FileBot: shows  → media/shows/
+  ├── Emby /Library/Refresh
+  └── Jellyfin /Library/Refresh
+       │
+       ▼
+Emby (8096) + Jellyfin (8097)
 ```
 
-<details>
-<summary>📂 Repository Structure</summary>
+Content stays in the Real-Debrid cloud — no local storage needed. Zurg exposes it as a WebDAV mount, Rclone makes it a local filesystem, FileBot organizes with symlinks, and both media servers auto-scan.
+
+## Matrix Stack
+
+Self-hosted Matrix homeserver at `matrix.nocfa.net` with Element Web at `element.nocfa.net`. Provides encrypted messaging, voice/video calls, and screen sharing — replacing Stoat Chat.
+
+All six services run as native systemd units (no Docker). Traefik handles TLS termination and routing. Coturn provides TURN/STUN for NAT traversal on calls.
+
+Admin interface at `matrix.nocfa.net/synapse-admin/`.
+
+## Secrets Management
+
+Uses **SOPS + age** encryption with a plaintext-at-rest workflow:
+
+- Configs are **plaintext on disk** for easy editing and direct use by services
+- A **pre-commit hook** auto-encrypts sensitive files before they enter git
+- A **post-merge hook** auto-decrypts after `git pull`
+- Git always stores encrypted content; the working tree always has plaintext
+
+Covered paths: `configs/*`, `*.env`, `linux/services/*/config.*`, `services/*/config/*`, `services/*/vars*`.
+
+Age recipient: `age1jdd07e42w6hgjncpsz0uxe0nruqgpexsl8nhh2vauwn9w0r53paqm9s87h`
+
+## Repository Structure
 
 ```
 noc-homelab/
-├── dashboard/              # Flask-based control dashboard
-│   ├── app.py             # Main application
-│   ├── template.html      # Dashboard UI
-│   └── machines.json      # Remote machine definitions
-├── launchagents/          # macOS LaunchAgent plists
-├── services/              # Docker Compose services
-│   ├── gatus/             # Status monitoring
-│   ├── nextcloud/         # Cloud storage
-│   ├── ts3audiobot/       # TeamSpeak music bot
-│   └── chatwoot/          # Customer support (experimental)
-├── windows/               # Windows-specific content (NEW)
-│   ├── scripts/           # PowerShell automation scripts
-│   │   ├── library-update.ps1         # FileBot + library scan
-│   │   ├── library-update.example.ps1 # Template
-│   │   ├── filebot-symlinks.ps1       # Manual FileBot runner
-│   │   └── [other management scripts]
-│   ├── services/          # Service configurations
-│   │   └── zurg/
-│   │       ├── config.yml             # Zurg config (gitignored)
-│   │       └── config.example.yml     # Template
-│   ├── scheduled-tasks/   # Windows Scheduled Task XMLs
-│   └── README.md          # Full Real-Debrid pipeline docs
-├── setup/                 # Deployment scripts (NEW)
-│   ├── setup-windows.ps1  # Windows one-command setup
-│   └── setup-macos.sh     # macOS one-command setup
-├── scripts/               # Utility scripts
-│   ├── tailscale_manager.py
-│   ├── teamspeak_manager.py
-│   └── sync-beads.sh
-├── configs/               # Service configurations
-└── docs/                  # Documentation
+├── agent/                  # REST API agent (runs on noc-tux)
+│   ├── agent.py            # Flask app, port 8080
+│   ├── config.yaml         # Service definitions (gitignored)
+│   └── platforms/           # Linux/macOS/Windows handlers
+├── dashboard/              # Control dashboard (runs on noc-local)
+│   ├── app.py              # Flask app, port 8080
+│   ├── template.html       # Dashboard UI
+│   └── machines.json       # Machine + service registry
+├── linux/
+│   ├── scripts/            # Automation (library-update, filebot, ddns)
+│   ├── services/           # Native service configs (gatus, zurg)
+│   └── systemd/            # Systemd unit files
+├── services/               # Docker Compose stacks
+│   ├── arcane/             # Docker management UI
+│   └── matrix/             # Matrix deployment scripts + vars
+├── configs/                # SOPS-encrypted service configs
+├── launchagents/           # macOS LaunchAgent plists
+├── scripts/                # Utility scripts (tailscale, teamspeak)
+├── setup/
+│   ├── setup-linux.sh      # noc-tux deployment
+│   └── setup-monitoring.sh # Glances + Gatus setup
+└── docs/
     ├── architecture.md
-    └── deployment.md      # Fresh install guide
+    ├── setup-linux.md
+    └── setup-macos.md
 ```
 
-</details>
-
-## 🚀 Services
-
-### noc-local (macOS)
-
-| Service | Port | Description |
-|---------|------|-------------|
-| **Dashboard** | 8080 | Central control plane |
-| **Copyparty** | 8081 | File server with web UI |
-| **Maloja** | 42010 | Music scrobbler |
-| **Multi-Scrobbler** | 9078 | Scrobbler aggregator |
-| **Gatus** | 3001 | Status page & monitoring |
-| **TeamSpeak** | 9987 | Voice chat server |
-| **TS3AudioBot** | 58913 | TeamSpeak music bot |
-| **Nextcloud** | 9080 | Cloud storage |
-| **Syncthing** | 8384 | File synchronization |
-| **VoiceSeq** | 61998 | iOS audio upload server |
-| **Beads UI** | 3000 | Issue tracker dashboard |
-| **Tailscale** | 5252 | VPN webclient |
+## Deployment
 
 ### noc-tux (Linux)
 
-| Service | Port | Description |
-|---------|------|-------------|
-| **Emby** | 8096 | Media streaming |
-| **Jellyfin** | 8097 | Media streaming |
-| **Sunshine** | 47990 | Game streaming |
-| **Zurg** | 9999 | Real-Debrid WebDAV |
-| **Rclone Zurg** | - | FUSE mount at /mnt/zurg |
-| **Arcane** | 3552 | Docker management UI |
-| **Gatus** | 3001 | Service health monitoring |
-| **Glances** | 61999 | System metrics |
+```bash
+git clone https://github.com/NocFA/noc-homelab.git
+cd noc-homelab
+./setup/setup-linux.sh
+```
 
-## 🛠️ Getting Started
+The setup script installs dependencies, deploys systemd services, configures the media pipeline, and starts the agent.
 
-### Prerequisites
-
-- **macOS**: Homebrew, Python 3.9+, Docker
-- **Windows**: Python 3.9+, NSSM for services
-- **Both**: Tailscale installed and configured
-
-### Quick Start (macOS)
+### noc-local (macOS)
 
 ```bash
-# Clone the repository
 git clone https://github.com/NocFA/noc-homelab.git
 cd noc-homelab
 
@@ -190,32 +184,10 @@ done
 
 # Start the dashboard
 launchctl load ~/Library/LaunchAgents/com.noc.dashboard.plist
-
-# Access at http://localhost:8080
 ```
 
-### Quick Start (Windows)
+Dashboard available at `http://localhost:8080`.
 
-```powershell
-# Windows services are managed remotely via SSH from noc-local
-# Ensure SSH server is running and key-based auth is configured
+## License
 
-# Services are started via Scheduled Tasks (Homelab-* prefix)
-# or Windows Services (via NSSM for background services)
-```
-
-## 📚 Documentation
-
-- [Architecture Overview](docs/architecture.md) - System design and multi-machine API spec
-- [macOS Setup](docs/setup-macos.md) - Installation and service management
-- [Windows Setup](docs/setup-windows.md) - Service deployment and configuration
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-<p align="center">
-  <sub>Built with ☕ and late nights</sub>
-</p>
+MIT
