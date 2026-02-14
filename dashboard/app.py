@@ -571,6 +571,7 @@ def index():
 
         if key == 'tailscale':
             services_list.append({
+                'key': key,
                 'name': service['name'],
                 'port': '5252 (WebClient)',
                 'status': status_str,
@@ -580,6 +581,7 @@ def index():
             })
         elif key == 'teamspeak':
             services_list.append({
+                'key': key,
                 'name': service['name'],
                 'port': f"{service['port']} (Voice)",
                 'status': status_str,
@@ -591,6 +593,7 @@ def index():
             port_display = service.get('port', '--')
             url = f"http://noc-local:{service['port']}" if service.get('port') else "#"
             services_list.append({
+                'key': key,
                 'name': service['name'],
                 'port': port_display,
                 'status': status_str,
@@ -627,6 +630,7 @@ def index():
             for svc_id, svc in machine.get('services', {}).items():
                 is_online = machine_data.get(svc_id, False)
                 remote_services.append({
+                    'key': svc_id,
                     'name': svc['name'],
                     'port': svc.get('port', '--'),
                     'status': 'online' if is_online else 'offline',

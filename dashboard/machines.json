@@ -60,11 +60,6 @@
           "description": "Matrix admin dashboard",
           "url": "https://matrix.nocfa.net/synapse-admin/"
         },
-        "stoat": {
-          "name": "Stoat Chat",
-          "description": "Open-source chat platform (Cloudflare tunnel)",
-          "url": "https://comms.nocfa.net"
-        },
         "zurg": {
           "name": "Zurg",
           "description": "Real-Debrid WebDAV",

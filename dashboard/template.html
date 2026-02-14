@@ -504,6 +504,7 @@
                     <div
                         class="service-card {{ 'remote' if service.remote }}"
                         data-service="{{ service.name }}"
+                        data-service-key="{{ service.key }}"
                         data-machine="{{ group.id }}"
                         data-url="{{ service.url }}"
                         onclick="visitService(this)"
@@ -688,32 +689,6 @@
                 resumeAutoRefresh();
             }
 
-            // Maps for resolving service keys to display names per machine
-            const localNameMap = {
-                copyparty: "Copyparty",
-                maloja: "Maloja",
-                "multi-scrobbler": "Multi-Scrobbler",
-                tailscale: "Tailscale",
-                teamspeak: "TeamSpeak",
-                gatus: "Gatus",
-                nextcloud: "Nextcloud",
-                ts3audiobot: "TS3AudioBot",
-                syncthing: "Syncthing",
-                voiceseq: "VoiceSeq",
-                "beads-ui": "Beads UI",
-                glances: "Glances",
-            };
-            const remoteNameMap = {
-                emby: "Emby",
-                sunshine: "Sunshine",
-                zurg: "Zurg",
-                rclone: "Rclone Mount",
-                parsec: "Parsec",
-                jellyfin: "Jellyfin",
-                gatus: "Gatus",
-                glances: "Glances",
-            };
-
             async function refreshStatus() {
                 // Brighten all status dots at start of check
                 document
@@ -744,45 +719,22 @@
                             uptimeEl.textContent = statusData._avg_uptime;
                     }
 
-                    // Update local services
-                    const localData = statusData["noc-local"] || {};
-                    Object.keys(localData).forEach((serviceKey) => {
-                        if (serviceKey.startsWith("_")) return;
-                        const status = localData[serviceKey]
-                            ? "online"
-                            : "offline";
-                        const serviceName = localNameMap[serviceKey];
-                        if (!serviceName) return;
-                        updateCardStatus(serviceName, "noc-local", status);
-                    });
-
-                    // Update local uptime
-                    if (localData._uptime) {
-                        const el = document.querySelector(
-                            '[data-machine-uptime="noc-local"] strong',
-                        );
-                        if (el) el.textContent = localData._uptime;
-                    }
-
-                    // Update remote machines
+                    // Update all machines (local + remote) by service key
                     Object.keys(statusData).forEach((machineId) => {
-                        if (
-                            machineId === "noc-local" ||
-                            machineId.startsWith("_")
-                        )
-                            return;
+                        if (machineId.startsWith("_")) return;
                         const machineData = statusData[machineId];
-                        const reachable = machineData._reachable;
 
-                        // Update machine header dot
-                        const dot = document.querySelector(
-                            `[data-machine-dot="${machineId}"]`,
-                        );
-                        if (dot) {
-                            dot.className = `machine-status-dot ${reachable ? "reachable" : "unreachable"}`;
+                        // Update machine reachability dot (remote only)
+                        if (machineData._reachable !== undefined) {
+                            const dot = document.querySelector(
+                                `[data-machine-dot="${machineId}"]`,
+                            );
+                            if (dot) {
+                                dot.className = `machine-status-dot ${machineData._reachable ? "reachable" : "unreachable"}`;
+                            }
                         }
 
-                        // Update per-node uptime
+                        // Update uptime
                         if (machineData._uptime) {
                             const el = document.querySelector(
                                 `[data-machine-uptime="${machineId}"] strong`,
@@ -790,14 +742,13 @@
                             if (el) el.textContent = machineData._uptime;
                         }
 
+                        // Update each service status by key
                         Object.keys(machineData).forEach((serviceKey) => {
                             if (serviceKey.startsWith("_")) return;
                             const status = machineData[serviceKey]
                                 ? "online"
                                 : "offline";
-                            const serviceName = remoteNameMap[serviceKey];
-                            if (!serviceName) return;
-                            updateCardStatus(serviceName, machineId, status);
+                            updateCardStatus(serviceKey, machineId, status);
                         });
                     });
                 } catch (error) {
@@ -813,9 +764,9 @@
                 }
             }
 
-            function updateCardStatus(serviceName, machineId, status) {
+            function updateCardStatus(serviceKey, machineId, status) {
                 const card = document.querySelector(
-                    `[data-service="${serviceName}"][data-machine="${machineId}"]`,
+                    `[data-service-key="${serviceKey}"][data-machine="${machineId}"]`,
                 );
                 if (!card) return;
 
