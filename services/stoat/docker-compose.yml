@@ -238,8 +238,6 @@ services:
     image: caddy:2-alpine
     container_name: stoat-caddy
     restart: unless-stopped
-    ports:
-      - "80:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy-data:/data

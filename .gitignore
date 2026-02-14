@@ -109,3 +109,6 @@ AGENTS.md
 CLAUDE.md
 .gitattributes
 noc-homelab-beads/
+
+# Matrix — plaintext inventory (secrets), only SOPS-encrypted vars committed
+services/matrix/inventory/

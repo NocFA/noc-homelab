@@ -1,0 +1,9 @@
+[Unit]
+Description=Cloudflare DDNS updater for nocfa.net
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=noc
+ExecStart=/home/noc/noc-homelab/linux/scripts/cloudflare-ddns.sh

@@ -33,10 +33,24 @@
           "port": 61999,
           "url": "http://100.91.104.124:61999"
         },
+        "matrix-synapse": {
+          "name": "Matrix Synapse",
+          "description": "Matrix homeserver",
+          "url": "https://matrix.nocfa.net"
+        },
+        "element": {
+          "name": "Element Web",
+          "description": "Matrix web client",
+          "url": "https://element.nocfa.net"
+        },
+        "synapse-admin": {
+          "name": "Synapse Admin",
+          "description": "Matrix admin dashboard",
+          "url": "https://matrix.nocfa.net/synapse-admin/"
+        },
         "stoat": {
           "name": "Stoat Chat",
-          "description": "Open-source chat platform",
-          "port": 80,
+          "description": "Open-source chat platform (Cloudflare tunnel)",
           "url": "https://comms.nocfa.net"
         },
         "zurg": {
