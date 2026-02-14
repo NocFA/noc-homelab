@@ -1,0 +1,50 @@
+services:
+  arcane:
+    image: ghcr.io/getarcaneapp/arcane:latest
+    container_name: arcane
+    ports:
+      - "3552:3552"
+    volumes:
+      - arcane-data:/app/data
+      - /home/noc/noc-homelab/services:/home/noc/noc-homelab/services
+    environment:
+      - DOCKER_HOST=tcp://docker-socket-proxy:2375
+      - APP_URL=${APP_URL}
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - docker-socket-proxy
+    networks:
+      - arcane-net
+    restart: unless-stopped
+
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: arcane-socket-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - VOLUMES=1
+      - NETWORKS=1
+      - INFO=1
+      - PING=1
+      - BUILD=1
+      - EXEC=1
+      - AUTH=1
+      - SECRETS=1
+      - CONFIGS=1
+      - POST=1
+    networks:
+      - arcane-net
+    restart: unless-stopped
+
+volumes:
+  arcane-data:
+
+networks:
+  arcane-net:

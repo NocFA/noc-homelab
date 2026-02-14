@@ -10,5 +10,8 @@ def get_platform_handler():
     elif system == 'windows':
         from .windows import WindowsHandler
         return WindowsHandler()
+    elif system == 'linux':
+        from .linux import LinuxHandler
+        return LinuxHandler()
     else:
         raise RuntimeError(f"Unsupported platform: {system}")

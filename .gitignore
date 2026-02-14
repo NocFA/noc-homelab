@@ -82,18 +82,16 @@ services/nextcloud/themes/
 services/*/data/
 services/*/db/
 
-# Service environment files with secrets
-services/chatwoot/.env
-services/*/.env
-!services/stoat/.env
 
 # Gatus config (contains Discord webhook secrets)
 services/gatus/config.yaml
 services/gatus/config-winlocal.yaml
 
-# Zurg binary (downloaded, not committed)
+# Zurg binary and runtime data (downloaded/generated, not committed)
 services/zurg/zurg.exe
 linux/services/zurg/zurg
+linux/services/zurg/data/
+linux/services/zurg/logs/
 
 # Agent config (machine-specific)
 agent/config.yaml
