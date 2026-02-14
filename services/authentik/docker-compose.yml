@@ -1,0 +1,79 @@
+services:
+  authentik-postgres:
+    image: postgres:16-alpine
+    container_name: authentik-postgres
+    restart: unless-stopped
+    volumes:
+      - authentik-postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: authentik
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: ${PG_PASS}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d authentik -U authentik"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - authentik-internal
+
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2025.2
+    container_name: authentik-server
+    restart: unless-stopped
+    command: server
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: traefik
+      traefik.http.routers.authentik.rule: "Host(`auth.nocfa.net`)"
+      traefik.http.routers.authentik.entrypoints: web-secure
+      traefik.http.routers.authentik.tls: "true"
+      traefik.http.routers.authentik.tls.certResolver: default
+      traefik.http.routers.authentik.service: authentik
+      traefik.http.routers.authentik.middlewares: authentik-add-headers
+      traefik.http.services.authentik.loadbalancer.server.port: "9000"
+      traefik.http.middlewares.authentik-add-headers.headers.customresponseheaders.Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+      traefik.http.middlewares.authentik-add-headers.headers.customresponseheaders.X-Content-Type-Options: "nosniff"
+      traefik.http.middlewares.authentik-add-headers.headers.customresponseheaders.X-XSS-Protection: "1; mode=block"
+      traefik.http.middlewares.authentik-add-headers.headers.customresponseheaders.Permission-Policy: "interest-cohort=()"
+    networks:
+      - authentik-internal
+      - traefik
+
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2025.2
+    container_name: authentik-worker
+    restart: unless-stopped
+    command: worker
+    depends_on:
+      authentik-postgres:
+        condition: service_healthy
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - authentik-internal
+
+volumes:
+  authentik-postgres:
+
+networks:
+  authentik-internal:
+    driver: bridge
+  traefik:
+    external: true

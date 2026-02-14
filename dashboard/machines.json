@@ -60,6 +60,11 @@
           "description": "Matrix admin dashboard",
           "url": "https://matrix.nocfa.net/synapse-admin/"
         },
+        "authentik": {
+          "name": "Authentik",
+          "description": "SSO & 2FA identity provider",
+          "url": "https://auth.nocfa.net"
+        },
         "zurg": {
           "name": "Zurg",
           "description": "Real-Debrid WebDAV",
