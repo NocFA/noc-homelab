@@ -18,6 +18,22 @@ services:
     networks:
       - authentik-internal
 
+  authentik-redis:
+    image: redis:7-alpine
+    container_name: authentik-redis
+    restart: unless-stopped
+    command: --save 60 1 --loglevel warning
+    volumes:
+      - authentik-redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - authentik-internal
+
   authentik-server:
     image: ghcr.io/goauthentik/server:2025.2
     container_name: authentik-server
@@ -26,8 +42,11 @@ services:
     depends_on:
       authentik-postgres:
         condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
     environment:
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__USER: authentik
@@ -58,8 +77,11 @@ services:
     depends_on:
       authentik-postgres:
         condition: service_healthy
+      authentik-redis:
+        condition: service_healthy
     environment:
       AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY}
+      AUTHENTIK_REDIS__HOST: authentik-redis
       AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
       AUTHENTIK_POSTGRESQL__NAME: authentik
       AUTHENTIK_POSTGRESQL__USER: authentik
@@ -71,6 +93,7 @@ services:
 
 volumes:
   authentik-postgres:
+  authentik-redis:
 
 networks:
   authentik-internal:
