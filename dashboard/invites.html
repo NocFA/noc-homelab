@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitations - NOCNET</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Commit+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a2e30;
+            --bg-secondary: #0f3d40;
+            --bg-elevated: #145252;
+            --text-primary: #f0fdfa;
+            --text-secondary: #99e0d9;
+            --text-muted: #5eaba3;
+            --accent: #f59e0b;
+            --accent-dark: #b45309;
+            --success: #34d399;
+            --error: #f87171;
+            --border: #1a5456;
+            --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: "Commit Mono", ui-monospace, "SF Mono", Consolas, monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-body);
+            min-height: 100vh;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+        .header {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            font-family: var(--font-mono);
+        }
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .header-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--error); }
+        .header-dot:nth-child(2) { background: var(--accent); }
+        .header-dot:nth-child(3) { background: var(--success); }
+        .header-path { margin-left: 0.75rem; }
+        .header-nav {
+            margin-left: auto;
+            display: flex;
+            gap: 0.75rem;
+        }
+        .header-nav a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+        }
+        .header-nav a:hover { opacity: 1; }
+        .header-title {
+            font-size: 1rem;
+            color: var(--success);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .header-title span { color: var(--text-muted); }
+        .header-prompt { color: var(--accent); }
+        .header-cmd { color: var(--text-primary); }
+
+        .section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .section-title {
+            font-family: var(--font-mono);
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .create-form {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        .form-group label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+        .form-group input, .form-group select {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 0.875rem;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .form-group input { width: 200px; }
+        .toggle-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-bottom: 0.25rem;
+        }
+        .toggle {
+            position: relative;
+            width: 36px;
+            height: 20px;
+            cursor: pointer;
+        }
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            inset: 0;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            transition: background 0.2s;
+        }
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            left: 2px;
+            bottom: 2px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            transition: transform 0.2s;
+        }
+        .toggle input:checked + .toggle-slider {
+            background: var(--success);
+            border-color: var(--success);
+        }
+        .toggle input:checked + .toggle-slider:before {
+            transform: translateX(16px);
+            background: var(--bg-primary);
+        }
+        .toggle-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--text-muted);
+            box-shadow: 3px 3px 0 var(--text-muted);
+            position: relative;
+            top: 0;
+            transition: top 150ms ease, box-shadow 150ms ease;
+        }
+        .btn:hover { top: 2px; box-shadow: 1px 1px 0 var(--text-muted); }
+        .btn:active { top: 3px; box-shadow: 0 0 0 var(--text-muted); }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
+        .btn-create {
+            border-color: var(--success);
+            box-shadow: 3px 3px 0 var(--success);
+        }
+        .btn-create:hover { box-shadow: 1px 1px 0 var(--success); }
+        .btn-create:active { box-shadow: 0 0 0 var(--success); }
+        .btn-delete {
+            border-color: var(--error);
+            box-shadow: 2px 2px 0 var(--error);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        .btn-delete:hover { box-shadow: 1px 1px 0 var(--error); }
+        .btn-delete:active { box-shadow: 0 0 0 var(--error); }
+        .btn-copy {
+            border-color: var(--accent);
+            box-shadow: 2px 2px 0 var(--accent);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+        .btn-copy:hover { box-shadow: 1px 1px 0 var(--accent); }
+        .btn-copy:active { box-shadow: 0 0 0 var(--accent); }
+
+        .invites-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
+        }
+        .invites-table th {
+            text-align: left;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .invites-table td {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+        .invites-table tr:last-child td {
+            border-bottom: none;
+        }
+        .invite-link {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .link-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .badge {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-yes {
+            background: var(--bg-primary);
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+        .badge-no {
+            background: var(--bg-primary);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .actions-cell {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        #toast {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            display: none;
+            z-index: 1000;
+            font-size: 0.875rem;
+            font-weight: 500;
+            max-width: 400px;
+        }
+        .toast-success { border-left: 3px solid var(--success); }
+        .toast-error { border-left: 3px solid var(--error); }
+
+        .loading { opacity: 0.5; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <div class="header-dot"></div>
+                <div class="header-dot"></div>
+                <div class="header-dot"></div>
+                <span class="header-path">~/noc-homelab</span>
+                <div class="header-nav">
+                    <a href="/" title="Dashboard">[back]</a>
+                    <a href="/settings" title="Settings">[cfg]</a>
+                </div>
+            </div>
+            <div class="header-title">
+                <span class="header-prompt">noc@local</span><span>:</span><span class="header-cmd">./dashboard --invites</span>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Create Invitation</div>
+            <div class="create-form">
+                <div class="form-group">
+                    <label for="inviteName">Name / Label</label>
+                    <input type="text" id="inviteName" placeholder="e.g. john-doe">
+                </div>
+                <div class="form-group">
+                    <label for="inviteExpiry">Expires</label>
+                    <select id="inviteExpiry">
+                        <option value="1">1 day</option>
+                        <option value="7" selected>7 days</option>
+                        <option value="30">30 days</option>
+                        <option value="0">Never</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="toggle-group">
+                        <label class="toggle">
+                            <input type="checkbox" id="inviteSingleUse" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Single use</span>
+                    </div>
+                </div>
+                <button class="btn btn-create" onclick="createInvite()">Generate</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Active Invitations</div>
+            <div id="invitesContainer">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast-' + type;
+            toast.style.display = 'block';
+            setTimeout(() => toast.style.display = 'none', 3000);
+        }
+
+        function formatDate(iso) {
+            if (!iso) return '--';
+            const d = new Date(iso);
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        async function loadInvites() {
+            try {
+                const resp = await fetch('/api/invites');
+                if (!resp.ok) throw new Error('Failed to load invites');
+                const data = await resp.json();
+                renderInvites(data.invites || []);
+            } catch (err) {
+                document.getElementById('invitesContainer').innerHTML =
+                    '<div class="empty-state">Error loading invitations: ' + err.message + '</div>';
+            }
+        }
+
+        function renderInvites(invites) {
+            const container = document.getElementById('invitesContainer');
+            if (invites.length === 0) {
+                container.innerHTML = '<div class="empty-state">No active invitations</div>';
+                return;
+            }
+            let html = '<table class="invites-table"><thead><tr>';
+            html += '<th>Name</th><th>Link</th><th>Created</th><th>Expires</th><th>Single Use</th><th>Actions</th>';
+            html += '</tr></thead><tbody>';
+            for (const inv of invites) {
+                html += '<tr>';
+                html += '<td>' + escapeHtml(inv.name) + '</td>';
+                html += '<td><div class="link-cell">';
+                html += '<span class="invite-link" title="' + escapeHtml(inv.link) + '">' + escapeHtml(inv.link) + '</span>';
+                html += '<button class="btn btn-copy" onclick="copyLink(\'' + escapeHtml(inv.link) + '\')">Copy</button>';
+                html += '</div></td>';
+                html += '<td>' + formatDate(inv.created) + '</td>';
+                html += '<td>' + formatDate(inv.expires) + '</td>';
+                html += '<td><span class="badge ' + (inv.single_use ? 'badge-yes' : 'badge-no') + '">' + (inv.single_use ? 'Yes' : 'No') + '</span></td>';
+                html += '<td><div class="actions-cell">';
+                html += '<button class="btn btn-delete" onclick="deleteInvite(\'' + inv.pk + '\')">Delete</button>';
+                html += '</div></td>';
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        async function copyLink(link) {
+            try {
+                await navigator.clipboard.writeText(link);
+                showToast('Link copied to clipboard', 'success');
+            } catch {
+                // Fallback for non-HTTPS contexts
+                const ta = document.createElement('textarea');
+                ta.value = link;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                showToast('Link copied to clipboard', 'success');
+            }
+        }
+
+        async function createInvite() {
+            const name = document.getElementById('inviteName').value.trim();
+            if (!name) {
+                showToast('Please enter a name for the invitation', 'error');
+                return;
+            }
+            const expiry = parseInt(document.getElementById('inviteExpiry').value);
+            const singleUse = document.getElementById('inviteSingleUse').checked;
+
+            try {
+                const resp = await fetch('/api/invites/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, expiry_days: expiry, single_use: singleUse })
+                });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Failed to create invite');
+                showToast('Invitation created', 'success');
+                document.getElementById('inviteName').value = '';
+                loadInvites();
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        async function deleteInvite(pk) {
+            try {
+                const resp = await fetch('/api/invites/' + pk, { method: 'DELETE' });
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.error || 'Failed to delete invite');
+                showToast('Invitation deleted', 'success');
+                loadInvites();
+            } catch (err) {
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        // Allow Enter key to submit
+        document.getElementById('inviteName').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') createInvite();
+        });
+
+        loadInvites();
+    </script>
+</body>
+</html>

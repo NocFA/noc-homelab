@@ -443,9 +443,24 @@
                     <div class="header-dot"></div>
                     <span class="header-path">~/noc-homelab</span>
                     <a
-                        href="/settings"
+                        href="/invites"
                         style="
                             margin-left: auto;
+                            text-decoration: none;
+                            color: var(--text-secondary);
+                            opacity: 0.7;
+                            transition: opacity 0.2s;
+                            font-family: var(--font-mono);
+                            font-size: 0.75rem;
+                        "
+                        onmouseover="this.style.opacity = '1'"
+                        onmouseout="this.style.opacity = '0.7'"
+                        title="Invitations"
+                        >[inv]</a
+                    >
+                    <a
+                        href="/settings"
+                        style="
                             text-decoration: none;
                             color: var(--text-secondary);
                             opacity: 0.7;

@@ -109,6 +109,15 @@ def load_machines_config():
     except Exception:
         return []
 
+def get_authentik_config():
+    """Load authentik config section from machines.json"""
+    config_path = os.path.join(os.path.dirname(__file__), 'machines.json')
+    try:
+        with open(config_path, 'r') as f:
+            return json.load(f).get('authentik', {})
+    except Exception:
+        return {}
+
 MACHINES = load_machines_config()
 
 def check_remote_port(hostname, port, timeout=0.5):
@@ -1233,6 +1242,125 @@ def restart_dashboard():
     Thread(target=shutdown).start()
 
     return jsonify({'success': True, 'message': 'Restarting...'})
+
+# Invitation management routes
+
+@app.route('/invites')
+def invites_page():
+    return render_template('invites.html')
+
+@app.route('/api/invites')
+def list_invites():
+    """List active invitations from Authentik"""
+    cfg = get_authentik_config()
+    if not cfg.get('api_token'):
+        return jsonify({'error': 'Authentik not configured'}), 500
+    try:
+        resp = requests.get(
+            f"{cfg['api_url']}/api/v3/stages/invitation/invitations/",
+            headers={'Authorization': f"Bearer {cfg['api_token']}"},
+            timeout=10
+        )
+        if resp.status_code != 200:
+            return jsonify({'error': f'Authentik API error: {resp.status_code}'}), 502
+        data = resp.json()
+        invites = []
+        for inv in data.get('results', []):
+            invites.append({
+                'pk': inv['pk'],
+                'name': inv.get('name', ''),
+                'link': f"{cfg['api_url']}/if/flow/{cfg.get('enrollment_flow_slug', 'enrollment-invitation')}/?itoken={inv['pk']}",
+                'created': inv.get('created', ''),
+                'expires': inv.get('expires', None),
+                'single_use': inv.get('single_use', False),
+            })
+        return jsonify({'invites': invites})
+    except requests.RequestException as e:
+        return jsonify({'error': str(e)}), 502
+
+@app.route('/api/invites/create', methods=['POST'])
+def create_invite():
+    """Create a new invitation in Authentik"""
+    cfg = get_authentik_config()
+    if not cfg.get('api_token'):
+        return jsonify({'error': 'Authentik not configured'}), 500
+    data = request.get_json()
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Name is required'}), 400
+
+    expiry_days = data.get('expiry_days', 7)
+    single_use = data.get('single_use', True)
+
+    payload = {
+        'name': name,
+        'single_use': single_use,
+    }
+    if expiry_days and expiry_days > 0:
+        from datetime import datetime, timedelta, timezone
+        expires = datetime.now(timezone.utc) + timedelta(days=expiry_days)
+        payload['expires'] = expires.isoformat()
+
+    # Get the enrollment flow PK
+    flow_slug = cfg.get('enrollment_flow_slug', 'enrollment-invitation')
+    try:
+        flow_resp = requests.get(
+            f"{cfg['api_url']}/api/v3/flows/instances/?slug={flow_slug}",
+            headers={'Authorization': f"Bearer {cfg['api_token']}"},
+            timeout=10
+        )
+        if flow_resp.status_code == 200:
+            results = flow_resp.json().get('results', [])
+            if results:
+                payload['flow'] = results[0]['pk']
+
+        resp = requests.post(
+            f"{cfg['api_url']}/api/v3/stages/invitation/invitations/",
+            headers={
+                'Authorization': f"Bearer {cfg['api_token']}",
+                'Content-Type': 'application/json'
+            },
+            json=payload,
+            timeout=10
+        )
+        if resp.status_code in (200, 201):
+            inv = resp.json()
+            return jsonify({
+                'success': True,
+                'invite': {
+                    'pk': inv['pk'],
+                    'name': inv.get('name', ''),
+                    'link': f"{cfg['api_url']}/if/flow/{flow_slug}/?itoken={inv['pk']}",
+                }
+            })
+        else:
+            error = resp.text
+            try:
+                error = resp.json()
+            except Exception:
+                pass
+            return jsonify({'error': f'Authentik API error: {error}'}), 502
+    except requests.RequestException as e:
+        return jsonify({'error': str(e)}), 502
+
+@app.route('/api/invites/<pk>', methods=['DELETE'])
+def delete_invite(pk):
+    """Delete/revoke an invitation"""
+    cfg = get_authentik_config()
+    if not cfg.get('api_token'):
+        return jsonify({'error': 'Authentik not configured'}), 500
+    try:
+        resp = requests.delete(
+            f"{cfg['api_url']}/api/v3/stages/invitation/invitations/{pk}/",
+            headers={'Authorization': f"Bearer {cfg['api_token']}"},
+            timeout=10
+        )
+        if resp.status_code == 204:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'error': f'Authentik API error: {resp.status_code}'}), 502
+    except requests.RequestException as e:
+        return jsonify({'error': str(e)}), 502
 
 # Start background status updater thread
 _status_thread = threading.Thread(target=_bg_status_loop, daemon=True)
