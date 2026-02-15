@@ -155,6 +155,73 @@ else
 fi
 PROMPT_PK=$(get_pk_by_name "/stages/prompt/stages/" "$PROMPT_STAGE")
 
+# 3b. Create validation policy for prompt fields
+POLICY_NAME="enrollment-username-validation"
+echo -n "3b. Validation policy ($POLICY_NAME)... "
+POLICY_EXPR='import re
+
+prompt_data = request.context.get("prompt_data", {})
+username = prompt_data.get("username", "")
+name = prompt_data.get("name", "")
+email = prompt_data.get("email", "")
+
+if not username:
+    ak_message("Username is required.")
+    return False
+
+if not re.match(r"^[a-z0-9._-]+$", username):
+    ak_message("Username must contain only lowercase letters, numbers, hyphens, underscores, and dots. No capitals or spaces.")
+    return False
+
+if len(username) < 3:
+    ak_message("Username must be at least 3 characters.")
+    return False
+
+if len(username) > 32:
+    ak_message("Username must be 32 characters or fewer.")
+    return False
+
+if not name or len(name.strip()) < 1:
+    ak_message("Name is required.")
+    return False
+
+if len(name) > 64:
+    ak_message("Name must be 64 characters or fewer.")
+    return False
+
+if not email or "@" not in email:
+    ak_message("A valid email address is required.")
+    return False
+
+return True'
+
+POLICY_PK=$(api_get "/policies/expression/?name=$POLICY_NAME" | python3 -c "import sys,json; r=json.load(sys.stdin).get('results',[]); print(r[0]['pk'] if r else '')" 2>/dev/null)
+if [[ -n "$POLICY_PK" ]]; then
+    echo "already exists"
+else
+    POLICY_JSON=$(python3 -c "import json; print(json.dumps({'name':'$POLICY_NAME','execution_logging':False,'expression':'''$POLICY_EXPR'''}))")
+    resp=$(api_post "/policies/expression/" "$POLICY_JSON")
+    POLICY_PK=$(echo "$resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('pk',''))" 2>/dev/null)
+    if [[ -n "$POLICY_PK" ]]; then
+        echo "created"
+    else
+        echo "FAILED: $resp"
+        exit 1
+    fi
+fi
+
+# Ensure policy is bound to prompt stage
+CURRENT_POLICIES=$(api_get "/stages/prompt/stages/$PROMPT_PK/" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin).get('validation_policies',[])))" 2>/dev/null)
+if echo "$CURRENT_POLICIES" | python3 -c "import sys,json; sys.exit(0 if '$POLICY_PK' in json.load(sys.stdin) else 1)" 2>/dev/null; then
+    : # already bound
+else
+    echo -n "   Binding policy to prompt stage... "
+    curl -sf -X PATCH -H "$AUTH" -H "$CT" \
+        -d "{\"validation_policies\": [\"$POLICY_PK\"]}" \
+        "$API/stages/prompt/stages/$PROMPT_PK/" >/dev/null 2>&1
+    echo "done"
+fi
+
 # 4. Create user-write stage
 WRITE_STAGE="enrollment-user-write"
 echo -n "4. User-write stage ($WRITE_STAGE)... "
