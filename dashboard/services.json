@@ -115,6 +115,7 @@
       "port": 58913
     },
     "voiceseq": {
+      "description": "Voice note upload server (iOS)",
       "launchd": "com.noc.voiceseq",
       "log_paths": [
         "~/Library/Logs/noc-homelab/voiceseq.log",
@@ -122,6 +123,15 @@
       ],
       "name": "VoiceSeq",
       "port": 61998
+    },
+    "voiceseq-processor": {
+      "description": "Voice note transcription & Logseq writer",
+      "launchd": "com.noc.voiceseq-processor",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/voiceseq-processor.log",
+        "~/Library/Logs/noc-homelab/voiceseq-processor.error.log"
+      ],
+      "name": "VoiceSeq Processor"
     },
     "caddy": {
       "name": "Caddy",
