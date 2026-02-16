@@ -58,7 +58,8 @@ The dashboard on noc-local polls the agent API on noc-tux for real-time service 
 | Glances | 61999 | launchd | System metrics API |
 | Caddy | 80/443 | launchd | Reverse proxy |
 | Beads UI | 3000 | launchd | Issue tracker dashboard |
-| VoiceSeq | 61998 | launchd | iOS audio upload |
+| VoiceSeq | 61998 | launchd | Voice note upload server (iOS) |
+| VoiceSeq Processor | -- | launchd | Transcription & Logseq writer |
 | Tailscale | -- | system | Mesh VPN |
 
 ### noc-tux
@@ -148,7 +149,7 @@ noc-homelab/
 │   └── matrix/             # Matrix deployment scripts + vars
 ├── configs/                # SOPS-encrypted service configs
 ├── launchagents/           # macOS LaunchAgent plists
-├── scripts/                # Utility scripts (tailscale, teamspeak)
+├── scripts/                # Utility scripts (tailscale, teamspeak, newrepo)
 ├── setup/
 │   ├── setup-linux.sh      # noc-tux deployment
 │   └── setup-monitoring.sh # Glances + Gatus setup
@@ -157,6 +158,20 @@ noc-homelab/
     ├── setup-linux.md
     └── setup-macos.md
 ```
+
+## New Repository Setup
+
+The `scripts/newrepo` script scaffolds a new repo with the full standard stack: SOPS + age encryption, beads issue tracking, GPG commit signing, and a Codeberg remote.
+
+```bash
+newrepo my-project              # public repo on Codeberg
+newrepo my-project --private    # private repo
+newrepo my-project --no-remote  # local only, no Codeberg
+```
+
+Creates: `.sops.yaml`, `config.sops.yaml`, pre-commit/post-commit hooks (encrypt-on-commit + assume-unchanged), `bd init`, MIT license, AGENTS.md, and pushes to `codeberg.org/noc/<project>`.
+
+Requires `CODEBERG_TOKEN` in env or `~/.config/newrepo/token` for automatic Codeberg repo creation. The script lives at `~/.local/bin/newrepo` (on PATH) — the copy here is for backup.
 
 ## Deployment
 
