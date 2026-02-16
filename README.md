@@ -169,7 +169,7 @@ newrepo my-project --private    # private repo
 newrepo my-project --no-remote  # local only, no Codeberg
 ```
 
-Creates: `.sops.yaml`, `config.sops.yaml`, pre-commit/post-commit hooks (encrypt-on-commit + assume-unchanged), `bd init`, MIT license, AGENTS.md, and pushes to `codeberg.org/noc/<project>`.
+Creates: `.sops.yaml`, `config.sops.yaml`, full SOPS hook chain (encrypt-on-commit, assume-unchanged, decrypt-on-pull, decrypt-on-checkout), `bd init`, MIT license, AGENTS.md, and pushes to `codeberg.org/noc/<project>`. Plaintext at rest, encrypted in git — the full cycle.
 
 Requires `CODEBERG_TOKEN` in env or `~/.config/newrepo/token` for automatic Codeberg repo creation. The script lives at `~/.local/bin/newrepo` (on PATH) — the copy here is for backup.
 

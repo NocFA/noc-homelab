@@ -15,7 +15,7 @@ usage() {
     echo "Usage: newrepo <project-name> [--private] [--no-remote]"
     echo ""
     echo "Creates a new git repo with:"
-    echo "  - SOPS + age encryption (encrypt-on-commit)"
+    echo "  - SOPS + age encryption (encrypt-on-commit, decrypt-on-pull)"
     echo "  - Beads (bd) issue tracking"
     echo "  - GPG commit signing"
     echo "  - Codeberg remote"
@@ -226,7 +226,11 @@ echo "Initializing beads..."
 bd init
 
 # ── Git hooks ─────────────────────────────────────────────────────────────────
-# bd init installs its shim hooks; we patch pre-commit and add post-commit for SOPS
+# bd init installs its shim hooks; we replace them with SOPS-aware versions:
+# pre-commit:    encrypt staged sops files, restore plaintext working copy
+# post-commit:   set assume-unchanged so plaintext doesn't show as modified
+# post-merge:    decrypt pulled files back to plaintext
+# post-checkout:  decrypt after branch checkout / clone
 
 cat > .git/hooks/pre-commit << 'HOOK'
 #!/usr/bin/env sh
@@ -310,7 +314,57 @@ if git ls-files --error-unmatch .sops.yaml >/dev/null 2>&1; then
 fi
 HOOK
 
-chmod +x .git/hooks/pre-commit .git/hooks/post-commit
+cat > .git/hooks/post-merge << 'HOOK'
+#!/usr/bin/env sh
+# Post-merge hook: bd sync + SOPS auto-decrypt
+# Plaintext at rest, encrypted in git.
+
+# --- bd (beads) hook ---
+if command -v bd >/dev/null 2>&1; then
+    bd hook post-merge "$@"
+fi
+
+# --- SOPS: decrypt encrypted files to plaintext ---
+if command -v sops >/dev/null 2>&1; then
+    export SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
+    git ls-files | xargs grep -l 'ENC\[AES256_GCM,' 2>/dev/null | while IFS= read -r f; do
+        if sops -d -i "$f" 2>/dev/null; then
+            echo "SOPS: decrypted $f"
+            git update-index --assume-unchanged "$f" 2>/dev/null
+        fi
+    done
+fi
+HOOK
+
+cat > .git/hooks/post-checkout << 'HOOK'
+#!/usr/bin/env sh
+# Post-checkout hook: bd sync + SOPS auto-decrypt
+# Plaintext at rest, encrypted in git.
+
+# --- bd (beads) hook ---
+if command -v bd >/dev/null 2>&1; then
+    bd hook post-checkout "$@"
+fi
+
+# Only run on branch checkouts (flag=1), not file checkouts (flag=0)
+FLAG="${3:-0}"
+if [ "$FLAG" != "1" ]; then
+    exit 0
+fi
+
+# --- SOPS: decrypt encrypted files to plaintext ---
+if command -v sops >/dev/null 2>&1; then
+    export SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
+    git ls-files | xargs grep -l 'ENC\[AES256_GCM,' 2>/dev/null | while IFS= read -r f; do
+        if sops -d -i "$f" 2>/dev/null; then
+            echo "SOPS: decrypted $f"
+            git update-index --assume-unchanged "$f" 2>/dev/null
+        fi
+    done
+fi
+HOOK
+
+chmod +x .git/hooks/pre-commit .git/hooks/post-commit .git/hooks/post-merge .git/hooks/post-checkout
 
 # ── Codeberg remote ──────────────────────────────────────────────────────────
 if [ "$NO_REMOTE" = false ]; then
