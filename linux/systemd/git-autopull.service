@@ -1,0 +1,11 @@
+[Unit]
+Description=Pull homelab repo from Codeberg
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/noc/noc-homelab/linux/scripts/git-autopull.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=git-autopull
