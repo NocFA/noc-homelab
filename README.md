@@ -128,6 +128,25 @@ Covered paths: `configs/*`, `*.env`, `linux/services/*/config.*`, `services/*/co
 
 Age recipient: `age1jdd07e42w6hgjncpsz0uxe0nruqgpexsl8nhh2vauwn9w0r53paqm9s87h`
 
+The age key and Claude Code shared memory live in a separate private sync repo (`noc-homelab-beads/`) that is gitignored here.
+
+## Git Framework
+
+Every clone of this repo runs the same framework, installed by the setup scripts:
+
+| Component | What it does |
+|---|---|
+| SOPS pre-commit | Auto-encrypts secrets before commit — aborts if encryption fails |
+| SOPS post-merge | Auto-decrypts on `git pull` |
+| GPG signing | All commits are signed (`user.signingkey` set per machine) |
+| Codeberg auto-pull | Polls Codeberg every 5min and fast-forward pulls if new commits exist |
+
+**Remotes:**
+- noc-tux: `origin` = GitHub, `codeberg` = Codeberg
+- noc-local: `origin` = Codeberg, `github` = GitHub
+
+Codeberg is the canonical source. Changes pushed to either remote are mirrored.
+
 ## Repository Structure
 
 ```
@@ -175,33 +194,46 @@ Requires `CODEBERG_TOKEN` in env or `~/.config/newrepo/token` for automatic Code
 
 ## Deployment
 
+### Prerequisites (both machines)
+
+Before running the setup scripts, you need:
+1. The `noc-homelab-beads` age key at `noc-homelab/noc-homelab-beads/homelab.agekey`
+2. Your SSH key added to Codeberg
+3. Your GPG public key added to Codeberg (setup script can generate one)
+
 ### noc-tux (Linux)
 
 ```bash
-git clone https://github.com/NocFA/noc-homelab.git
+# Clone from Codeberg (canonical) or GitHub
+git clone ssh://git@codeberg.org/noc/noc-homelab.git
 cd noc-homelab
+
+# Place the age key
+mkdir -p noc-homelab-beads
+cp /path/to/homelab.agekey noc-homelab-beads/homelab.agekey
+
 ./setup/setup-linux.sh
 ```
 
-The setup script installs dependencies, deploys systemd services, configures the media pipeline, and starts the agent.
+Installs: SOPS hooks, GPG signing, Codeberg remote + auto-pull timer, media pipeline services (Zurg, Rclone, FileBot), and links Claude Code memory to the beads repo.
 
 ### noc-local (macOS)
 
 ```bash
-git clone https://github.com/NocFA/noc-homelab.git
+# Clone from Codeberg (canonical) or GitHub
+git clone ssh://git@codeberg.org/noc/noc-homelab.git
 cd noc-homelab
 
-# Install LaunchAgents
-cd launchagents
-for plist in *.plist; do
-  ln -sf "$(pwd)/$plist" ~/Library/LaunchAgents/
-done
+# Place the age key
+mkdir -p noc-homelab-beads
+cp /path/to/homelab.agekey noc-homelab-beads/homelab.agekey
 
-# Start the dashboard
-launchctl load ~/Library/LaunchAgents/com.noc.dashboard.plist
+./setup/setup-macos.sh
 ```
 
-Dashboard available at `http://localhost:8080`.
+Installs: Homebrew deps (SOPS, age, gpg), SOPS hooks, GPG signing, Codeberg as origin, LaunchAgents, auto-pull launchd timer, and links Claude Code memory to the beads repo.
+
+Dashboard available at `http://localhost:8080` after loading `com.noc.dashboard.plist`.
 
 ## License
 
