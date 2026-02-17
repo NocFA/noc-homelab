@@ -62,10 +62,7 @@ services:
       traefik.http.routers.authentik.tls: "true"
       traefik.http.routers.authentik.tls.certResolver: default
       traefik.http.routers.authentik.service: authentik
-      traefik.http.routers.authentik.middlewares: authentik-rate-limit,authentik-add-headers
-      traefik.http.middlewares.authentik-rate-limit.ratelimit.average: "30"
-      traefik.http.middlewares.authentik-rate-limit.ratelimit.burst: "50"
-      traefik.http.middlewares.authentik-rate-limit.ratelimit.period: "1m"
+      traefik.http.routers.authentik.middlewares: authentik-add-headers
       traefik.http.services.authentik.loadbalancer.server.port: "9000"
       traefik.http.middlewares.authentik-add-headers.headers.customresponseheaders.Strict-Transport-Security: "max-age=31536000; includeSubDomains"
       traefik.http.middlewares.authentik-add-headers.headers.customresponseheaders.X-Content-Type-Options: "nosniff"
