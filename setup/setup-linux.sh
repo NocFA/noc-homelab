@@ -341,6 +341,20 @@ else
     success "codeberg remote exists"
 fi
 
+# Configure origin to push to both GitHub and Codeberg simultaneously
+PUSH_URLS=$(git -C "$REPO_ROOT" remote get-url --push --all origin 2>/dev/null || true)
+if ! echo "$PUSH_URLS" | grep -q "codeberg.org"; then
+    GITHUB_URL=$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null)
+    git -C "$REPO_ROOT" remote set-url --add --push origin "$GITHUB_URL"
+    git -C "$REPO_ROOT" remote set-url --add --push origin "ssh://git@codeberg.org/noc/noc-homelab.git"
+    success "origin configured to push to GitHub + Codeberg"
+else
+    success "origin already configured for dual push"
+fi
+
+# Ensure main branch tracks origin/main
+git -C "$REPO_ROOT" branch --set-upstream-to=origin/main main 2>/dev/null && success "main branch tracking set to origin/main" || true
+
 # Ensure Codeberg host key is in known_hosts
 if ! grep -q "codeberg.org" "$HOME/.ssh/known_hosts" 2>/dev/null; then
     ssh-keyscan codeberg.org >> "$HOME/.ssh/known_hosts" 2>/dev/null
@@ -553,7 +567,7 @@ echo ""
 success "Framework:"
 info "  Hooks:       SOPS encrypt-on-commit, decrypt-on-pull"
 info "  Signing:     GPG commit signing"
-info "  Remotes:     origin=GitHub, codeberg=Codeberg"
+info "  Remotes:     origin pushes to GitHub + Codeberg (dual push)"
 info "  Auto-pull:   Codeberg every 5min (git-autopull.timer)"
 info "  Memory:      Claude memory → noc-homelab-beads/memory/"
 echo ""
