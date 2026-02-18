@@ -11,7 +11,7 @@ A two-machine homelab running macOS and Linux, connected over Tailscale. Manages
 | Machine | OS | Role | Connectivity |
 |---|---|---|---|
 | **noc-local** | macOS (Sonoma) | Dashboard host, local services | LAN + Tailscale |
-| **noc-tux** | Ubuntu 24.04 LTS | Agent, media, Matrix, streaming | Tailscale `100.91.104.124` |
+| **noc-tux** | Ubuntu 24.04 LTS | Agent, media, Matrix, streaming | LAN + Tailscale `100.91.104.124` |
 
 ## Architecture
 
