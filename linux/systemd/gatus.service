@@ -5,11 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-Environment=SOPS_AGE_KEY_FILE=/home/noc/noc-homelab/noc-homelab-beads/homelab.agekey
-Environment=GATUS_CONFIG_PATH=/tmp/gatus-config.yaml
-ExecStartPre=/bin/bash -c 'sops -d /home/noc/noc-homelab/linux/services/gatus/config.yaml > /tmp/gatus-config.yaml'
+Environment=GATUS_CONFIG_PATH=/home/noc/noc-homelab/linux/services/gatus/config.yaml
 ExecStart=/usr/local/bin/gatus
-ExecStopPost=/bin/rm -f /tmp/gatus-config.yaml
 Restart=on-failure
 RestartSec=5
 WorkingDirectory=/home/noc/noc-homelab/linux/services/gatus
