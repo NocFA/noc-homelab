@@ -2,7 +2,7 @@
 
 A two-machine homelab running macOS and Linux, connected over Tailscale. Manages media streaming, Matrix communications, game streaming, and monitoring through a central dashboard and agent API.
 
-![Dashboard](docs/dashboard.png)
+<img src="docs/dashboard.gif" alt="Dashboard" width="700">
 
 ---
 
