@@ -7,7 +7,7 @@ WEBROOT="/srv/cinny"
 
 echo "Pulling latest element-call branch..."
 cd "$CINNY_DIR"
-git pull
+git pull nocfa feat/element-call
 
 echo "Installing deps..."
 npm ci --silent
