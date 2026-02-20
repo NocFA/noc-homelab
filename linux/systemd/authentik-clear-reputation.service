@@ -1,0 +1,6 @@
+[Unit]
+Description=Clear Authentik reputation scores after successful login
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /home/noc/noc-homelab/linux/scripts/authentik-clear-reputation.sh
