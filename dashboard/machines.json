@@ -13,6 +13,28 @@
       "role": "primary"
     },
     {
+      "display_name": "noc-claw",
+      "hostname": "100.95.102.128",
+      "id": "noc-claw",
+      "platform": "darwin",
+      "role": "agent",
+      "agent_port": 8080,
+      "ssh_user": "noc",
+      "services": {
+        "openclaw": {
+          "name": "OpenClaw Gateway",
+          "description": "On-device AI gateway (local LLMs via Ollama)",
+          "url": "http://100.95.102.128:18789"
+        },
+        "ollama": {
+          "name": "Ollama",
+          "description": "Local LLM runtime (Metal/M4 — qwen2.5, hermes3, llama3.2-vision)",
+          "port": 11434,
+          "url": "http://100.95.102.128:11434"
+        }
+      }
+    },
+    {
       "display_name": "noc-tux",
       "hostname": "100.91.104.124",
       "id": "noc-tux",

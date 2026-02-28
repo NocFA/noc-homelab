@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.homelab-agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/homelab-agent.log; : > /Users/noc/Library/Logs/noc-homelab/homelab-agent.error.log; exec /usr/bin/python3 /Users/noc/noc-homelab/agent/agent.py --port 8080 --host 0.0.0.0 --config /Users/noc/noc-homelab/agent/config.yaml</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/homelab-agent.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/homelab-agent.error.log</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/noc-homelab/agent</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>
