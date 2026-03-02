@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Website Manager</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Commit+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a2e30;
+            --bg-secondary: #0f3d40;
+            --bg-elevated: #145252;
+            --text-primary: #f0fdfa;
+            --text-secondary: #99e0d9;
+            --text-muted: #5eaba3;
+            --accent: #f59e0b;
+            --accent-dark: #b45309;
+            --success: #34d399;
+            --error: #f87171;
+            --warning: #fb923c;
+            --info: #60a5fa;
+            --border: #1a5456;
+            --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: "Commit Mono", ui-monospace, "SF Mono", Consolas, monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 2rem 1rem;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        h1 {
+            font-size: 2.25rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-bottom: 2rem;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .back-link:hover { opacity: 1; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-box {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            color: var(--accent);
+        }
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .site-card {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+            margin-bottom: 0.75rem;
+            transition: border-color 0.2s;
+        }
+        .site-card:hover {
+            border-color: var(--text-muted);
+        }
+        .site-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+        .site-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .site-status.online { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .site-status.offline { background: var(--error); box-shadow: 0 0 6px var(--error); }
+        .site-status.pending { background: var(--warning); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+        .site-domain {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .site-domain a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .site-domain a:hover {
+            color: var(--accent);
+        }
+        .site-aliases {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .site-meta {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .site-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .site-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            border: 2px solid;
+            border-radius: 4px;
+            padding: 0.4rem 0.8rem;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.75rem;
+            font-family: var(--font-body);
+            position: relative;
+            top: 0;
+            transition: top 0.1s, box-shadow 0.1s;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+        .btn:hover { top: -2px; }
+        .btn:active { top: 1px; box-shadow: none !important; }
+        .btn-success { border-color: var(--success); box-shadow: 2px 2px 0 var(--success); }
+        .btn-error { border-color: var(--error); box-shadow: 2px 2px 0 var(--error); }
+        .btn-accent { border-color: var(--accent); box-shadow: 2px 2px 0 var(--accent); }
+        .btn-info { border-color: var(--info); box-shadow: 2px 2px 0 var(--info); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; top: 0; box-shadow: none; }
+
+        .log-viewer {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            line-height: 1.5;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--text-secondary);
+            margin-top: 0.75rem;
+            display: none;
+        }
+        .log-viewer.visible { display: block; }
+
+        .add-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+        .add-form.hidden { display: none; }
+        .add-form label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+            display: block;
+        }
+        .add-form input {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.6rem 0.75rem;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+        }
+        .add-form input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .add-form .full-width {
+            grid-column: 1 / -1;
+        }
+        .add-form .form-actions {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .notification {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.75rem 1.25rem;
+            border-radius: 4px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            display: none;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        .notification.success { background: #065f46; color: #6ee7b7; border: 1px solid #34d399; }
+        .notification.error { background: #7f1d1d; color: #fca5a5; border: 1px solid #f87171; }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .tunnel-badge {
+            display: inline-block;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+        .tunnel-badge.active {
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .log-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .log-tab {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.35rem 0.75rem;
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            transition: all 0.15s;
+        }
+        .log-tab:hover { color: var(--text-secondary); border-color: var(--text-muted); }
+        .log-tab.active { color: var(--accent); border-color: var(--accent); background: var(--bg-elevated); }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .component-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.6rem 0.75rem;
+        }
+        .component-header {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.4rem;
+        }
+        .component-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .component-dot.on { background: var(--success); box-shadow: 0 0 4px var(--success); }
+        .component-dot.off { background: var(--error); box-shadow: 0 0 4px var(--error); }
+        .component-name {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .component-role {
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: auto;
+        }
+        .component-actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+        .component-actions .btn {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.5rem;
+        }
+        .site-type-badge {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            padding: 0.1rem 0.35rem;
+            border-radius: 3px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            margin-left: auto;
+        }
+        .site-type-badge.app { border-color: var(--info); color: var(--info); }
+        .site-type-badge.static { border-color: var(--success); color: var(--success); }
+
+        .log-header {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            padding: 0.4rem 0.75rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0.25rem;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">&larr; back to dashboard</a>
+        <h1>Website Manager</h1>
+        <p class="subtitle">Caddy + Cloudflare Tunnel &mdash; hosted on noc-tux</p>
+
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-value" id="siteCount">-</div>
+                <div class="stat-label">Sites</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="sitesUp">-</div>
+                <div class="stat-label">Online</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="caddyStatus">-</div>
+                <div class="stat-label">Caddy</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value" id="tunnelsActive">-</div>
+                <div class="stat-label">Tunnels</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>Hosted Sites</span>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-accent" onclick="toggleAddForm()">+ Add Site</button>
+                    <button class="btn btn-info" onclick="loadSites()">Refresh</button>
+                </div>
+            </div>
+
+            <div class="add-form hidden" id="addForm">
+                <div>
+                    <label>Domain</label>
+                    <input type="text" id="newDomain" placeholder="example.com">
+                </div>
+                <div>
+                    <label>Aliases (comma-separated)</label>
+                    <input type="text" id="newAliases" placeholder="www.example.com">
+                </div>
+                <div class="full-width">
+                    <label>Document Root</label>
+                    <input type="text" id="newRoot" placeholder="/home/webdev/example.com/public_html">
+                </div>
+                <div class="form-actions">
+                    <button class="btn btn-error" onclick="toggleAddForm()">Cancel</button>
+                    <button class="btn btn-success" onclick="addSite()">Create Site</button>
+                </div>
+            </div>
+
+            <div id="siteList">
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">
+                <span>Access Logs</span>
+                <button class="btn btn-info" onclick="loadLogs()">Refresh</button>
+            </div>
+            <div class="log-tabs" id="logTabs"></div>
+            <div class="log-header">TIME           IP               CC  METHOD  URI                                                           STATUS</div>
+            <div class="log-viewer visible" id="logViewer">Select a site above...</div>
+        </div>
+    </div>
+
+    <div id="notification" class="notification"></div>
+
+    <script>
+        const NOC_TUX = 'noc-tux';
+
+        function showNotification(message, type = 'success') {
+            const el = document.getElementById('notification');
+            el.textContent = message;
+            el.className = `notification ${type}`;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 3000);
+        }
+
+        function toggleAddForm() {
+            document.getElementById('addForm').classList.toggle('hidden');
+        }
+
+        async function apiFetch(endpoint, opts = {}) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 15000);
+            try {
+                const resp = await fetch(endpoint, { ...opts, signal: controller.signal });
+                clearTimeout(timeout);
+                return await resp.json();
+            } catch (e) {
+                clearTimeout(timeout);
+                if (e.name === 'AbortError') throw new Error('Request timed out');
+                throw e;
+            }
+        }
+
+        async function loadSites() {
+            try {
+                const data = await apiFetch('/api/websites/list');
+                if (data.error) {
+                    document.getElementById('siteList').innerHTML =
+                        `<div class="empty-state">Error: ${data.error}</div>`;
+                    return;
+                }
+
+                const sites = data.sites || {};
+                const keys = Object.keys(sites);
+
+                // Update stats
+                document.getElementById('siteCount').textContent = keys.length;
+                let up = 0, tunnelsUp = 0;
+                keys.forEach(k => {
+                    const s = sites[k];
+                    if (s.type === 'app') {
+                        if (s.all_up) up++;
+                        const tunnel = (s.components || []).find(c => c.role === 'tunnel');
+                        if (tunnel && tunnel.running) tunnelsUp++;
+                    } else {
+                        if (s.caddy_responding) up++;
+                        if (s.tunnel_running) tunnelsUp++;
+                    }
+                });
+                document.getElementById('sitesUp').textContent = up;
+                document.getElementById('tunnelsActive').textContent = tunnelsUp;
+                document.getElementById('caddyStatus').textContent = data.caddy_running ? 'UP' : 'DOWN';
+                document.getElementById('caddyStatus').style.color =
+                    data.caddy_running ? 'var(--success)' : 'var(--error)';
+
+                if (keys.length === 0) {
+                    document.getElementById('siteList').innerHTML =
+                        '<div class="empty-state">No sites configured. Click "+ Add Site" to get started.</div>';
+                    return;
+                }
+
+                let html = '';
+                keys.forEach(id => {
+                    const s = sites[id];
+
+                    if (s.type === 'app') {
+                        // App site with components
+                        const allUp = s.all_up;
+                        const statusClass = allUp ? 'online' : 'offline';
+                        const aliases = (s.aliases || []).join(', ');
+
+                        let compHtml = '';
+                        (s.components || []).forEach(c => {
+                            const dotClass = c.running ? 'on' : 'off';
+                            compHtml += `
+                            <div class="component-card">
+                                <div class="component-header">
+                                    <div class="component-dot ${dotClass}"></div>
+                                    <span class="component-name">${c.name}</span>
+                                    <span class="component-role">${c.role}</span>
+                                </div>
+                                <div class="component-actions">
+                                    ${c.running
+                                        ? `<button class="btn btn-error" onclick="componentAction('${id}','${c.id}','stop')">Stop</button>`
+                                        : `<button class="btn btn-success" onclick="componentAction('${id}','${c.id}','start')">Start</button>`
+                                    }
+                                    <button class="btn btn-accent" onclick="componentAction('${id}','${c.id}','restart')">Restart</button>
+                                    <button class="btn btn-info" onclick="showComponentLogs('${id}','${c.id}','${c.name}')">Logs</button>
+                                </div>
+                            </div>`;
+                        });
+
+                        html += `
+                        <div class="site-card" data-site="${id}">
+                            <div class="site-header">
+                                <div class="site-status ${statusClass}"></div>
+                                <div>
+                                    <div class="site-domain">
+                                        <a href="https://${s.domain}" target="_blank">${s.domain}</a>
+                                    </div>
+                                    ${aliases ? `<div class="site-aliases">${aliases}</div>` : ''}
+                                </div>
+                                <span class="site-type-badge app">app</span>
+                            </div>
+                            <div class="site-meta">
+                                <span>host: ${s.host}</span>
+                                <span>${s.components.filter(c => c.running).length}/${s.components.length} components up</span>
+                            </div>
+                            <div class="component-grid">${compHtml}</div>
+                        </div>`;
+                    } else {
+                        // Static site
+                        const online = s.caddy_responding && s.tunnel_running;
+                        const statusClass = online ? 'online' : (s.caddy_responding ? 'pending' : 'offline');
+                        const aliases = (s.aliases || []).join(', ');
+                        const tunnelClass = s.tunnel_running ? 'active' : '';
+
+                        html += `
+                        <div class="site-card" data-site="${id}">
+                            <div class="site-header">
+                                <div class="site-status ${statusClass}"></div>
+                                <div>
+                                    <div class="site-domain">
+                                        <a href="https://${s.domain}" target="_blank">${s.domain}</a>
+                                    </div>
+                                    ${aliases ? `<div class="site-aliases">${aliases}</div>` : ''}
+                                </div>
+                                <span class="site-type-badge static">static</span>
+                            </div>
+                            <div class="site-meta">
+                                <span>root: ${s.root}</span>
+                                <span class="tunnel-badge ${tunnelClass}">tunnel: ${s.tunnel_service || 'none'}</span>
+                            </div>
+                            <div class="site-actions">
+                                ${s.tunnel_running
+                                    ? `<button class="btn btn-error" onclick="tunnelAction('${id}', 'stop')">Stop Tunnel</button>`
+                                    : `<button class="btn btn-success" onclick="tunnelAction('${id}', 'start')">Start Tunnel</button>`
+                                }
+                                <button class="btn btn-accent" onclick="tunnelAction('${id}', 'restart')">Restart Tunnel</button>
+                                <button class="btn btn-error" onclick="removeSite('${id}')">Remove</button>
+                            </div>
+                        </div>`;
+                    }
+                });
+                document.getElementById('siteList').innerHTML = html;
+                buildLogTabs(keys);
+            } catch (e) {
+                document.getElementById('siteList').innerHTML =
+                    `<div class="empty-state">Failed to load: ${e.message}</div>`;
+            }
+        }
+
+        async function tunnelAction(siteId, action) {
+            try {
+                showNotification(`${action}ing tunnel...`, 'success');
+                const data = await apiFetch(`/api/websites/${siteId}/tunnel/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (data.success) {
+                    showNotification(`Tunnel ${action} successful`, 'success');
+                    setTimeout(loadSites, 1000);
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                showNotification('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function addSite() {
+            const domain = document.getElementById('newDomain').value.trim();
+            const aliases = document.getElementById('newAliases').value.trim();
+            const root = document.getElementById('newRoot').value.trim();
+
+            if (!domain || !root) {
+                showNotification('Domain and document root are required', 'error');
+                return;
+            }
+
+            try {
+                showNotification('Creating site...', 'success');
+                const data = await apiFetch('/api/websites/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        domain,
+                        aliases: aliases ? aliases.split(',').map(a => a.trim()) : [],
+                        root
+                    })
+                });
+                if (data.success) {
+                    showNotification('Site created! Configure DNS in Cloudflare to activate.', 'success');
+                    document.getElementById('newDomain').value = '';
+                    document.getElementById('newAliases').value = '';
+                    document.getElementById('newRoot').value = '';
+                    toggleAddForm();
+                    setTimeout(loadSites, 1000);
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                showNotification('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function removeSite(siteId) {
+            if (!confirm(`Remove this site? This will stop its tunnel and remove it from Caddy.`)) return;
+            try {
+                showNotification('Removing site...', 'success');
+                const data = await apiFetch(`/api/websites/${siteId}/remove`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (data.success) {
+                    showNotification('Site removed', 'success');
+                    setTimeout(loadSites, 1000);
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                showNotification('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function componentAction(siteId, compId, action) {
+            try {
+                showNotification(`${action}ing ${compId}...`, 'success');
+                const data = await apiFetch(`/api/websites/${siteId}/component/${compId}/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (data.success) {
+                    showNotification(`${compId} ${action} successful`, 'success');
+                    setTimeout(loadSites, 1500);
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                showNotification('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function showComponentLogs(siteId, compId, compName) {
+            currentLogSite = null; // Clear site log selection
+            document.querySelectorAll('.log-tab').forEach(t => t.classList.remove('active'));
+            const viewer = document.getElementById('logViewer');
+            const header = document.querySelector('.log-header');
+            header.textContent = `LOGS: ${compName} (${compId})`;
+            viewer.textContent = 'Loading...';
+            try {
+                const data = await apiFetch(`/api/websites/${siteId}/component/${compId}/logs`);
+                if (data.error) {
+                    viewer.textContent = 'Error: ' + data.error;
+                } else {
+                    viewer.textContent = data.logs || 'No logs available';
+                    viewer.scrollTop = viewer.scrollHeight;
+                }
+            } catch (e) {
+                viewer.textContent = 'Failed: ' + e.message;
+            }
+        }
+
+        let currentLogSite = null;
+        let knownSiteIds = [];
+
+        function buildLogTabs(siteIds) {
+            knownSiteIds = siteIds;
+            const tabs = document.getElementById('logTabs');
+            tabs.innerHTML = siteIds.map(id =>
+                `<div class="log-tab ${id === currentLogSite ? 'active' : ''}" onclick="selectLogSite('${id}')">${id}</div>`
+            ).join('');
+            // Auto-select first site if none selected
+            if (!currentLogSite && siteIds.length > 0) {
+                selectLogSite(siteIds[0]);
+            }
+        }
+
+        function selectLogSite(siteId) {
+            currentLogSite = siteId;
+            document.querySelectorAll('.log-tab').forEach(t => {
+                t.classList.toggle('active', t.textContent === siteId);
+            });
+            document.querySelector('.log-header').textContent =
+                'TIME           IP               CC  METHOD  URI                                                           STATUS';
+            loadLogs();
+        }
+
+        async function loadLogs() {
+            if (!currentLogSite) return;
+            const viewer = document.getElementById('logViewer');
+            try {
+                const data = await apiFetch(`/api/websites/${currentLogSite}/logs`);
+                if (data.error) {
+                    viewer.textContent = 'Error: ' + data.error;
+                    return;
+                }
+                if (!data.logs || data.logs.length === 0) {
+                    viewer.textContent = 'No recent log entries.';
+                    return;
+                }
+                viewer.textContent = data.logs;
+                viewer.scrollTop = viewer.scrollHeight;
+            } catch (e) {
+                viewer.textContent = 'Failed to load logs: ' + e.message;
+            }
+        }
+
+        // Initial load
+        loadSites();
+
+        // Auto-refresh
+        setInterval(loadSites, 10000);
+        setInterval(loadLogs, 15000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.mdsf-crew-web</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/mdsf-crew-web.log; : > /Users/noc/Library/Logs/noc-homelab/mdsf-crew-web.error.log; exec /opt/homebrew/bin/pnpm run dev</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/dev/mdsf-crew/apps/web</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/mdsf-crew-web.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/mdsf-crew-web.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/noc/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+    </dict>
+</dict>
+</plist>

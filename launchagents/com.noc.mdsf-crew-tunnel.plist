@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.mdsf-crew-tunnel</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/mdsf-crew-tunnel.log; : > /Users/noc/Library/Logs/noc-homelab/mdsf-crew-tunnel.error.log; exec /opt/homebrew/bin/cloudflared tunnel --origincert /Users/noc/dev/.cloudflared/cert.pem --credentials-file /Users/noc/dev/.cloudflared/96848a35-35b5-4ba3-b97c-c6242bc26226.json --url http://localhost:5173 run mdsf-crew</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/dev/mdsf-crew</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/mdsf-crew-tunnel.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/mdsf-crew-tunnel.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/Users/noc/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+    </dict>
+</dict>
+</plist>

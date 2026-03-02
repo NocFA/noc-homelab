@@ -31,6 +31,12 @@
           "description": "Local LLM runtime (Metal/M4 — qwen2.5, hermes3, llama3.2-vision)",
           "port": 11434,
           "url": "http://100.95.102.128:11434"
+        },
+        "glances": {
+          "name": "Glances",
+          "description": "System Metrics & Monitoring",
+          "port": 61999,
+          "url": "http://100.95.102.128:61999"
         }
       }
     },

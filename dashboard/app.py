@@ -9,6 +9,7 @@ import json
 import re
 import shutil
 import threading
+import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__, template_folder='.')
@@ -373,29 +374,45 @@ def get_remote_uptime_secs(machine):
     return batch.get('uptime_secs')
 
 def get_glances_stats(host, port=61999, timeout=5):
-    """Fetch memory and battery stats from Glances API v4"""
+    """Fetch memory, battery, and temperature stats from Glances API v4"""
     try:
         base = f'http://{host}:{port}/api/4'
 
         mem_response = requests.get(f'{base}/mem', timeout=timeout)
         mem_data = mem_response.json() if mem_response.status_code == 200 else {}
 
-        battery_response = requests.get(f'{base}/sensors', timeout=timeout)
-        battery_data = battery_response.json() if battery_response.status_code == 200 else []
+        sensor_response = requests.get(f'{base}/sensors', timeout=timeout)
+        sensor_data = sensor_response.json() if sensor_response.status_code == 200 else []
 
         battery_percent = None
-        if isinstance(battery_data, list):
-            for sensor in battery_data:
-                if sensor.get('type') == 'battery' and 'value' in sensor:
-                    battery_percent = sensor['value']
-                    break
+        temp_c = None
+        if isinstance(sensor_data, list):
+            core_temps = []
+            for sensor in sensor_data:
+                stype = sensor.get('type', '')
+                val = sensor.get('value')
+                if val is None:
+                    continue
+                if stype == 'battery':
+                    battery_percent = val
+                elif stype == 'temperature_core':
+                    label = sensor.get('label', '')
+                    # Prefer package-level sensor as the canonical CPU temp
+                    if 'package' in label.lower():
+                        temp_c = val
+                    elif 'core' in label.lower():
+                        core_temps.append(val)
+            # Fall back to max core temp if no package sensor found
+            if temp_c is None and core_temps:
+                temp_c = max(core_temps)
 
         return {
             'memory_percent': mem_data.get('percent'),
-            'battery_percent': battery_percent
+            'battery_percent': battery_percent,
+            'temp_c': temp_c
         }
     except Exception:
-        return {'memory_percent': None, 'battery_percent': None}
+        return {'memory_percent': None, 'battery_percent': None, 'temp_c': None}
 
 def get_glances_stats_cached(host, port=61999):
     """Get Glances stats with caching (30s TTL)"""
@@ -624,7 +641,8 @@ def index():
             'uptime': local_uptime,
             'services': services_list,
             'memory_percent': local_glances['memory_percent'],
-            'battery_percent': local_glances['battery_percent']
+            'battery_percent': local_glances['battery_percent'],
+            'temp_c': local_glances.get('temp_c')
         }
     ]
 
@@ -650,7 +668,7 @@ def index():
                 })
 
             remote_uptime = machine_data.get('_uptime', '--')
-            remote_glances = get_glances_stats_cached(machine['hostname']) if reachable else {'memory_percent': None, 'battery_percent': None}
+            remote_glances = get_glances_stats_cached(machine['hostname']) if reachable else {'memory_percent': None, 'battery_percent': None, 'temp_c': None}
 
             machine_groups.append({
                 'id': machine['id'],
@@ -660,7 +678,8 @@ def index():
                 'uptime': remote_uptime,
                 'services': remote_services,
                 'memory_percent': remote_glances['memory_percent'],
-                'battery_percent': remote_glances['battery_percent']
+                'battery_percent': remote_glances['battery_percent'],
+                'temp_c': remote_glances.get('temp_c')
             })
 
     avg_uptime = status_data.get('_avg_uptime', '--')
@@ -1361,6 +1380,306 @@ def delete_invite(pk):
             return jsonify({'error': f'Authentik API error: {resp.status_code}'}), 502
     except requests.RequestException as e:
         return jsonify({'error': str(e)}), 502
+
+# --- Website Manager ---
+NOC_TUX_SITES_JSON = '/home/noc/websites/sites.json'
+NOC_TUX_CADDYFILE = '/home/noc/websites/Caddyfile'
+NOC_TUX_ACCESS_LOG = '/home/noc/websites/logs/access.log'
+
+# Local app sites (managed via LaunchAgents on noc-local)
+LOCAL_APP_SITES = {
+    'mdsf-crew': {
+        'type': 'app', 'domain': 'crew.nocfa.net', 'aliases': [], 'host': 'noc-local',
+        'components': [
+            {'id': 'com.noc.mdsf-crew-api',    'name': 'API',    'role': 'api',      'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-api.log'},
+            {'id': 'com.noc.mdsf-crew-web',    'name': 'Web',    'role': 'frontend', 'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-web.log'},
+            {'id': 'com.noc.mdsf-crew-tunnel', 'name': 'Tunnel', 'role': 'tunnel',   'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-tunnel.log'},
+        ]
+    },
+    'mdsf-org': {
+        'type': 'app', 'domain': 'mdsf.nocfa.net', 'aliases': [], 'host': 'noc-local',
+        'components': [
+            {'id': 'com.noc.mdsf-org',        'name': 'Site',   'role': 'frontend', 'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-org.log'},
+            {'id': 'com.noc.mdsf-org-tunnel', 'name': 'Tunnel', 'role': 'tunnel',   'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-org-tunnel.log'},
+        ]
+    },
+}
+
+# Remote app sites on noc-tux (docker-managed)
+REMOTE_APP_SITES = {
+    'animated-album-covers': {
+        'type': 'app', 'domain': 'api.nocfa.net', 'aliases': [], 'host': 'noc-tux',
+        'compose_dir': '/home/noc/animated-album-covers',
+        'components': [
+            {'id': 'musicpresence-animated-album-covers-http-1',  'name': 'HTTP',  'role': 'web',       'type': 'docker'},
+            {'id': 'musicpresence-animated-album-covers-video-1', 'name': 'Video', 'role': 'processor', 'type': 'docker'},
+            {'id': 'musicpresence-animated-album-covers-redis-1', 'name': 'Redis', 'role': 'cache',     'type': 'docker'},
+        ]
+    },
+}
+
+def _websites_ssh(cmd, timeout=10):
+    return ssh_command('noc-tux', 'noc', cmd, timeout=timeout)
+
+def _local_launchctl_running(label):
+    """Check if a local LaunchAgent is running."""
+    try:
+        result = subprocess.run(['launchctl', 'list', label], capture_output=True, text=True, timeout=3)
+        return result.returncode == 0 and '"PID"' in result.stdout
+    except Exception:
+        return False
+
+def _remote_docker_running(container_name):
+    """Check if a docker container is running on noc-tux."""
+    r = _websites_ssh(f'docker inspect --format "{{{{.State.Running}}}}" {container_name} 2>/dev/null', timeout=6)
+    return r is not None and r.stdout.strip() == 'true'
+
+@app.route('/websites')
+def websites_page():
+    return render_template('websites.html')
+
+@app.route('/api/websites/list')
+def websites_list():
+    all_sites = {}
+
+    # 1. Local app sites (mdsf-crew, mdsf-org) — check via launchctl
+    for sid, site in LOCAL_APP_SITES.items():
+        s = dict(site)
+        components = []
+        all_up = True
+        for comp in site['components']:
+            running = _local_launchctl_running(comp['id'])
+            if not running:
+                all_up = False
+            components.append({**comp, 'running': running})
+        s['components'] = components
+        s['all_up'] = all_up
+        all_sites[sid] = s
+
+    # 2. Remote app sites (animated-album-covers) — check via docker on noc-tux
+    for sid, site in REMOTE_APP_SITES.items():
+        s = dict(site)
+        components = []
+        all_up = True
+        for comp in site['components']:
+            running = _remote_docker_running(comp['id'])
+            if not running:
+                all_up = False
+            components.append({**comp, 'running': running})
+        s['components'] = components
+        s['all_up'] = all_up
+        all_sites[sid] = s
+
+    # 3. Static sites from noc-tux sites.json
+    r = _websites_ssh(f"cat {NOC_TUX_SITES_JSON} 2>/dev/null || echo '{{}}'")
+    caddy_running = False
+    if r:
+        try:
+            sites_data = json.loads(r.stdout.strip()) if r.stdout.strip() else {}
+            checks = ['systemctl --user is-active caddy-websites 2>/dev/null']
+            for sid in sites_data:
+                checks.append(f"echo {sid}:$(systemctl --user is-active cloudflared-{sid} 2>/dev/null)")
+            status_r = _websites_ssh('; '.join(checks), timeout=8)
+            tunnel_status = {}
+            if status_r and status_r.stdout:
+                lines = status_r.stdout.strip().split('\n')
+                if lines:
+                    caddy_running = lines[0].strip() == 'active'
+                for line in lines[1:]:
+                    if ':' in line:
+                        sid2, _, state = line.partition(':')
+                        tunnel_status[sid2.strip()] = state.strip() == 'active'
+            for sid, s in sites_data.items():
+                s = dict(s)
+                s['tunnel_running'] = tunnel_status.get(sid, False)
+                s['caddy_responding'] = caddy_running
+                all_sites[sid] = s
+        except json.JSONDecodeError:
+            pass
+
+    return jsonify({'sites': all_sites, 'caddy_running': caddy_running})
+
+@app.route('/api/websites/<site_id>/tunnel/<action>', methods=['POST'])
+def websites_tunnel_action(site_id, action):
+    if action not in ('start', 'stop', 'restart'):
+        return jsonify({'error': 'Invalid action'}), 400
+    if not re.match(r'^[a-zA-Z0-9-]+$', site_id):
+        return jsonify({'error': 'Invalid site ID'}), 400
+    r = _websites_ssh(f'systemctl --user {action} cloudflared-{site_id}', timeout=12)
+    if not r:
+        return jsonify({'error': 'Cannot reach noc-tux'}), 503
+    if r.returncode == 0:
+        return jsonify({'success': True})
+    return jsonify({'error': r.stderr.strip() or f'Failed to {action} tunnel'}), 500
+
+@app.route('/api/websites/<site_id>/logs')
+def websites_site_logs(site_id):
+    r = _websites_ssh(f"cat {NOC_TUX_SITES_JSON} 2>/dev/null || echo '{{}}'")
+    if not r:
+        return jsonify({'logs': 'Cannot reach noc-tux'})
+    try:
+        sites_data = json.loads(r.stdout.strip()) if r.stdout.strip() else {}
+    except json.JSONDecodeError:
+        return jsonify({'logs': 'Failed to parse sites.json'})
+    site = sites_data.get(site_id)
+    if not site:
+        return jsonify({'logs': f'Site {site_id} not found'})
+    all_domains = set([site.get('domain', '')] + site.get('aliases', []))
+    log_r = _websites_ssh(f"tail -n 300 {NOC_TUX_ACCESS_LOG} 2>/dev/null", timeout=8)
+    if not log_r:
+        return jsonify({'logs': 'Cannot reach noc-tux'})
+    lines = []
+    for line in log_r.stdout.strip().split('\n'):
+        if not line:
+            continue
+        try:
+            entry = json.loads(line)
+            req = entry.get('request', {})
+            if req.get('host', '') not in all_domains:
+                continue
+            ts = entry.get('ts', 0)
+            dt = time.strftime('%m/%d %H:%M:%S', time.localtime(ts))
+            headers = req.get('headers', {})
+            ip = (headers.get('Cf-Connecting-Ip') or [req.get('remote_ip', '-')])[0]
+            cc = (headers.get('Cf-Ipcountry') or ['-'])[0]
+            method = req.get('method', '-')
+            uri = req.get('uri', '-')[:60]
+            status = entry.get('status', '-')
+            lines.append(f"{dt}  {ip:<15}  {cc:<3}  {method:<6}  {uri:<60}  {status}")
+        except Exception:
+            pass
+    return jsonify({'logs': '\n'.join(lines[-100:]) if lines else 'No log entries for this site.'})
+
+@app.route('/api/websites/add', methods=['POST'])
+def websites_add():
+    data = request.get_json() or {}
+    domain = data.get('domain', '').strip()
+    aliases = [a.strip() for a in data.get('aliases', []) if a.strip()]
+    root = data.get('root', '').strip()
+    if not domain or not root:
+        return jsonify({'error': 'Domain and root are required'}), 400
+    site_id = re.sub(r'[^a-z0-9]', '-', domain.lower()).strip('-')
+
+    payload_b64 = base64.b64encode(json.dumps({
+        'site_id': site_id, 'domain': domain, 'aliases': aliases, 'root': root,
+        'sites_json': NOC_TUX_SITES_JSON, 'caddyfile': NOC_TUX_CADDYFILE
+    }).encode()).decode()
+    script_b64 = base64.b64encode(b"""
+import json, base64, sys
+d = json.loads(base64.b64decode(sys.argv[1]))
+sid, domain, aliases, root = d['site_id'], d['domain'], d['aliases'], d['root']
+sites_path, caddy_path = d['sites_json'], d['caddyfile']
+with open(sites_path) as f: sites = json.load(f)
+if sid in sites:
+    print('ERROR:already_exists'); exit(1)
+sites[sid] = {'domain': domain, 'aliases': aliases, 'root': root, 'enabled': True}
+with open(sites_path, 'w') as f: json.dump(sites, f, indent=2)
+all_hosts = ' '.join([domain] + aliases)
+block = f'    @{sid} host {all_hosts}\\n    handle @{sid} {{\\n        root * {root}\\n        file_server\\n    }}\\n\\n'
+with open(caddy_path) as f: c = f.read()
+c = c.replace('    # Fallback', block + '    # Fallback')
+with open(caddy_path, 'w') as f: f.write(c)
+print('OK')
+""").decode()
+
+    r = _websites_ssh(f"echo {script_b64} | base64 -d | python3 - {payload_b64}", timeout=12)
+    if not r:
+        return jsonify({'error': 'Cannot reach noc-tux'}), 503
+    if 'ERROR:already_exists' in (r.stdout or ''):
+        return jsonify({'error': f'Site {site_id} already exists'}), 400
+    if r.returncode != 0 or 'OK' not in (r.stdout or ''):
+        return jsonify({'error': r.stderr.strip() or 'Failed to add site'}), 500
+    _websites_ssh('systemctl --user reload caddy-websites', timeout=10)
+    return jsonify({'success': True})
+
+@app.route('/api/websites/<site_id>/remove', methods=['POST'])
+def websites_remove(site_id):
+    if not re.match(r'^[a-zA-Z0-9-]+$', site_id):
+        return jsonify({'error': 'Invalid site ID'}), 400
+    _websites_ssh(f'systemctl --user stop cloudflared-{site_id} 2>/dev/null || true', timeout=8)
+
+    payload_b64 = base64.b64encode(json.dumps({
+        'site_id': site_id, 'sites_json': NOC_TUX_SITES_JSON, 'caddyfile': NOC_TUX_CADDYFILE
+    }).encode()).decode()
+    script_b64 = base64.b64encode(b"""
+import json, re, base64, sys
+d = json.loads(base64.b64decode(sys.argv[1]))
+sid, sites_path, caddy_path = d['site_id'], d['sites_json'], d['caddyfile']
+with open(sites_path) as f: sites = json.load(f)
+if sid not in sites:
+    print('ERROR:not_found'); exit(1)
+del sites[sid]
+with open(sites_path, 'w') as f: json.dump(sites, f, indent=2)
+with open(caddy_path) as f: c = f.read()
+c = re.sub(r'\\s+@' + re.escape(sid) + r' host[^\\n]*\\n\\s+handle @' + re.escape(sid) + r' \\{[^}]*\\}\\n?', '\\n', c, flags=re.DOTALL)
+with open(caddy_path, 'w') as f: f.write(c)
+print('OK')
+""").decode()
+
+    r = _websites_ssh(f"echo {script_b64} | base64 -d | python3 - {payload_b64}", timeout=12)
+    if not r:
+        return jsonify({'error': 'Cannot reach noc-tux'}), 503
+    if 'ERROR:not_found' in (r.stdout or ''):
+        return jsonify({'error': f'Site {site_id} not found'}), 404
+    if r.returncode != 0:
+        return jsonify({'error': r.stderr.strip() or 'Failed to remove site'}), 500
+    _websites_ssh('systemctl --user reload caddy-websites', timeout=10)
+    return jsonify({'success': True})
+
+@app.route('/api/websites/<site_id>/component/<comp_id>/<action>', methods=['POST', 'GET'])
+def websites_component_action(site_id, comp_id, action):
+    if not re.match(r'^[a-zA-Z0-9._-]+$', site_id) or not re.match(r'^[a-zA-Z0-9._-]+$', comp_id):
+        return jsonify({'error': 'Invalid ID'}), 400
+
+    # Find the component definition to know its type and host
+    site = LOCAL_APP_SITES.get(site_id) or REMOTE_APP_SITES.get(site_id)
+    comp_def = None
+    if site:
+        for c in site.get('components', []):
+            if c['id'] == comp_id:
+                comp_def = c
+                break
+
+    comp_type = comp_def.get('type') if comp_def else 'docker'
+    host = site.get('host') if site else 'noc-tux'
+
+    # --- LOCAL LAUNCHCTL ---
+    if host == 'noc-local' or comp_type == 'launchctl':
+        plist = f'/Users/noc/Library/LaunchAgents/{comp_id}.plist'
+        if action == 'logs':
+            log_file = comp_def.get('log') if comp_def else f'/Users/noc/Library/Logs/noc-homelab/{comp_id}.log'
+            try:
+                result = subprocess.run(['tail', '-n', '100', log_file], capture_output=True, text=True, timeout=5)
+                return jsonify({'logs': result.stdout or 'No logs available'})
+            except Exception as e:
+                return jsonify({'logs': f'Error reading logs: {e}'})
+        if action == 'start':
+            subprocess.run(['launchctl', 'load', plist], capture_output=True, timeout=5)
+            return jsonify({'success': True})
+        if action == 'stop':
+            subprocess.run(['launchctl', 'unload', plist], capture_output=True, timeout=5)
+            return jsonify({'success': True})
+        if action == 'restart':
+            subprocess.run(['launchctl', 'unload', plist], capture_output=True, timeout=5)
+            time.sleep(0.5)
+            subprocess.run(['launchctl', 'load', plist], capture_output=True, timeout=5)
+            return jsonify({'success': True})
+        return jsonify({'error': 'Invalid action'}), 400
+
+    # --- REMOTE DOCKER (noc-tux) ---
+    if action == 'logs':
+        r = _websites_ssh(f'docker logs --tail 100 {comp_id} 2>&1', timeout=12)
+        if not r:
+            return jsonify({'error': 'Cannot reach noc-tux'})
+        return jsonify({'logs': r.stdout or 'No logs available'})
+    if action in ('start', 'stop', 'restart'):
+        r = _websites_ssh(f'docker {action} {comp_id}', timeout=15)
+        if not r:
+            return jsonify({'error': 'Cannot reach noc-tux'}), 503
+        if r.returncode == 0:
+            return jsonify({'success': True})
+        return jsonify({'error': r.stderr.strip() or f'Failed to {action} {comp_id}'}), 500
+    return jsonify({'error': 'Invalid action'}), 400
 
 # Start background status updater thread
 _status_thread = threading.Thread(target=_bg_status_loop, daemon=True)
