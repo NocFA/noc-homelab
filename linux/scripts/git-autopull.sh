@@ -44,6 +44,7 @@ if [ -d "$BEADS_REPO/.git" ]; then
         BEADS_LOCAL=$(git -C "$BEADS_REPO" rev-parse HEAD 2>/dev/null)
         BEADS_REMOTE=$(git -C "$BEADS_REPO" rev-parse FETCH_HEAD 2>/dev/null)
         if [ "$BEADS_LOCAL" != "$BEADS_REMOTE" ]; then
+            git -C "$BEADS_REPO" checkout -- . 2>/dev/null || true
             if git -C "$BEADS_REPO" pull --ff-only origin main 2>&1; then
                 log "beads: pulled successfully ($(git -C "$BEADS_REPO" rev-parse --short HEAD))"
             else
