@@ -125,6 +125,11 @@
           "description": "Remote desktop server",
           "port": 4000,
           "url": "http://100.91.104.124:4000"
+        },
+        "animated-album-covers": {
+          "name": "Animated Album Covers",
+          "description": "Music Presence animated album cover converter",
+          "url": "https://api.nocfa.net"
         }
       },
       "ssh_user": "noc"
