@@ -15,7 +15,7 @@ eval "$(sops -d "$CONFIG")"
 : "${CF_ZONE_ID:?CF_ZONE_ID not set}"
 
 # Records to update (name -> record ID, populated on first run)
-RECORDS=("nocfa.net" "matrix.nocfa.net")
+RECORDS=("nocfa.net" "matrix.nocfa.net" "api.nocfa.net")
 
 CF_API="https://api.cloudflare.com/client/v4"
 AUTH_HEADER="Authorization: Bearer $CF_API_TOKEN"
