@@ -26,6 +26,9 @@ fi
 
 log "new commits detected, pulling from $REMOTE/$BRANCH"
 
+# Discard any local modifications to tracked files before pulling
+git checkout -- . 2>/dev/null || true
+
 # Fast-forward only — triggers post-merge hook for SOPS decrypt
 if git pull --ff-only "$REMOTE" "$BRANCH" 2>&1; then
     log "pulled successfully ($(git rev-parse --short HEAD))"
