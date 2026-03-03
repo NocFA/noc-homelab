@@ -15,7 +15,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 DASHBOARD_URL = 'http://localhost:8080/api/status'
-WORKER_URL = os.environ.get('HOMELAB_STATUS_WORKER_URL', 'CHANGE_ME_WORKER_URL')
+WORKER_URL = os.environ.get('HOMELAB_STATUS_WORKER_URL', 'https://homelab-status.nocturnef4.workers.dev')
 PUSH_SECRET = os.environ.get('HOMELAB_STATUS_PUSH_SECRET', '')
 
 # Services to expose publicly — map from machine_id -> { service_id: display_label }
@@ -86,6 +86,7 @@ def push(data):
         headers={
             'Content-Type': 'application/json',
             'X-Auth-Token': PUSH_SECRET,
+            'User-Agent': 'homelab-status-push/1.0',
         },
         method='POST',
     )
