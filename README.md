@@ -1,6 +1,6 @@
 # noc-homelab
 
-A two-machine homelab running macOS and Linux, connected over Tailscale. Manages media streaming, Matrix communications, game streaming, and monitoring through a central dashboard and agent API.
+A three-machine homelab running macOS and Linux, connected over Tailscale. Manages media streaming, Matrix communications, game streaming, and monitoring through a central dashboard and agent API.
 
 <img src="docs/dashboard.gif" alt="Dashboard" width="700">
 
@@ -11,6 +11,7 @@ A two-machine homelab running macOS and Linux, connected over Tailscale. Manages
 | Machine | OS | Role | Connectivity |
 |---|---|---|---|
 | **noc-local** | macOS (Sonoma) | Dashboard host, local services | LAN + Tailscale |
+| **noc-claw** | macOS (Sequoia) | AI Gateway, LLM runtime | Tailscale `100.95.102.128` |
 | **noc-tux** | Ubuntu 24.04 LTS | Agent, media, Matrix, streaming | LAN + Tailscale `100.91.104.124` |
 
 ## Architecture
@@ -23,22 +24,32 @@ noc-local (macOS)                          noc-tux (Ubuntu)
 │  Copyparty           │                   │  Matrix Stack        │
 │  Maloja              │                   │    Synapse           │
 │  Multi-Scrobbler     │                   │    Element Web       │
-│  TeamSpeak           │                   │    Synapse Admin     │
+│  TeamSpeak 6         │                   │    Synapse Admin     │
 │  Nextcloud           │                   │    Postgres/Traefik  │
 │  Syncthing           │                   │    Coturn (TURN)     │
-│  Gatus               │                   │                      │
-│  Glances             │                   │  Media Pipeline      │
-│  Caddy               │                   │    Zurg → Rclone     │
-│  Beads UI            │                   │    FileBot           │
-│  Tailscale           │                   │    Emby / Jellyfin   │
-│  VoiceSeq            │                   │                      │
-└──────────────────────┘                   │  Sunshine / NoMachine│
-                                           │  Gatus / Glances     │
-                                           │  Arcane (Docker UI)  │
-                                           └──────────────────────┘
+│  Gatus / Glances     │                   │                      │
+│  Caddy / Beads UI    │                   │  Media Pipeline      │
+│  VoiceSeq            │                   │    Zurg → Rclone     │
+│  Tailscale           │                   │    FileBot           │
+│                      │                   │    Emby / Jellyfin   │
+│  MDSF Crew (Web/API) │                   │                      │
+│  MDSF Org Dashboard  │                   │  Sunshine / NoMachine│
+└──────────────────────┘                   │  Gatus / Glances     │
+           ▲                               │  Arcane (Docker UI)  │
+           │                               │  Animated Media API  │
+           │ Agent API                     │  looney.eu           │
+           │ (Tailscale)                   └──────────────────────┘
+           ▼
+┌──────────────────────┐
+│  noc-claw (macOS)    │
+│                      │
+│  OpenClaw Gateway    │
+│  Ollama (Local LLMs) │
+│  Glances             │
+└──────────────────────┘
 ```
 
-The dashboard on noc-local polls the agent API on noc-tux for real-time service status. Service control (start/stop/restart) is forwarded through the agent, which manages systemd units and Docker containers.
+The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-time service status. Service control (start/stop/restart) is forwarded through the agents, which manage systemd units, LaunchAgents, and Docker containers.
 
 ## Services
 
@@ -50,17 +61,26 @@ The dashboard on noc-local polls the agent API on noc-tux for real-time service 
 | Copyparty | 8081 | launchd | File server with web UI |
 | Maloja | 42010 | launchd | Music scrobble server |
 | Multi-Scrobbler | 9078 | launchd | Scrobbler aggregator |
-| TeamSpeak | 9987 | launchd | Voice chat server |
-| TS3AudioBot | 58913 | launchd | TeamSpeak music bot |
+| TeamSpeak 6 | 9987 | Docker | Voice chat + P2P Screenshare |
 | Nextcloud | 9080 | Docker | Cloud storage |
 | Syncthing | 8384 | launchd | File sync |
-| Gatus | 3001 | launchd | Health monitoring |
+| Gatus | 3001 | Docker | Health monitoring |
 | Glances | 61999 | launchd | System metrics API |
 | Caddy | 80/443 | launchd | Reverse proxy |
 | Beads UI | 3000 | launchd | Issue tracker dashboard |
 | VoiceSeq | 61998 | launchd | Voice note upload server (iOS) |
-| VoiceSeq Processor | -- | launchd | Transcription & Logseq writer |
+| MDSF Crew API | 3100 | launchd | Crew management backend |
+| MDSF Crew Web | 5173 | launchd | Crew management frontend |
+| MDSF Org Dashboard | 8190 | launchd | Organization landing page |
 | Tailscale | -- | system | Mesh VPN |
+
+### noc-claw
+
+| Service | Port | Manager | Description |
+|---|---|---|---|
+| OpenClaw | 18789 | launchd | On-device AI gateway |
+| Ollama | 11434 | system | Local LLM runtime (Metal/M4) |
+| Glances | 61999 | launchd | System metrics API |
 
 ### noc-tux
 
@@ -81,6 +101,8 @@ The dashboard on noc-local polls the agent API on noc-tux for real-time service 
 | Gatus | 3001 | systemd (user) | Health monitoring |
 | Glances | 61999 | systemd | System metrics API |
 | Arcane | 3552 | Docker | Docker management UI |
+| Animated Media API | -- | Docker | Animated cover art converter |
+| looney.eu | -- | Caddy | Personal homepage |
 
 ## Media Pipeline
 
@@ -151,8 +173,8 @@ Codeberg is the canonical source. Changes pushed to either remote are mirrored.
 
 ```
 noc-homelab/
-├── agent/                  # REST API agent (runs on noc-tux)
-│   ├── agent.py            # Flask app, port 8080
+├── agent/                  # REST API agent (runs on all machines)
+│   ├── agent.py            # Flask app, port 5005 (macOS) / 8080 (Linux)
 │   ├── config.yaml         # Service definitions (gitignored)
 │   └── platforms/           # Linux/macOS/Windows handlers
 ├── dashboard/              # Control dashboard (runs on noc-local)
@@ -165,7 +187,7 @@ noc-homelab/
 │   └── systemd/            # Systemd unit files
 ├── services/               # Docker Compose stacks
 │   ├── arcane/             # Docker management UI
-│   └── matrix/             # Matrix deployment scripts + vars
+│   └── teamspeak6/         # TeamSpeak 6 Server
 ├── configs/                # SOPS-encrypted service configs
 ├── launchagents/           # macOS LaunchAgent plists
 ├── scripts/                # Utility scripts (tailscale, teamspeak, newrepo)
@@ -194,7 +216,7 @@ Requires `CODEBERG_TOKEN` in env or `~/.config/newrepo/token` for automatic Code
 
 ## Deployment
 
-### Prerequisites (both machines)
+### Prerequisites (all machines)
 
 Before running the setup scripts, you need:
 1. The `noc-homelab-beads` age key at `noc-homelab/noc-homelab-beads/homelab.agekey`
