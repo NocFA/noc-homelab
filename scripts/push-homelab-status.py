@@ -30,10 +30,14 @@ PUBLIC_SERVICES = {
     },
     'noc-tux': {
         'gatus':            'Gatus',
-        'caddy-websites':   'Web',
+        'matrix-synapse':   'Matrix',
+        'authentik':        'Authentik',
+        'emby':             'Emby',
+        'zurg':             'Zurg',
     },
     'noc-claw': {
-        'homelab-agent':    'Agent',
+        'openclaw':         'OpenClaw',
+        'ollama':           'Ollama',
     },
 }
 

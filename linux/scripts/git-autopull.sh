@@ -37,6 +37,36 @@ else
     exit 1
 fi
 
+# Pull looney.eu and deploy to webdev
+LOONEY_REPO="/home/noc/dev/looney.eu"
+if [ -d "$LOONEY_REPO/.git" ]; then
+    if git -C "$LOONEY_REPO" fetch origin main 2>/dev/null; then
+        LOONEY_LOCAL=$(git -C "$LOONEY_REPO" rev-parse HEAD 2>/dev/null)
+        LOONEY_REMOTE=$(git -C "$LOONEY_REPO" rev-parse FETCH_HEAD 2>/dev/null)
+        if [ "$LOONEY_LOCAL" != "$LOONEY_REMOTE" ]; then
+            git -C "$LOONEY_REPO" checkout -- . 2>/dev/null || true
+            if git -C "$LOONEY_REPO" pull --ff-only origin main 2>&1; then
+                log "looney.eu: pulled ($(git -C "$LOONEY_REPO" rev-parse --short HEAD))"
+                # Deploy HTML files to webdev (via /tmp to cross the permission boundary)
+                for f in index.html homelab.html; do
+                    SRC="$LOONEY_REPO/public_html/$f"
+                    DST="/home/webdev/looney.eu/public_html/$f"
+                    if [ -f "$SRC" ]; then
+                        cp "$SRC" /tmp/_looney_deploy_$f
+                        chmod 644 /tmp/_looney_deploy_$f
+                        sudo -u webdev cp /tmp/_looney_deploy_$f "$DST" && rm /tmp/_looney_deploy_$f
+                    fi
+                done
+                log "looney.eu: deployed to webdev"
+            else
+                log "looney.eu: ERROR: pull failed"
+            fi
+        fi
+    else
+        log "looney.eu: fetch failed"
+    fi
+fi
+
 # Pull noc-homelab-beads (memory + beads issues)
 BEADS_REPO="$REPO/noc-homelab-beads"
 if [ -d "$BEADS_REPO/.git" ]; then
