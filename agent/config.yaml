@@ -1,0 +1,70 @@
+machine:
+  id: noc-local
+  display_name: noc-local
+  role: primary
+
+services:
+  beads-ui:
+    name: Beads UI
+    launchd: com.noc.beads-ui
+    port: 3000
+  copyparty:
+    name: Copyparty
+    launchd: com.noc.copyparty
+    port: 8081
+  dashboard:
+    name: Dashboard
+    launchd: com.noc.dashboard
+    port: 8080
+  gatus:
+    name: Gatus
+    launchd: docker:gatus
+    port: 3001
+  git-autopull:
+    name: Git Auto-Pull
+    launchd: com.noc.git-autopull
+  glances:
+    name: Glances
+    launchd: com.noc.glances
+    port: 61999
+  homelab-agent:
+    name: Homelab Agent
+    launchd: com.noc.homelab-agent
+    port: 5005
+  mdsf-crew-api:
+    name: MDSF Crew API
+    launchd: com.noc.mdsf-crew-api
+    port: 3100
+  mdsf-crew-web:
+    name: MDSF Crew Web
+    launchd: com.noc.mdsf-crew-web
+    port: 5173
+  mdsf-org:
+    name: MDSF Org Dashboard
+    launchd: com.noc.mdsf-org
+    port: 8190
+  maloja:
+    name: Maloja
+    launchd: com.maloja.service
+    port: 42010
+  multi-scrobbler:
+    name: Multi-Scrobbler
+    launchd: com.multiscrobbler.service
+    port: 9078
+  teamspeak-6:
+    name: TeamSpeak 6
+    launchd: docker:teamspeak6
+    compose_dir: /Users/noc/noc-homelab/services/teamspeak6
+    port: 9987
+    status_port: 10080
+  voiceseq:
+    name: Voice Sequence API
+    launchd: com.noc.voiceseq
+    port: 61998
+  voiceseq-processor:
+    name: Voice Sequence Processor
+    launchd: com.noc.voiceseq-processor
+  caddy:
+    name: Caddy
+    launchd: system:com.noc.caddy
+    port: 80

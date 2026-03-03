@@ -5,133 +5,186 @@
       "description": "Beads Issue Tracker Dashboard",
       "launchd": "com.noc.beads-ui",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/beads-ui.log",
-        "~/Library/Logs/noc-homelab/beads-ui.error.log"
+        "~/Library/Logs/noc-homelab/beads-ui.log"
       ],
       "name": "Beads UI",
       "port": 3000
     },
     "copyparty": {
+      "description": "File Server & Sharing",
       "launchd": "com.noc.copyparty",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/copyparty.log",
-        "~/Library/Logs/noc-homelab/copyparty.error.log"
+        "~/Library/Logs/noc-homelab/copyparty.log"
       ],
       "name": "Copyparty",
-      "port": 8081
+      "port": 8081,
+      "web_ports": [
+        8081
+      ]
+    },
+    "dashboard": {
+      "description": "Homelab Management Dashboard",
+      "launchd": "com.noc.dashboard",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/dashboard.log"
+      ],
+      "name": "Dashboard",
+      "port": 8080,
+      "status_port": 8080
     },
     "gatus": {
-      "compose_dir": "/Users/noc/noc-homelab/services/gatus",
-      "description": "Status Page & Monitoring",
+      "description": "Service Health Monitor",
       "launchd": "docker:gatus",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/gatus.log",
-        "~/Library/Logs/noc-homelab/gatus.error.log"
+        "~/Library/Logs/noc-homelab/gatus.log"
       ],
       "name": "Gatus",
-      "port": 3001
+      "port": 3001,
+      "web_ports": [
+        3001
+      ]
+    },
+    "git-autopull": {
+      "description": "Git Repository Sync Service",
+      "launchd": "com.noc.git-autopull",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/git-autopull.log"
+      ],
+      "name": "Git Auto-Pull"
     },
     "glances": {
-      "description": "System Metrics & Monitoring",
+      "description": "System Resource Monitor",
       "launchd": "com.noc.glances",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/glances.log",
-        "~/Library/Logs/noc-homelab/glances.error.log"
+        "~/Library/Logs/noc-homelab/glances.log"
       ],
       "name": "Glances",
-      "port": 61999
+      "port": 61999,
+      "web_ports": [
+        61999
+      ]
+    },
+    "homelab-agent": {
+      "description": "Homelab Management Agent",
+      "launchd": "com.noc.homelab-agent",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/homelab-agent.log"
+      ],
+      "name": "Homelab Agent",
+      "port": 5005
+    },
+    "mdsf-crew-api": {
+      "description": "MDSF Crew Management API",
+      "launchd": "com.noc.mdsf-crew-api",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/mdsf-crew-api.log"
+      ],
+      "name": "MDSF Crew API",
+      "port": 3100
+    },
+    "mdsf-crew-tunnel": {
+      "description": "Cloudflare Tunnel for MDSF Crew",
+      "launchd": "com.noc.mdsf-crew-tunnel",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/mdsf-crew-tunnel.log"
+      ],
+      "name": "MDSF Crew Tunnel"
+    },
+    "mdsf-crew-web": {
+      "description": "MDSF Crew Web Portal",
+      "launchd": "com.noc.mdsf-crew-web",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/mdsf-crew-web.log"
+      ],
+      "name": "MDSF Crew Web",
+      "port": 5173,
+      "web_ports": [
+        5173
+      ]
+    },
+    "mdsf-org": {
+      "description": "MDSF Organization Dashboard",
+      "launchd": "com.noc.mdsf-org",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/mdsf-org.log"
+      ],
+      "name": "MDSF Org Dashboard",
+      "port": 8190,
+      "web_ports": [
+        8190
+      ]
+    },
+    "mdsf-org-tunnel": {
+      "description": "Cloudflare Tunnel for MDSF Org",
+      "launchd": "com.noc.mdsf-org-tunnel",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/mdsf-org-tunnel.log"
+      ],
+      "name": "MDSF Org Tunnel"
     },
     "maloja": {
+      "description": "Music Scrobbling & Statistics",
       "launchd": "com.maloja.service",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/maloja.log",
-        "~/Library/Logs/noc-homelab/maloja.error.log",
-        "~/.local/share/maloja/logs/sqldb.log"
+        "~/Library/Logs/noc-homelab/maloja.log"
       ],
       "name": "Maloja",
-      "port": 42010
+      "port": 42010,
+      "web_ports": [
+        42010
+      ]
     },
     "multi-scrobbler": {
+      "description": "Universal Music Scrobbler",
       "launchd": "com.multiscrobbler.service",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/multi-scrobbler.log",
-        "~/Library/Logs/noc-homelab/multi-scrobbler.error.log"
+        "~/Library/Logs/noc-homelab/multi-scrobbler.log"
       ],
       "name": "Multi-Scrobbler",
-      "port": 9078
-    },
-    "nextcloud": {
-      "compose_dir": "/Users/noc/noc-homelab/services/nextcloud",
-      "description": "Cloud Storage & Collaboration",
-      "launchd": "docker:nextcloud",
-      "log_paths": [
-        "/Users/noc/noc-homelab/services/nextcloud/data/nextcloud.log"
-      ],
-      "name": "Nextcloud",
-      "port": 9080
-    },
-    "syncthing": {
-      "description": "File Synchronization",
-      "launchd": "homebrew.mxcl.syncthing",
-      "log_paths": [
-        "~/Library/Application Support/Syncthing/syncthing.log"
-      ],
-      "name": "Syncthing",
-      "port": 8384
+      "port": 9078,
+      "web_ports": [
+        9078
+      ]
     },
     "tailscale": {
-      "launchd": "tailscale",
-      "log_paths": [
-        "/var/log/tailscaled.log",
-        "~/Library/Logs/Tailscale/"
-      ],
+      "description": "VPN & Private Networking",
       "name": "Tailscale",
       "port": null,
       "webclient_port": 5252
     },
-    "teamspeak": {
-      "launchd": "com.noc.teamspeak",
+    "teamspeak-6": {
+      "compose_dir": "/Users/noc/noc-homelab/services/teamspeak6",
+      "description": "Tea & Potatoes (TeamSpeak 6 Beta)",
+      "launchd": "docker:teamspeak6",
       "log_paths": [
-        "/Users/noc/teamspeak3-server_mac/logs/*_1.log",
-        "~/Library/Logs/noc-homelab/teamspeak.log"
+        "/Users/noc/noc-homelab/services/teamspeak6/data/logs/*_1.log"
       ],
-      "name": "TeamSpeak",
+      "name": "TeamSpeak 6",
       "port": 9987,
-      "status_port": 10011,
+      "status_port": 10080,
       "use_wan_ip": true,
       "web_ports": [
         30033,
-        10080
+        10080,
+        10443
       ]
     },
-    "ts3audiobot": {
-      "compose_dir": "/Users/noc/noc-homelab/services/ts3audiobot",
-      "description": "TeamSpeak Music Bot",
-      "launchd": "docker:ts3audiobot",
-      "log_paths": [
-        "/Users/noc/noc-homelab/services/ts3audiobot/data/logs/*.log"
-      ],
-      "name": "TS3AudioBot",
-      "port": 58913
-    },
     "voiceseq": {
-      "description": "Voice note upload server (iOS)",
+      "description": "Voice Sequence API",
       "launchd": "com.noc.voiceseq",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/voiceseq.log",
-        "~/Library/Logs/noc-homelab/voiceseq.error.log"
+        "~/Library/Logs/noc-homelab/voiceseq.log"
       ],
-      "name": "VoiceSeq",
+      "name": "Voice Sequence API",
       "port": 61998
     },
     "voiceseq-processor": {
-      "description": "Voice note transcription & Logseq writer",
+      "description": "Voice Sequence Processor",
       "launchd": "com.noc.voiceseq-processor",
       "log_paths": [
-        "~/Library/Logs/noc-homelab/voiceseq-processor.log",
-        "~/Library/Logs/noc-homelab/voiceseq-processor.error.log"
+        "~/Library/Logs/noc-homelab/voiceseq-processor.log"
       ],
-      "name": "VoiceSeq Processor"
+      "name": "Voice Sequence Processor"
     },
     "caddy": {
       "name": "Caddy",

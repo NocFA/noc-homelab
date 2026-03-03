@@ -137,7 +137,7 @@ class DarwinHandler(PlatformHandler):
             if launchd.startswith('docker:'):
                 compose_dir = svc_config.get('compose_dir')
                 if compose_dir:
-                    subprocess.run(['docker', 'compose', 'up', '-d'], cwd=compose_dir, check=True)
+                    subprocess.run(['docker', 'compose', 'start'], cwd=compose_dir, check=True)
                     return True
             elif launchd.startswith('pm2:'):
                 pm2_name = launchd.replace('pm2:', '')
@@ -163,7 +163,7 @@ class DarwinHandler(PlatformHandler):
             if launchd.startswith('docker:'):
                 compose_dir = svc_config.get('compose_dir')
                 if compose_dir:
-                    subprocess.run(['docker', 'compose', 'down'], cwd=compose_dir, check=True)
+                    subprocess.run(['docker', 'compose', 'stop'], cwd=compose_dir, check=True)
                     return True
             elif launchd.startswith('pm2:'):
                 pm2_name = launchd.replace('pm2:', '')

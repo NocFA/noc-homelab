@@ -461,16 +461,12 @@ def check_port_listening(port):
     return result == 0
 
 def check_launchd_service_running(launchd_name):
-    """Check if a launchd service is running via launchctl (port-independent)"""
+    """Check if a launchd service is loaded (and potentially running)"""
     try:
         result = subprocess.run(['launchctl', 'list', launchd_name],
                               capture_output=True, text=True, timeout=5)
-        if result.returncode == 0:
-            # Service is loaded - check if PID is present in the output
-            # Output format is a plist dict with "PID" = <number>; if running
-            if '"PID"' in result.stdout:
-                return True
-        return False
+        # returncode 0 means the service is loaded in launchd
+        return result.returncode == 0
     except:
         return False
 
@@ -901,11 +897,11 @@ def control_service(action):
             container_name = launchd_name.replace('docker:', '')
             compose_dir = service.get('compose_dir', f'/Users/noc/noc-homelab/services/{container_name}')
             if action == 'start':
-                subprocess.run(['docker', 'compose', 'up', '-d'],
+                subprocess.run(['docker', 'compose', 'start'],
                              cwd=compose_dir, check=True, capture_output=True, text=True)
                 return jsonify({'success': True, 'message': f'{service["name"]} started'})
             elif action == 'stop':
-                subprocess.run(['docker', 'compose', 'down'],
+                subprocess.run(['docker', 'compose', 'stop'],
                              cwd=compose_dir, check=True, capture_output=True, text=True)
                 return jsonify({'success': True, 'message': f'{service["name"]} stopped'})
             elif action == 'restart':

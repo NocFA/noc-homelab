@@ -8,7 +8,7 @@
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>: > /Users/noc/Library/Logs/noc-homelab/homelab-agent.log; : > /Users/noc/Library/Logs/noc-homelab/homelab-agent.error.log; exec /usr/bin/python3 /Users/noc/noc-homelab/agent/agent.py --port 8080 --host 0.0.0.0 --config /Users/noc/noc-homelab/agent/config.yaml</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/homelab-agent.log; : > /Users/noc/Library/Logs/noc-homelab/homelab-agent.error.log; exec /opt/homebrew/bin/python3 /Users/noc/noc-homelab/agent/agent.py --port 5005 --host 0.0.0.0 --config /Users/noc/noc-homelab/agent/config.yaml</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
