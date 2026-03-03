@@ -25,8 +25,7 @@ PUBLIC_SERVICES = {
         'copyparty':        'Copyparty',
         'maloja':           'Maloja',
         'multi-scrobbler':  'Scrobbler',
-        'syncthing':        'Syncthing',
-        'teamspeak':        'TeamSpeak',
+        'teamspeak-6':      'TeamSpeak',
     },
     'noc-tux': {
         'gatus':            'Gatus',
