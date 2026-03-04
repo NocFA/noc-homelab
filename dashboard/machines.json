@@ -18,7 +18,7 @@
       "id": "noc-claw",
       "platform": "darwin",
       "role": "agent",
-      "agent_port": 8080,
+      "agent_port": 5005,
       "ssh_user": "noc",
       "services": {
         "openclaw": {
@@ -28,9 +28,15 @@
         },
         "ollama": {
           "name": "Ollama",
-          "description": "Local LLM runtime (Metal/M4 — qwen2.5, hermes3, llama3.2-vision)",
+          "description": "Local LLM runtime (Metal/M4 â€” qwen2.5, hermes3, llama3.2-vision)",
           "port": 11434,
           "url": "http://100.95.102.128:11434"
+        },
+        "open-llm-vtuber": {
+          "name": "Open-LLM-VTuber",
+          "description": "Open source AI VTuber (using Ollama)",
+          "port": 12393,
+          "url": "http://100.95.102.128:12393"
         },
         "glances": {
           "name": "Glances",
