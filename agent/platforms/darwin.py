@@ -79,6 +79,9 @@ class DarwinHandler(PlatformHandler):
             is_running = self._check_homebrew_service(service_name)
         elif launchd:
             is_running = self._check_launchd_service(launchd)
+        else:
+            # If no launchd/docker/pm2 specified, assume running if port check passes
+            is_running = True
 
         # Also check port if defined
         if port and is_running:
