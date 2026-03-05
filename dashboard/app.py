@@ -1677,6 +1677,59 @@ def websites_component_action(site_id, comp_id, action):
         return jsonify({'error': r.stderr.strip() or f'Failed to {action} {comp_id}'}), 500
     return jsonify({'error': 'Invalid action'}), 400
 
+# Screen lock management (macOS only)
+
+@app.route('/api/screenlock', methods=['GET'])
+def screenlock_status():
+    """Get current screen lock status"""
+    try:
+        ask = subprocess.run(
+            ['defaults', 'read', 'com.apple.screensaver', 'askForPassword'],
+            capture_output=True, text=True, timeout=5
+        )
+        enabled = ask.stdout.strip() == '1'
+
+        idle = subprocess.run(
+            ['defaults', '-currentHost', 'read', 'com.apple.screensaver', 'idleTime'],
+            capture_output=True, text=True, timeout=5
+        )
+        timeout_secs = int(idle.stdout.strip()) if idle.returncode == 0 and idle.stdout.strip().isdigit() else 0
+
+        return jsonify({
+            'enabled': enabled,
+            'timeout_minutes': timeout_secs // 60
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/screenlock', methods=['POST'])
+def screenlock_toggle():
+    """Toggle screen lock on/off"""
+    data = request.get_json() or {}
+    action = data.get('action', 'toggle')
+
+    try:
+        if action in ('enable', 'disable', 'toggle'):
+            if action == 'toggle':
+                ask = subprocess.run(
+                    ['defaults', 'read', 'com.apple.screensaver', 'askForPassword'],
+                    capture_output=True, text=True, timeout=5
+                )
+                action = 'disable' if ask.stdout.strip() == '1' else 'enable'
+
+            if action == 'enable':
+                subprocess.run(['defaults', 'write', 'com.apple.screensaver', 'askForPassword', '-bool', 'true'], timeout=5)
+                subprocess.run(['defaults', 'write', 'com.apple.screensaver', 'askForPasswordDelay', '-int', '0'], timeout=5)
+                subprocess.run(['defaults', '-currentHost', 'write', 'com.apple.screensaver', 'idleTime', '-int', '3600'], timeout=5)
+                return jsonify({'success': True, 'enabled': True, 'timeout_minutes': 60})
+            else:
+                subprocess.run(['defaults', 'write', 'com.apple.screensaver', 'askForPassword', '-bool', 'false'], timeout=5)
+                return jsonify({'success': True, 'enabled': False})
+        else:
+            return jsonify({'error': f'Invalid action: {action}'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 # Start background status updater thread
 _status_thread = threading.Thread(target=_bg_status_loop, daemon=True)
 _status_thread.start()

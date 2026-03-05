@@ -528,6 +528,24 @@
                         title="Settings"
                         >[cfg]</a
                     >
+                    <a
+                        href="javascript:void(0)"
+                        id="screenLockToggle"
+                        onclick="toggleScreenLock()"
+                        style="
+                            text-decoration: none;
+                            color: var(--text-muted);
+                            opacity: 0.7;
+                            transition: opacity 0.2s, color 0.2s;
+                            font-family: var(--font-mono);
+                            font-size: 0.75rem;
+                            cursor: pointer;
+                        "
+                        onmouseover="this.style.opacity = '1'"
+                        onmouseout="this.style.opacity = '0.7'"
+                        title="Screen Lock: checking..."
+                        >[lock]</a
+                    >
                 </div>
                 <div class="header-title">
                     <span class="header-prompt">noc@local</span><span>:</span
@@ -906,6 +924,55 @@
             document.addEventListener("keydown", (e) => {
                 if (e.key === "Escape") closeLogs();
             });
+
+            function updateScreenLockUI(enabled, timeout) {
+                const el = document.getElementById("screenLockToggle");
+                if (!el) return;
+                if (enabled) {
+                    el.style.color = "var(--success)";
+                    el.title = `Screen Lock: ON (${timeout || 60}min timeout)`;
+                } else {
+                    el.style.color = "var(--text-muted)";
+                    el.title = "Screen Lock: OFF";
+                }
+            }
+
+            async function fetchScreenLock() {
+                try {
+                    const resp = await fetch("/api/screenlock");
+                    const data = await resp.json();
+                    updateScreenLockUI(data.enabled, data.timeout_minutes);
+                } catch (e) {}
+            }
+
+            async function toggleScreenLock() {
+                const el = document.getElementById("screenLockToggle");
+                el.style.color = "var(--accent)";
+                el.title = "Screen Lock: toggling...";
+                try {
+                    const resp = await fetch("/api/screenlock", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "toggle" }),
+                    });
+                    const data = await resp.json();
+                    if (data.success) {
+                        updateScreenLockUI(data.enabled, data.timeout_minutes);
+                        showNotification(
+                            `Screen lock ${data.enabled ? "enabled (1hr timeout)" : "disabled"}`,
+                            "success",
+                        );
+                    } else {
+                        showNotification(data.error || "Failed to toggle", "error");
+                        fetchScreenLock();
+                    }
+                } catch (e) {
+                    showNotification("Failed to toggle screen lock", "error");
+                    fetchScreenLock();
+                }
+            }
+
+            fetchScreenLock();
         </script>
     </body>
 </html>
