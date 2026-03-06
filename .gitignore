@@ -17,6 +17,7 @@ logs/
 *.pid
 *.seed
 *.pid.lock
+.alert_history.json
 
 # Databases
 *.db

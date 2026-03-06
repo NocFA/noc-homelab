@@ -3,6 +3,7 @@ Smart alerting engine for homelab dashboard.
 Checks Glances metrics against thresholds, fires Discord webhooks with deduplication.
 """
 
+import os
 import time
 import json
 import threading
@@ -30,6 +31,9 @@ MAX_HISTORY = 100
 DISCORD_USER_ID = '139476150786195456'
 
 
+HISTORY_FILE = os.path.join(os.path.dirname(__file__), '.alert_history.json')
+
+
 class AlertEngine:
     def __init__(self, discord_webhook_url=None, glances_hosts=None):
         self.webhook_url = discord_webhook_url
@@ -47,6 +51,9 @@ class AlertEngine:
 
         # Resolved alerts waiting to be sent
         self._pending_resolved = []
+
+        # Load persisted history
+        self._load_history()
 
     def check_all(self):
         """Run threshold checks for all configured machines. Call from bg thread."""
@@ -171,6 +178,7 @@ class AlertEngine:
 
         with self.lock:
             self.history.append(alert)
+        self._save_history()
 
         self._send_discord(alert)
 
@@ -188,6 +196,7 @@ class AlertEngine:
         with self.lock:
             self.history.append(resolved)
             self._pending_resolved.append(resolved)
+        self._save_history()
 
     def _send_discord(self, alert):
         """Send a Discord webhook embed for an alert."""
@@ -267,3 +276,25 @@ class AlertEngine:
                 {'machine': k[0], 'metric': k[1], 'since': v}
                 for k, v in self._active_alerts.items()
             ]
+
+    def _save_history(self):
+        """Persist alert history to disk."""
+        try:
+            with self.lock:
+                items = list(self.history)
+            with open(HISTORY_FILE, 'w') as f:
+                json.dump(items, f)
+        except Exception:
+            pass
+
+    def _load_history(self):
+        """Load alert history from disk."""
+        try:
+            if os.path.exists(HISTORY_FILE):
+                with open(HISTORY_FILE) as f:
+                    items = json.load(f)
+                with self.lock:
+                    for item in items[-MAX_HISTORY:]:
+                        self.history.append(item)
+        except Exception:
+            pass
