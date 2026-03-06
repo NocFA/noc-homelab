@@ -6,145 +6,354 @@
   },
   "machines": [
     {
+      "id": "noc-local",
       "display_name": "noc-local",
       "hostname": "noc-local",
-      "id": "noc-local",
       "platform": "darwin",
-      "role": "primary"
+      "ssh_host": "noc-local",
+      "ssh_user": "noc",
+      "glances_port": 61999,
+      "services": {
+        "dashboard": {
+          "name": "Dashboard",
+          "description": "Homelab Management Dashboard",
+          "manager": "launchd",
+          "unit_name": "com.noc.dashboard",
+          "port": 8080,
+          "status_port": 8080,
+          "log_paths": ["~/Library/Logs/noc-homelab/dashboard.log"]
+        },
+        "caddy": {
+          "name": "Caddy",
+          "description": "Reverse Proxy (Port 80)",
+          "manager": "system-daemon",
+          "unit_name": "com.noc.caddy",
+          "port": 80,
+          "log_paths": ["~/Library/Logs/noc-homelab/caddy.log"]
+        },
+        "gatus": {
+          "name": "Gatus",
+          "description": "Service Health Monitor",
+          "manager": "docker",
+          "unit_name": "gatus",
+          "port": 3001,
+          "url": "http://noc-local:3001",
+          "log_paths": ["~/Library/Logs/noc-homelab/gatus.log"]
+        },
+        "glances": {
+          "name": "Glances",
+          "description": "System Resource Monitor",
+          "manager": "launchd",
+          "unit_name": "com.noc.glances",
+          "port": 61999,
+          "url": "http://noc-local:61999",
+          "log_paths": ["~/Library/Logs/noc-homelab/glances.log"]
+        },
+        "copyparty": {
+          "name": "Copyparty",
+          "description": "File Server & Sharing",
+          "manager": "launchd",
+          "unit_name": "com.noc.copyparty",
+          "port": 8081,
+          "url": "http://noc-local:8081",
+          "log_paths": ["~/Library/Logs/noc-homelab/copyparty.log"]
+        },
+        "maloja": {
+          "name": "Maloja",
+          "description": "Music Scrobbling & Statistics",
+          "manager": "launchd",
+          "unit_name": "com.maloja.service",
+          "port": 42010,
+          "url": "http://noc-local:42010",
+          "log_paths": ["~/Library/Logs/noc-homelab/maloja.log"]
+        },
+        "multi-scrobbler": {
+          "name": "Multi-Scrobbler",
+          "description": "Universal Music Scrobbler",
+          "manager": "launchd",
+          "unit_name": "com.multiscrobbler.service",
+          "port": 9078,
+          "url": "http://noc-local:9078",
+          "log_paths": ["~/Library/Logs/noc-homelab/multi-scrobbler.log"]
+        },
+        "teamspeak-6": {
+          "name": "TeamSpeak 6",
+          "description": "Tea & Potatoes (TeamSpeak 6 Beta)",
+          "manager": "docker",
+          "unit_name": "teamspeak6",
+          "compose_dir": "/Users/noc/noc-homelab/services/teamspeak6",
+          "port": 9987,
+          "status_port": 10080,
+          "url": "/teamspeak",
+          "use_wan_ip": true,
+          "log_paths": ["/Users/noc/noc-homelab/services/teamspeak6/data/logs/*_1.log"]
+        },
+        "voiceseq": {
+          "name": "Voice Sequence API",
+          "description": "Voice Sequence API",
+          "manager": "launchd",
+          "unit_name": "com.noc.voiceseq",
+          "port": 61998,
+          "log_paths": ["~/Library/Logs/noc-homelab/voiceseq.log"]
+        },
+        "voiceseq-processor": {
+          "name": "Voice Sequence Processor",
+          "description": "Voice Sequence Processor",
+          "manager": "launchd",
+          "unit_name": "com.noc.voiceseq-processor",
+          "log_paths": ["~/Library/Logs/noc-homelab/voiceseq-processor.log"]
+        },
+        "beads-ui": {
+          "name": "Beads UI",
+          "description": "Beads Issue Tracker Dashboard",
+          "manager": "launchd",
+          "unit_name": "com.noc.beads-ui",
+          "port": 3000,
+          "url": "http://noc-local:3000",
+          "log_paths": ["~/Library/Logs/noc-homelab/beads-ui.log"]
+        },
+        "homelab-agent": {
+          "name": "Homelab Agent",
+          "description": "Homelab Management Agent",
+          "manager": "launchd",
+          "unit_name": "com.noc.homelab-agent",
+          "port": 5005,
+          "log_paths": ["~/Library/Logs/noc-homelab/homelab-agent.log"]
+        },
+        "git-autopull": {
+          "name": "Git Auto-Pull",
+          "description": "Git Repository Sync Service",
+          "manager": "launchd",
+          "unit_name": "com.noc.git-autopull",
+          "log_paths": ["~/Library/Logs/noc-homelab/git-autopull.log"]
+        },
+        "mdsf-crew-api": {
+          "name": "MDSF Crew API",
+          "description": "MDSF Crew Management API",
+          "manager": "launchd",
+          "unit_name": "com.noc.mdsf-crew-api",
+          "port": 3100,
+          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-crew-api.log"]
+        },
+        "mdsf-crew-web": {
+          "name": "MDSF Crew Web",
+          "description": "MDSF Crew Web Portal",
+          "manager": "launchd",
+          "unit_name": "com.noc.mdsf-crew-web",
+          "port": 5173,
+          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-crew-web.log"]
+        },
+        "mdsf-crew-tunnel": {
+          "name": "MDSF Crew Tunnel",
+          "description": "Cloudflare Tunnel for MDSF Crew",
+          "manager": "launchd",
+          "unit_name": "com.noc.mdsf-crew-tunnel",
+          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-crew-tunnel.log"]
+        },
+        "mdsf-org": {
+          "name": "MDSF Org Dashboard",
+          "description": "MDSF Organization Dashboard",
+          "manager": "launchd",
+          "unit_name": "com.noc.mdsf-org",
+          "port": 8190,
+          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-org.log"]
+        },
+        "mdsf-org-tunnel": {
+          "name": "MDSF Org Tunnel",
+          "description": "Cloudflare Tunnel for MDSF Org",
+          "manager": "launchd",
+          "unit_name": "com.noc.mdsf-org-tunnel",
+          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-org-tunnel.log"]
+        },
+        "tailscale": {
+          "name": "Tailscale",
+          "description": "VPN & Private Networking",
+          "manager": "tailscale",
+          "port": null,
+          "webclient_port": 5252
+        }
+      }
     },
     {
+      "id": "noc-claw",
       "display_name": "noc-claw",
       "hostname": "100.95.102.128",
-      "id": "noc-claw",
       "platform": "darwin",
       "role": "agent",
-      "agent_port": 5005,
+      "ssh_host": "noc-claw",
       "ssh_user": "noc",
+      "agent_port": 5005,
+      "glances_port": 61999,
       "services": {
         "openclaw": {
           "name": "OpenClaw Gateway",
           "description": "On-device AI gateway (local LLMs via Ollama)",
+          "manager": "launchd",
+          "unit_name": "ai.openclaw.gateway",
+          "port": 18789,
           "url": "http://100.95.102.128:18789"
         },
         "ollama": {
           "name": "Ollama",
-          "description": "Local LLM runtime (Metal/M4 â€” qwen2.5, hermes3, llama3.2-vision)",
+          "description": "Local LLM runtime (Metal/M4)",
+          "manager": "launchd",
+          "unit_name": "com.ollama.server",
           "port": 11434,
           "url": "http://100.95.102.128:11434"
         },
         "open-llm-vtuber": {
           "name": "Open-LLM-VTuber",
           "description": "Open source AI VTuber (using Ollama)",
+          "manager": "launchd",
+          "unit_name": "com.noc.open-llm-vtuber",
           "port": 12393,
           "url": "http://100.95.102.128:12393"
         },
         "glances": {
           "name": "Glances",
           "description": "System Metrics & Monitoring",
+          "manager": "launchd",
+          "unit_name": "com.noc.glances",
           "port": 61999,
           "url": "http://100.95.102.128:61999"
         }
       }
     },
     {
+      "id": "noc-tux",
       "display_name": "noc-tux",
       "hostname": "100.91.104.124",
-      "id": "noc-tux",
       "platform": "linux",
       "role": "agent",
+      "ssh_host": "noc-tux",
+      "ssh_user": "noc",
       "agent_port": 8080,
+      "glances_port": 61999,
       "services": {
         "arcane": {
           "name": "Arcane",
           "description": "Docker Management UI",
+          "manager": "docker",
+          "unit_name": "arcane",
           "port": 3552,
           "url": "http://100.91.104.124:3552"
         },
         "gatus": {
           "name": "Gatus",
           "description": "Service health monitoring",
+          "manager": "systemd-user",
+          "unit_name": "gatus",
           "port": 3001,
           "url": "http://100.91.104.124:3001"
         },
         "glances": {
           "name": "Glances",
           "description": "System Metrics & Monitoring",
+          "manager": "systemd-user",
+          "unit_name": "glances",
           "port": 61999,
           "url": "http://100.91.104.124:61999"
         },
         "matrix-synapse": {
           "name": "Matrix Synapse",
           "description": "Matrix homeserver",
+          "manager": "docker",
+          "unit_name": "matrix-synapse",
           "url": "https://matrix.nocfa.net"
         },
         "matrix-postgres": {
           "name": "Matrix Postgres",
-          "description": "Matrix database"
+          "description": "Matrix database",
+          "manager": "docker",
+          "unit_name": "matrix-postgres"
         },
         "matrix-traefik": {
           "name": "Matrix Traefik",
-          "description": "Matrix reverse proxy"
+          "description": "Matrix reverse proxy",
+          "manager": "docker",
+          "unit_name": "matrix-traefik"
         },
         "matrix-coturn": {
           "name": "Matrix Coturn",
-          "description": "TURN/STUN server for Matrix calls"
+          "description": "TURN/STUN server for Matrix calls",
+          "manager": "docker",
+          "unit_name": "matrix-coturn"
         },
         "matrix-client-element": {
           "name": "Element Web",
           "description": "Matrix web client",
+          "manager": "docker",
+          "unit_name": "matrix-client-element",
           "url": "https://element.nocfa.net"
         },
         "matrix-synapse-admin": {
           "name": "Synapse Admin",
           "description": "Matrix admin dashboard",
+          "manager": "docker",
+          "unit_name": "matrix-synapse-admin",
           "url": "https://matrix.nocfa.net/synapse-admin/"
         },
         "authentik": {
           "name": "Authentik",
           "description": "SSO & 2FA identity provider",
+          "manager": "docker",
+          "unit_name": "authentik-server-1",
           "url": "https://auth.nocfa.net"
         },
         "zurg": {
           "name": "Zurg",
           "description": "Real-Debrid WebDAV",
+          "manager": "systemd-user",
+          "unit_name": "zurg",
           "port": 9999,
           "url": "http://100.91.104.124:9999"
         },
         "rclone-zurg": {
           "name": "Rclone Zurg",
-          "description": "FUSE mount for Zurg WebDAV"
+          "description": "FUSE mount for Zurg WebDAV",
+          "manager": "systemd-user",
+          "unit_name": "rclone-zurg"
         },
         "emby": {
           "name": "Emby",
           "description": "Media streaming server",
+          "manager": "systemd-user",
+          "unit_name": "emby",
           "port": 8096,
           "url": "http://100.91.104.124:8096"
         },
         "jellyfin": {
           "name": "Jellyfin",
           "description": "Media streaming server",
+          "manager": "docker",
+          "unit_name": "jellyfin",
           "port": 8097,
           "url": "http://100.91.104.124:8097"
         },
         "sunshine": {
           "name": "Sunshine",
           "description": "Game streaming server",
+          "manager": "systemd-user",
+          "unit_name": "sunshine",
           "port": 47990,
           "url": "https://100.91.104.124:47990"
         },
         "nomachine": {
           "name": "NoMachine",
           "description": "Remote desktop server",
+          "manager": "system-service",
+          "unit_name": "nxserver",
           "port": 4000,
           "url": "http://100.91.104.124:4000"
         },
         "animated-album-covers": {
           "name": "Animated Album Covers",
           "description": "Music Presence animated album cover converter",
+          "manager": "docker",
+          "unit_name": "musicpresence-animated-album-covers-http-1",
           "url": "https://api.nocfa.net"
         }
-      },
-      "ssh_user": "noc"
+      }
     }
   ]
 }

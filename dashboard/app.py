@@ -7,10 +7,12 @@ import requests
 import time
 import json
 import re
+import sys
 import shutil
 import threading
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from alerts import AlertEngine
 
 app = Flask(__name__, template_folder='.')
 
@@ -86,20 +88,45 @@ def save_config_atomic(config_path, data):
             os.remove(temp)
         return {'success': False, 'error': str(e)}
 
-def load_services_config():
-    """Load services configuration from services.json"""
-    config_path = os.path.join(os.path.dirname(__file__), 'services.json')
-    try:
-        with open(config_path, 'r') as f:
-            data = json.load(f)
-            return data.get('services', {})
-    except FileNotFoundError:
-        # File doesn't exist yet - will be created by settings UI
-        app.logger.warning("services.json not found, using hardcoded SERVICES")
-        return None
-    except Exception as e:
-        app.logger.error(f"Failed to load services.json: {e}")
-        return None
+def _detect_self_id():
+    """Detect which machine this dashboard instance is running on."""
+    import platform
+    hostname = platform.node().split('.')[0].lower()
+    # Common hostname patterns for each machine
+    hostname_map = {
+        'noc-local': ['noc-local', 'nocs-macbook-pro', 'nocs-mbp'],
+        'noc-claw': ['noc-claw', 'mac-mini', 'noc-mac-mini'],
+        'noc-tux': ['noc-tux'],
+    }
+    for machine_id, patterns in hostname_map.items():
+        if hostname in patterns or any(p in hostname for p in patterns):
+            return machine_id
+    # Fallback: check platform
+    if sys.platform == 'linux':
+        return 'noc-tux'
+    return 'noc-local'
+
+def _manager_to_launchd_compat(manager, unit_name):
+    """Generate backwards-compatible launchd field from manager + unit_name."""
+    if manager == 'launchd':
+        return unit_name or ''
+    elif manager == 'docker':
+        return f'docker:{unit_name}' if unit_name else 'docker:'
+    elif manager == 'pm2':
+        return f'pm2:{unit_name}' if unit_name else 'pm2:'
+    elif manager == 'brew':
+        return f'homebrew.mxcl.{unit_name}' if unit_name else ''
+    elif manager == 'system-daemon':
+        return f'system:{unit_name}' if unit_name else 'system:'
+    elif manager == 'system-service':
+        return f'system:{unit_name}' if unit_name else 'system:'
+    elif manager == 'tailscale':
+        return 'tailscale'
+    elif manager == 'disabled':
+        return 'disabled'
+    elif manager in ('systemd', 'systemd-user'):
+        return f'systemd:{unit_name}' if unit_name else ''
+    return unit_name or ''
 
 def load_machines_config():
     """Load machines configuration from machines.json"""
@@ -110,6 +137,35 @@ def load_machines_config():
     except Exception:
         return []
 
+def load_services_config():
+    """Load local services from machines.json (self machine) with fallback to services.json."""
+    config_path = os.path.join(os.path.dirname(__file__), 'machines.json')
+    try:
+        with open(config_path, 'r') as f:
+            data = json.load(f)
+        machines = data.get('machines', [])
+        self_id = _detect_self_id()
+        for m in machines:
+            if m['id'] == self_id:
+                services = m.get('services', {})
+                # Generate backwards-compatible launchd field
+                for svc in services.values():
+                    if 'launchd' not in svc:
+                        manager = svc.get('manager', '')
+                        unit_name = svc.get('unit_name', '')
+                        svc['launchd'] = _manager_to_launchd_compat(manager, unit_name)
+                return services
+    except Exception as e:
+        app.logger.error(f"Failed to load services from machines.json: {e}")
+
+    # Fallback to services.json
+    try:
+        svc_path = os.path.join(os.path.dirname(__file__), 'services.json')
+        with open(svc_path, 'r') as f:
+            return json.load(f).get('services', {})
+    except Exception:
+        return {}
+
 def get_authentik_config():
     """Load authentik config section from machines.json"""
     config_path = os.path.join(os.path.dirname(__file__), 'machines.json')
@@ -119,7 +175,34 @@ def get_authentik_config():
     except Exception:
         return {}
 
-MACHINES = load_machines_config()
+SELF_MACHINE_ID = _detect_self_id()
+_ALL_MACHINES = load_machines_config()
+MACHINES = [m for m in _ALL_MACHINES if m['id'] != SELF_MACHINE_ID]
+SELF_MACHINE = next((m for m in _ALL_MACHINES if m['id'] == SELF_MACHINE_ID), {})
+
+# Initialize alert engine with Glances hosts from all machines
+_alert_glances_hosts = {
+    'noc-local': {'host': 'localhost', 'port': 61999},
+}
+for _m in MACHINES:
+    if _m.get('role') == 'agent':
+        _alert_glances_hosts[_m['id']] = {'host': _m['hostname'], 'port': 61999}
+
+_discord_webhook = None
+try:
+    import yaml
+    _gatus_cfg_path = os.path.join(os.path.dirname(__file__), '..', 'services', 'gatus', 'config.yaml')
+    if os.path.exists(_gatus_cfg_path):
+        with open(_gatus_cfg_path) as _f:
+            _gatus_cfg = yaml.safe_load(_f)
+        _discord_webhook = _gatus_cfg.get('alerting', {}).get('discord', {}).get('webhook-url')
+except Exception:
+    pass
+
+alert_engine = AlertEngine(
+    discord_webhook_url=_discord_webhook,
+    glances_hosts=_alert_glances_hosts,
+)
 
 def check_remote_port(hostname, port, timeout=0.5):
     """Check if a port is listening on a remote host (LAN/Tailscale)"""
@@ -351,14 +434,18 @@ def format_uptime(uptime_secs):
         return f"{mins}m"
 
 def get_system_uptime_secs():
-    """Get local system uptime in seconds"""
+    """Get local system uptime in seconds (cross-platform)"""
     try:
-        result = subprocess.run(['/usr/sbin/sysctl', '-n', 'kern.boottime'], capture_output=True, text=True)
-        if result.returncode == 0:
-            match = re.search(r'sec\s*=\s*(\d+)', result.stdout)
-            if match:
-                boot_time = int(match.group(1))
-                return int(time.time()) - boot_time
+        if sys.platform == 'darwin':
+            result = subprocess.run(['/usr/sbin/sysctl', '-n', 'kern.boottime'], capture_output=True, text=True)
+            if result.returncode == 0:
+                match = re.search(r'sec\s*=\s*(\d+)', result.stdout)
+                if match:
+                    boot_time = int(match.group(1))
+                    return int(time.time()) - boot_time
+        elif sys.platform == 'linux':
+            with open('/proc/uptime') as f:
+                return int(float(f.read().split()[0]))
     except Exception:
         pass
     return None
@@ -470,25 +557,51 @@ def check_launchd_service_running(launchd_name):
     except:
         return False
 
+def check_systemd_service_running(unit_name, user=False):
+    """Check if a systemd service is active"""
+    try:
+        cmd = ['systemctl']
+        if user:
+            cmd.append('--user')
+        cmd.extend(['is-active', '--quiet', unit_name])
+        result = subprocess.run(cmd, capture_output=True, timeout=5)
+        return result.returncode == 0
+    except Exception:
+        return False
+
 def check_service_running(service_key, service):
     """Check if a service is running using the best available method"""
+    manager = service.get('manager', '')
+    unit_name = service.get('unit_name', '')
     launchd_name = service.get('launchd', '')
     port = service.get('port')
-    
-    # Special case for Tailscale as it doesn't use a standard port check
-    if service_key == 'tailscale':
+
+    # Special case for Tailscale
+    if manager == 'tailscale' or service_key == 'tailscale':
         try:
-            # Check if Tailscale process is running
-            result = subprocess.run(['pgrep', '-f', 'Tailscale.app'], capture_output=True)
+            if sys.platform == 'darwin':
+                result = subprocess.run(['pgrep', '-f', 'Tailscale.app'], capture_output=True)
+            else:
+                result = subprocess.run(['systemctl', 'is-active', '--quiet', 'tailscaled'], capture_output=True)
             return result.returncode == 0
-        except:
+        except Exception:
             return False
 
     is_process_running = False
-    
-    # 1. Check process status based on type
-    if launchd_name.startswith('pm2:'):
-        pm2_name = launchd_name.replace('pm2:', '')
+
+    # 1. Check process status based on manager type
+    if manager == 'systemd':
+        is_process_running = check_systemd_service_running(unit_name, user=False)
+    elif manager == 'systemd-user':
+        is_process_running = check_systemd_service_running(unit_name, user=True)
+    elif manager == 'system-service':
+        # System service (e.g. nxserver) — rely on port check
+        if sys.platform == 'linux':
+            is_process_running = check_systemd_service_running(unit_name, user=False)
+        else:
+            is_process_running = True
+    elif manager == 'pm2' or launchd_name.startswith('pm2:'):
+        pm2_name = unit_name or launchd_name.replace('pm2:', '')
         try:
             result = subprocess.run(['pm2', 'jlist'], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
@@ -497,49 +610,48 @@ def check_service_running(service_key, service):
                     if proc.get('name') == pm2_name and proc.get('pm2_env', {}).get('status') == 'online':
                         is_process_running = True
                         break
-        except:
+        except Exception:
             pass
-    elif launchd_name.startswith('docker:'):
-        container_name = launchd_name.replace('docker:', '')
+    elif manager == 'docker' or launchd_name.startswith('docker:'):
+        container_name = unit_name or launchd_name.replace('docker:', '')
         try:
             result = subprocess.run(['docker', 'ps', '--filter', f'name={container_name}', '--format', '{{.Names}}'],
                                   capture_output=True, text=True, timeout=5)
             is_process_running = container_name in result.stdout
-        except:
+        except Exception:
             pass
-    elif launchd_name.startswith('orbstack:'):
-        # OrbStack status - we'll treat it as running if the VM is reachable or just fallback to port
-        is_process_running = True
-    elif launchd_name.startswith('system:'):
-        # System LaunchDaemon — can't query from user domain, rely on port check
-        is_process_running = True
-    elif launchd_name and not launchd_name.startswith('disabled'):
-        if check_launchd_service_running(launchd_name):
+    elif manager == 'brew' or (launchd_name and 'homebrew' in launchd_name):
+        brew_name = unit_name or launchd_name.replace('homebrew.mxcl.', '')
+        if check_launchd_service_running(launchd_name or f'homebrew.mxcl.{unit_name}'):
             is_process_running = True
-        elif 'homebrew' in launchd_name:
+        else:
             try:
                 result = subprocess.run(['brew', 'services', 'list'], capture_output=True, text=True, timeout=5)
-                service_name = launchd_name.replace('homebrew.mxcl.', '')
                 for line in result.stdout.split('\n'):
-                    if service_name in line and 'started' in line:
+                    if brew_name in line and 'started' in line:
                         is_process_running = True
                         break
-            except:
+            except Exception:
                 pass
+    elif manager == 'system-daemon' or launchd_name.startswith('system:'):
+        is_process_running = True
+    elif manager == 'disabled' or launchd_name.startswith('disabled'):
+        is_process_running = False
+    elif manager == 'launchd' or (launchd_name and not launchd_name.startswith('disabled')):
+        ld_name = unit_name or launchd_name
+        if ld_name and check_launchd_service_running(ld_name):
+            is_process_running = True
+    elif launchd_name.startswith('orbstack:'):
+        is_process_running = True
     else:
-        # If no process manager defined, assume we just check the port
         is_process_running = True
 
     # 2. Check port if defined
     if port:
-        # Use status_port if defined (e.g. for TeamSpeak)
         check_port = service.get('status_port', port)
         is_port_listening = check_port_listening(check_port)
-        
-        # Service is online ONLY if process is running AND port is listening
         return is_process_running and is_port_listening
-    
-    # If no port defined, just return process status
+
     return is_process_running
 
 def get_service_log(service_key):
@@ -584,7 +696,7 @@ def get_service_log(service_key):
 def index():
     # Use cached status from background thread (instant, no blocking)
     status_data = _build_status()
-    local_status = status_data.get('noc-local', {})
+    local_status = status_data.get(SELF_MACHINE_ID, {})
 
     services_list = []
     for key, service in SERVICES.items():
@@ -628,11 +740,12 @@ def index():
     local_uptime = local_status.get('_uptime', '--')
     local_glances = get_glances_stats_cached('localhost')
 
+    self_platform = {'darwin': 'macOS', 'linux': 'Linux', 'windows': 'Windows'}.get(SELF_MACHINE.get('platform', sys.platform), sys.platform)
     machine_groups = [
         {
-            'id': 'noc-local',
-            'name': 'noc-local',
-            'platform': 'macOS',
+            'id': SELF_MACHINE_ID,
+            'name': SELF_MACHINE.get('display_name', SELF_MACHINE_ID),
+            'platform': self_platform,
             'reachable': True,
             'uptime': local_uptime,
             'services': services_list,
@@ -683,7 +796,8 @@ def index():
     return render_template('template.html',
                          services=services_list,
                          machine_groups=machine_groups,
-                         uptime=avg_uptime)
+                         uptime=avg_uptime,
+                         self_machine_id=SELF_MACHINE_ID)
 
 @app.route('/favicon.ico')
 def favicon():
@@ -710,11 +824,11 @@ def _check_all_local_services_parallel():
 def _update_status_cache():
     """Full status update — runs in background thread or on first request"""
     try:
-        status = {'noc-local': _check_all_local_services_parallel()}
+        status = {SELF_MACHINE_ID: _check_all_local_services_parallel()}
 
         # Local uptime
         local_uptime_secs = get_system_uptime_secs()
-        status['noc-local']['_uptime'] = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
+        status[SELF_MACHINE_ID]['_uptime'] = format_uptime(local_uptime_secs) if local_uptime_secs else '--'
         uptime_values = [local_uptime_secs] if local_uptime_secs else []
 
         # Remote machines
@@ -760,6 +874,10 @@ def _bg_status_loop():
     """Background thread that keeps status cache fresh"""
     while True:
         _update_status_cache()
+        try:
+            alert_engine.check_all()
+        except Exception as e:
+            app.logger.error(f"Alert check failed: {e}")
         time.sleep(10)
 
 def _build_status():
@@ -933,6 +1051,23 @@ def control_service(action):
             elif action == 'logs':
                 logs = get_service_log(service_key_lower)
                 return jsonify({'success': True, 'logs': logs})
+        # Systemd services (Linux)
+        elif service.get('manager') in ('systemd', 'systemd-user'):
+            user_flag = ['--user'] if service['manager'] == 'systemd-user' else []
+            svc_unit = service.get('unit_name', '')
+            if action == 'logs':
+                try:
+                    cmd = ['journalctl'] + user_flag + ['-u', svc_unit, '-n', '250', '--no-pager']
+                    result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                    logs = result.stdout or 'No logs available'
+                except Exception as e:
+                    logs = f"Error getting logs: {str(e)}"
+                return jsonify({'success': True, 'logs': logs})
+            elif action in ('start', 'stop', 'restart'):
+                cmd = ['systemctl'] + user_flag + [action, svc_unit]
+                subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=15)
+            else:
+                return jsonify({'success': False, 'message': 'Invalid action'}), 400
         # Regular launchd services
         else:
             if action == 'start':
@@ -1175,6 +1310,30 @@ def teamspeak_rename_channel():
             return jsonify({'success': False, 'error': 'Failed to rename channel'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+# Alert API Endpoints
+
+@app.route('/alerts')
+def alerts_page():
+    """Alert history page"""
+    return render_template('alerts.html')
+
+@app.route('/api/alerts')
+def get_alerts():
+    """Return alert history and active count"""
+    limit = request.args.get('limit', 50, type=int)
+    return jsonify({
+        'alerts': alert_engine.get_history(limit),
+        'active_count': alert_engine.get_active_count(),
+        'active': alert_engine.get_active_alerts(),
+    })
+
+@app.route('/api/alerts/active')
+def get_active_alerts():
+    """Return just the active alert count (lightweight, for header badge)"""
+    return jsonify({
+        'count': alert_engine.get_active_count(),
+    })
 
 # Settings Editor API Endpoints
 

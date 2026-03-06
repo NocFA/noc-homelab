@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>NOCNET Alerts</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Commit+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg-primary: #0a2e30;
+                --bg-secondary: #0f3d40;
+                --bg-elevated: #145252;
+                --text-primary: #f0fdfa;
+                --text-secondary: #99e0d9;
+                --text-muted: #5eaba3;
+                --accent: #f59e0b;
+                --accent-dark: #b45309;
+                --success: #34d399;
+                --error: #f87171;
+                --border: #1a5456;
+                --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                --font-mono: "Commit Mono", ui-monospace, "SF Mono", Consolas, monospace;
+            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: var(--font-body);
+                min-height: 100vh;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                -webkit-font-smoothing: antialiased;
+            }
+            .container { max-width: 900px; margin: 0 auto; padding: 1rem; }
+            .header {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 1rem 1.5rem;
+                margin-bottom: 1.5rem;
+                font-family: var(--font-mono);
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+            }
+            .header a {
+                color: var(--text-muted);
+                text-decoration: none;
+                font-size: 0.875rem;
+            }
+            .header a:hover { color: var(--text-secondary); }
+            .header-title {
+                color: var(--success);
+                font-size: 1rem;
+                font-weight: 600;
+            }
+            .header-count {
+                margin-left: auto;
+                font-size: 0.875rem;
+            }
+            .active-count { color: var(--error); font-weight: 600; }
+            .active-count.clear { color: var(--success); }
+
+            .active-section {
+                margin-bottom: 1.5rem;
+            }
+            .section-title {
+                font-family: var(--font-mono);
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 0.75rem;
+                padding-bottom: 0.5rem;
+                border-bottom: 1px solid var(--border);
+            }
+
+            .alert-card {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 1rem 1.25rem;
+                margin-bottom: 0.5rem;
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
+                display: flex;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            .alert-card.critical { border-left: 3px solid var(--error); }
+            .alert-card.warning { border-left: 3px solid var(--accent); }
+            .alert-card.resolved { border-left: 3px solid var(--success); opacity: 0.7; }
+
+            .alert-level {
+                font-weight: 700;
+                text-transform: uppercase;
+                font-size: 0.7rem;
+                padding: 0.15rem 0.5rem;
+                border-radius: 3px;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+            .alert-level.critical { background: rgba(248, 113, 113, 0.15); color: var(--error); }
+            .alert-level.warning { background: rgba(245, 158, 11, 0.15); color: var(--accent); }
+            .alert-level.resolved { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+
+            .alert-body { flex: 1; min-width: 0; }
+            .alert-machine { color: var(--text-secondary); font-weight: 600; }
+            .alert-metric { color: var(--text-primary); }
+            .alert-value { font-weight: 700; }
+            .alert-time { color: var(--text-muted); font-size: 0.7rem; margin-top: 0.25rem; }
+            .alert-procs {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                margin-top: 0.35rem;
+                line-height: 1.4;
+            }
+
+            .empty-state {
+                text-align: center;
+                color: var(--text-muted);
+                padding: 3rem;
+                font-family: var(--font-mono);
+                font-size: 0.875rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <a href="/">&larr; dashboard</a>
+                <span class="header-title">Alerts</span>
+                <span class="header-count">
+                    Active: <span id="activeCount" class="active-count clear">0</span>
+                </span>
+            </div>
+
+            <div class="active-section" id="activeSection" style="display: none">
+                <div class="section-title">Active Alerts</div>
+                <div id="activeAlerts"></div>
+            </div>
+
+            <div class="section-title">History</div>
+            <div id="alertHistory">
+                <div class="empty-state">Loading alerts...</div>
+            </div>
+        </div>
+
+        <script>
+            const metricLabels = {
+                memory_percent: 'Memory',
+                temp_c: 'Temperature',
+                cpu_percent: 'CPU',
+            };
+            const metricUnits = {
+                memory_percent: '%',
+                temp_c: '\u00b0C',
+                cpu_percent: '%',
+            };
+
+            function timeAgo(ts) {
+                const secs = Math.floor(Date.now() / 1000 - ts);
+                if (secs < 60) return `${secs}s ago`;
+                if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+                if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+                return `${Math.floor(secs / 86400)}d ago`;
+            }
+
+            function renderAlert(a) {
+                const level = a.level || 'warning';
+                const metric = metricLabels[a.metric] || a.metric;
+                const unit = metricUnits[a.metric] || '';
+                const procs = (a.top_processes || [])
+                    .map(p => `${p.name} (mem ${p.mem}%, cpu ${p.cpu}%)`)
+                    .join(', ');
+
+                let detail = '';
+                if (a.resolved) {
+                    const dur = a.duration_secs || 0;
+                    const durStr = dur >= 60 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : `${dur}s`;
+                    detail = `Resolved after ${durStr} -- now ${a.value}${unit}`;
+                } else {
+                    detail = `${a.value}${unit} (threshold: ${a.threshold || '?'}${unit})`;
+                }
+
+                return `
+                    <div class="alert-card ${level}">
+                        <span class="alert-level ${level}">${level}</span>
+                        <div class="alert-body">
+                            <span class="alert-machine">${a.machine}</span>
+                            <span class="alert-metric">${metric}</span>
+                            <span class="alert-value">${detail}</span>
+                            <div class="alert-time">${timeAgo(a.timestamp)}</div>
+                            ${!a.resolved && procs ? `<div class="alert-procs">Top: ${procs}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            async function refresh() {
+                try {
+                    const resp = await fetch('/api/alerts?limit=100');
+                    const data = await resp.json();
+
+                    // Active count
+                    const countEl = document.getElementById('activeCount');
+                    countEl.textContent = data.active_count;
+                    countEl.className = data.active_count > 0 ? 'active-count' : 'active-count clear';
+
+                    // Active alerts
+                    const activeSection = document.getElementById('activeSection');
+                    const activeDiv = document.getElementById('activeAlerts');
+                    if (data.active && data.active.length > 0) {
+                        activeSection.style.display = '';
+                        activeDiv.innerHTML = data.active.map(a => {
+                            const metric = metricLabels[a.metric] || a.metric;
+                            return `
+                                <div class="alert-card critical">
+                                    <span class="alert-level critical">ACTIVE</span>
+                                    <div class="alert-body">
+                                        <span class="alert-machine">${a.machine}</span>
+                                        <span class="alert-metric">${metric}</span>
+                                        <div class="alert-time">since ${timeAgo(a.since)}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('');
+                    } else {
+                        activeSection.style.display = 'none';
+                    }
+
+                    // History
+                    const histDiv = document.getElementById('alertHistory');
+                    if (data.alerts && data.alerts.length > 0) {
+                        histDiv.innerHTML = data.alerts.map(renderAlert).join('');
+                    } else {
+                        histDiv.innerHTML = '<div class="empty-state">No alerts recorded yet. Thresholds: Memory >85%/90%, CPU >90%/95%, Temp >75/80 C</div>';
+                    }
+                } catch (e) {
+                    document.getElementById('alertHistory').innerHTML =
+                        `<div class="empty-state">Failed to load alerts: ${e.message}</div>`;
+                }
+            }
+
+            refresh();
+            setInterval(refresh, 10000);
+        </script>
+    </body>
+</html>

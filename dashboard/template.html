@@ -483,9 +483,25 @@
                     <div class="header-dot"></div>
                     <span class="header-path">~/noc-homelab</span>
                     <a
-                        href="/websites"
+                        href="/alerts"
+                        id="alertBadge"
                         style="
                             margin-left: auto;
+                            text-decoration: none;
+                            color: var(--text-muted);
+                            opacity: 0.7;
+                            transition: opacity 0.2s, color 0.2s;
+                            font-family: var(--font-mono);
+                            font-size: 0.75rem;
+                        "
+                        onmouseover="this.style.opacity = '1'"
+                        onmouseout="this.style.opacity = '0.7'"
+                        title="Alerts"
+                        >[alerts]</a
+                    >
+                    <a
+                        href="/websites"
+                        style="
                             text-decoration: none;
                             color: var(--text-secondary);
                             opacity: 0.7;
@@ -548,7 +564,7 @@
                     >
                 </div>
                 <div class="header-title">
-                    <span class="header-prompt">noc@local</span><span>:</span
+                    <span class="header-prompt">noc@{{ self_machine_id | default('local') | replace('noc-', '') }}</span><span>:</span
                     ><span class="header-cmd">./dashboard --services</span>
                 </div>
                 <div class="header-stats">
@@ -973,6 +989,26 @@
             }
 
             fetchScreenLock();
+
+            async function fetchAlertCount() {
+                try {
+                    const resp = await fetch('/api/alerts/active');
+                    const data = await resp.json();
+                    const el = document.getElementById('alertBadge');
+                    if (!el) return;
+                    if (data.count > 0) {
+                        el.textContent = `[alerts: ${data.count}]`;
+                        el.style.color = 'var(--error)';
+                        el.style.opacity = '1';
+                    } else {
+                        el.textContent = '[alerts]';
+                        el.style.color = 'var(--text-muted)';
+                        el.style.opacity = '0.7';
+                    }
+                } catch (e) {}
+            }
+            fetchAlertCount();
+            setInterval(fetchAlertCount, 10000);
         </script>
     </body>
 </html>
