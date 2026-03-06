@@ -11,4 +11,5 @@ services:
       - "host.docker.internal:host-gateway"
       - "localhost:host-gateway"
       - "noc-local:host-gateway"
-      - "noc-winlocal:192.168.1.114"
+      - "noc-tux:192.168.1.114"
+      - "noc-claw:192.168.1.103"
