@@ -252,10 +252,12 @@ class AlertEngine:
             'embeds': [embed],
         }
 
-        try:
-            http_requests.post(self.webhook_url, json=payload, timeout=5)
-        except Exception:
-            pass
+        def _post():
+            try:
+                http_requests.post(self.webhook_url, json=payload, timeout=10)
+            except Exception:
+                pass
+        threading.Thread(target=_post, daemon=True).start()
 
     def get_history(self, limit=50):
         """Return recent alert history as list of dicts, newest first."""
@@ -278,10 +280,9 @@ class AlertEngine:
             ]
 
     def _save_history(self):
-        """Persist alert history to disk."""
+        """Persist alert history to disk (called from bg thread only)."""
         try:
-            with self.lock:
-                items = list(self.history)
+            items = list(self.history)
             with open(HISTORY_FILE, 'w') as f:
                 json.dump(items, f)
         except Exception:
