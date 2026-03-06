@@ -110,9 +110,9 @@ class AlertEngine:
                 if proc.status_code == 200:
                     proc_list = proc.json()
                     if isinstance(proc_list, list):
-                        top = sorted(proc_list, key=lambda p: p.get('memory_percent', 0), reverse=True)[:5]
+                        top = sorted(proc_list, key=lambda p: p.get('memory_percent') or 0, reverse=True)[:5]
                         stats['_top_processes'] = [
-                            {'name': p.get('name', '?'), 'mem': round(p.get('memory_percent', 0), 1), 'cpu': round(p.get('cpu_percent', 0), 1)}
+                            {'name': p.get('name', '?'), 'mem': round(p.get('memory_percent') or 0, 1), 'cpu': round(p.get('cpu_percent') or 0, 1)}
                             for p in top
                         ]
             except Exception:
