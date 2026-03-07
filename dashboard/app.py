@@ -1573,6 +1573,17 @@ REMOTE_APP_SITES = {
     },
 }
 
+# Remote app sites on noc-claw (launchd-managed)
+CLAW_APP_SITES = {
+    'open-llm-vtuber': {
+        'type': 'app', 'domain': 'noc-claw:12394', 'aliases': [], 'host': 'noc-claw',
+        'components': [
+            {'id': 'com.noc.open-llm-vtuber', 'name': 'VTuber Server', 'role': 'backend', 'type': 'launchctl'},
+            {'id': 'com.noc.vtuber-caddy',    'name': 'HTTPS Proxy',   'role': 'proxy',   'type': 'launchctl'},
+        ]
+    },
+}
+
 def _websites_ssh(cmd, timeout=10):
     return ssh_command('noc-tux', 'noc', cmd, timeout=timeout)
 
@@ -1588,6 +1599,11 @@ def _remote_docker_running(container_name):
     """Check if a docker container is running on noc-tux."""
     r = _websites_ssh(f'docker inspect --format "{{{{.State.Running}}}}" {container_name} 2>/dev/null', timeout=6)
     return r is not None and r.stdout.strip() == 'true'
+
+def _claw_launchctl_running(label):
+    """Check if a LaunchAgent is running on noc-claw."""
+    r = ssh_command('noc-claw', 'noc', f'launchctl list {label} 2>/dev/null', timeout=6)
+    return r is not None and r.returncode == 0 and '"PID"' in r.stdout
 
 @app.route('/websites')
 def websites_page():
@@ -1618,6 +1634,20 @@ def websites_list():
         all_up = True
         for comp in site['components']:
             running = _remote_docker_running(comp['id'])
+            if not running:
+                all_up = False
+            components.append({**comp, 'running': running})
+        s['components'] = components
+        s['all_up'] = all_up
+        all_sites[sid] = s
+
+    # 2b. Remote app sites on noc-claw — check via launchctl over SSH
+    for sid, site in CLAW_APP_SITES.items():
+        s = dict(site)
+        components = []
+        all_up = True
+        for comp in site['components']:
+            running = _claw_launchctl_running(comp['id'])
             if not running:
                 all_up = False
             components.append({**comp, 'running': running})

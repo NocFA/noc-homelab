@@ -127,45 +127,6 @@
           "unit_name": "com.noc.git-autopull",
           "log_paths": ["~/Library/Logs/noc-homelab/git-autopull.log"]
         },
-        "mdsf-crew-api": {
-          "name": "MDSF Crew API",
-          "description": "MDSF Crew Management API",
-          "manager": "launchd",
-          "unit_name": "com.noc.mdsf-crew-api",
-          "port": 3100,
-          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-crew-api.log"]
-        },
-        "mdsf-crew-web": {
-          "name": "MDSF Crew Web",
-          "description": "MDSF Crew Web Portal",
-          "manager": "launchd",
-          "unit_name": "com.noc.mdsf-crew-web",
-          "port": 5173,
-          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-crew-web.log"]
-        },
-        "mdsf-crew-tunnel": {
-          "name": "MDSF Crew Tunnel",
-          "description": "Cloudflare Tunnel for crew.mdsf.net",
-          "manager": "launchd",
-          "unit_name": "com.noc.mdsf-crew-tunnel",
-          "url": "https://crew.mdsf.net",
-          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-crew-tunnel.log"]
-        },
-        "mdsf-org": {
-          "name": "MDSF Org Dashboard",
-          "description": "MDSF Organization Dashboard",
-          "manager": "launchd",
-          "unit_name": "com.noc.mdsf-org",
-          "port": 8190,
-          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-org.log"]
-        },
-        "mdsf-org-tunnel": {
-          "name": "MDSF Org Tunnel",
-          "description": "Cloudflare Tunnel for MDSF Org",
-          "manager": "launchd",
-          "unit_name": "com.noc.mdsf-org-tunnel",
-          "log_paths": ["~/Library/Logs/noc-homelab/mdsf-org-tunnel.log"]
-        },
         "tailscale": {
           "name": "Tailscale",
           "description": "VPN & Private Networking",
@@ -217,7 +178,8 @@
           "manager": "launchd",
           "unit_name": "com.noc.open-llm-vtuber",
           "port": 12393,
-          "url": "http://100.95.102.128:12393"
+          "status_port": 12393,
+          "url": "https://noc-claw:12394"
         },
         "glances": {
           "name": "Glances",
@@ -356,14 +318,14 @@
           "port": 4000,
           "url": "http://100.91.104.124:4000"
         },
-        "animated-album-covers": {
-          "name": "Animated Album Covers",
-          "description": "Music Presence animated album cover converter",
-          "manager": "docker",
-          "unit_name": "musicpresence-animated-album-covers-http-1",
-          "url": "https://api.nocfa.net"
+        "caddy-websites": {
+          "name": "Caddy Websites",
+          "description": "Static site hosting server",
+          "manager": "systemd-user",
+          "unit_name": "caddy-websites",
+          "port": 8082
         }
-      }
+}
     }
   ]
 }
