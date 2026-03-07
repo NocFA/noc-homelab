@@ -194,6 +194,18 @@
       "log_paths": [
         "~/Library/Logs/noc-homelab/caddy.log"
       ]
+    },
+    "mailpit": {
+      "name": "Mailpit",
+      "description": "Dev Email Server (SMTP 1025, Web 8025)",
+      "launchd": "com.noc.mailpit",
+      "port": 8025,
+      "web_ports": [
+        8025
+      ],
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/mailpit.log"
+      ]
     }
   }
 }

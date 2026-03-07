@@ -23,10 +23,6 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
         <key>HOME</key>
         <string>/Users/noc</string>
-        <key>HOMELAB_STATUS_WORKER_URL</key>
-        <string>https://homelab-status.nocturnef4.workers.dev</string>
-        <key>HOMELAB_STATUS_PUSH_SECRET</key>
-        <string>KkIY9XKSiNfQJ4pg8YKRnjk_y1EEkfFgzlGwH6ME0Ss</string>
     </dict>
 </dict>
 </plist>

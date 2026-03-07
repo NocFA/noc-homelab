@@ -145,9 +145,10 @@
         },
         "mdsf-crew-tunnel": {
           "name": "MDSF Crew Tunnel",
-          "description": "Cloudflare Tunnel for MDSF Crew",
+          "description": "Cloudflare Tunnel for crew.mdsf.net",
           "manager": "launchd",
           "unit_name": "com.noc.mdsf-crew-tunnel",
+          "url": "https://crew.mdsf.net",
           "log_paths": ["~/Library/Logs/noc-homelab/mdsf-crew-tunnel.log"]
         },
         "mdsf-org": {
@@ -171,6 +172,15 @@
           "manager": "tailscale",
           "port": null,
           "webclient_port": 5252
+        },
+        "mailpit": {
+          "name": "Mailpit",
+          "description": "Dev Email Server (SMTP 1025, Web 8025)",
+          "manager": "launchd",
+          "unit_name": "com.noc.mailpit",
+          "port": 8025,
+          "url": "http://noc-local:8025",
+          "log_paths": ["~/Library/Logs/noc-homelab/mailpit.log"]
         }
       }
     },
