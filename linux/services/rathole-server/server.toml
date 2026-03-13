@@ -1,7 +1,37 @@
+# Rathole Server Config - noc-baguette (VPS)
+# Deployed at: /etc/rathole/server.toml
+# Control port 2333 is restricted to Tailscale CGNAT (100.64.0.0/10) via firewalld
+# Game ports (bind_addr) are public - open in firewalld with: firewall-cmd --permanent --zone=public --add-port=PORT/PROTO
+#
+# Adding a new tunnel:
+#   1. Add [server.services.NAME] block below with a unique token and bind_addr
+#   2. Open the port on noc-baguette: firewall-cmd --permanent --zone=public --add-port=PORT/PROTO && firewall-cmd --reload
+#   3. Add matching [client.services.NAME] block in linux/services/rathole/client.toml on noc-tux
+#   4. Restart rathole on both ends: systemctl restart rathole (server) / systemctl --user restart rathole (client)
+
 [server]
 bind_addr = "0.0.0.0:2333"
 
+# Resonite headless server - UDP 23512
 [server.services.resonite]
 token = "CHANGE_ME_TOKEN"
 type = "udp"
 bind_addr = "0.0.0.0:23512"
+
+# Example: Minecraft Java - TCP 25565
+# [server.services.minecraft]
+# token = "CHANGE_ME_TOKEN_2"
+# type = "tcp"
+# bind_addr = "0.0.0.0:25565"
+
+# Example: Minecraft Bedrock/Geyser - UDP 19132
+# [server.services.minecraft-bedrock]
+# token = "CHANGE_ME_TOKEN_3"
+# type = "udp"
+# bind_addr = "0.0.0.0:19132"
+
+# Example: Simple Voice Chat - UDP 24454
+# [server.services.voicechat]
+# token = "CHANGE_ME_TOKEN_4"
+# type = "udp"
+# bind_addr = "0.0.0.0:24454"

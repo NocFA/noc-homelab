@@ -200,6 +200,23 @@
       }
     },
     {
+      "id": "noc-baguette",
+      "display_name": "noc-baguette",
+      "hostname": "100.96.57.116",
+      "platform": "linux",
+      "ssh_host": "100.96.57.116",
+      "ssh_user": "root",
+      "services": {
+        "rathole": {
+          "name": "Rathole Server",
+          "description": "UDP tunnel server for Resonite",
+          "manager": "systemd",
+          "unit_name": "rathole",
+          "port": 2333
+        }
+      }
+    },
+    {
       "id": "noc-tux",
       "display_name": "noc-tux",
       "hostname": "100.91.104.124",

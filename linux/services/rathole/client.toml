@@ -1,7 +1,36 @@
-[client]
-remote_addr = "VPS_IP:2333"
+# Rathole Client Config - noc-tux
+# Deployed at: ~/noc-homelab/linux/services/rathole/client.toml (same path, real values)
+# Connects to noc-baguette via Tailscale IP (100.96.57.116) on control port 2333
+# local_addr is where the game server is actually listening on this machine
+#
+# Adding a new tunnel:
+#   1. Add matching [server.services.NAME] block in linux/services/rathole-server/server.toml
+#   2. Add [client.services.NAME] block below with same token
+#   3. Restart rathole: systemctl --user restart rathole
 
+[client]
+remote_addr = "VPS_TAILSCALE_IP:2333"
+
+# Resonite headless server - forwards VPS:23512 UDP → local:23512
 [client.services.resonite]
 token = "CHANGE_ME_TOKEN"
 type = "udp"
-local_addr = "127.0.0.1:23512"
+local_addr = "192.168.1.114:23512"
+
+# Example: Minecraft Java - forwards VPS:25565 TCP → local:25565
+# [client.services.minecraft]
+# token = "CHANGE_ME_TOKEN_2"
+# type = "tcp"
+# local_addr = "192.168.1.114:25565"
+
+# Example: Minecraft Bedrock/Geyser - forwards VPS:19132 UDP → local:19132
+# [client.services.minecraft-bedrock]
+# token = "CHANGE_ME_TOKEN_3"
+# type = "udp"
+# local_addr = "192.168.1.114:19132"
+
+# Example: Simple Voice Chat - forwards VPS:24454 UDP → local:24454
+# [client.services.voicechat]
+# token = "CHANGE_ME_TOKEN_4"
+# type = "udp"
+# local_addr = "192.168.1.114:24454"

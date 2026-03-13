@@ -373,6 +373,11 @@ def control_remote_service(machine, svc_id, action):
             elif process_name:
                 cmd = f'taskkill /IM {process_name}.exe /F & ping -n 3 127.0.0.1 >nul & schtasks /run /tn "{task_name}"'
 
+    elif manager == 'systemd':
+        unit_name = svc.get('unit_name', '')
+        if unit_name:
+            cmd = f'systemctl {action} {unit_name}'
+
     elif manager == 'process':
         if action == 'start':
             start_cmd = svc.get('start_cmd')
