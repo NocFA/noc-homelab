@@ -19,7 +19,8 @@ THRESHOLDS = {
 }
 
 # How many consecutive checks before firing an alert (prevents transient spikes)
-SUSTAINED_CHECKS = 2
+# At 10s check intervals, 4 = requires ~40s of sustained high temp before alerting
+SUSTAINED_CHECKS = 4
 
 # Cooldown: don't re-alert for the same metric on the same machine within this window
 COOLDOWN_SECS = 600  # 10 minutes
