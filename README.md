@@ -13,6 +13,7 @@ A three-machine homelab running macOS and Linux, connected over Tailscale. Manag
 | **noc-local** | macOS (Sonoma) | Dashboard host, local services | LAN + Tailscale |
 | **noc-claw** | macOS (Sequoia) | AI Gateway, LLM runtime | Tailscale `100.95.102.128` |
 | **noc-tux** | Ubuntu 24.04 LTS | Agent, media, Matrix, streaming | LAN + Tailscale `100.91.104.124` |
+| **noc-baguette** | AlmaLinux 9 | VPS, rathole tunnel server | Public IP + Tailscale `100.96.57.116` |
 
 ## Architecture
 
@@ -38,15 +39,17 @@ noc-local (macOS)                          noc-tux (Ubuntu)
            ▲                               │  Arcane (Docker UI)  │
            │                               │  Animated Media API  │
            │ Agent API                     │  looney.eu           │
-           │ (Tailscale)                   └──────────────────────┘
-           ▼
-┌──────────────────────┐
-│  noc-claw (macOS)    │
-│                      │
-│  OpenClaw Gateway    │
-│  Ollama (Local LLMs) │
-│  Glances             │
-└──────────────────────┘
+           │ (Tailscale)                   │                      │
+           ▼                               │  Rathole Client ─────┼──► noc-baguette :2333
+┌──────────────────────┐                   └──────────────────────┘         │
+│  noc-claw (macOS)    │                                              (Tailscale tunnel)
+│                      │                   ┌──────────────────────┐         │
+│  OpenClaw Gateway    │                   │  noc-baguette (VPS)  │◄────────┘
+│  Ollama (Local LLMs) │                   │                      │
+│  Glances             │                   │  Rathole Server      │
+└──────────────────────┘                   │    :23512/udp ──────────► Internet (Resonite)
+                                           │    :2333/tcp (Tailscale only)
+                                           └──────────────────────┘
 ```
 
 The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-time service status. Service control (start/stop/restart) is forwarded through the agents, which manage systemd units, LaunchAgents, and Docker containers.
@@ -81,6 +84,13 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | OpenClaw | 18789 | launchd | On-device AI gateway |
 | Ollama | 11434 | system | Local LLM runtime (Metal/M4) |
 | Glances | 61999 | launchd | System metrics API |
+
+### noc-baguette
+
+| Service | Port | Manager | Description |
+|---|---|---|---|
+| Rathole Server | 2333/tcp | systemd | Tunnel control (Tailscale-only) |
+| Resonite | 23512/udp | rathole | Resonite headless server tunnel |
 
 ### noc-tux
 
@@ -136,6 +146,23 @@ Self-hosted Matrix homeserver at `matrix.nocfa.net` with Element Web at `element
 All six services run as native systemd units (no Docker). Traefik handles TLS termination and routing. Coturn provides TURN/STUN for NAT traversal on calls.
 
 Admin interface at `matrix.nocfa.net/synapse-admin/`.
+
+## Rathole Tunnels
+
+Game servers run on noc-tux behind NAT. [Rathole](https://github.com/rapiz1/rathole) punches outbound through the NAT to noc-baguette (OVH VPS), exposing UDP/TCP ports publicly without opening the home router.
+
+```
+Internet ──► noc-baguette :23512/udp ──► rathole tunnel ──► noc-tux :23512/udp ──► Resonite
+```
+
+The control channel (port 2333) is Tailscale-only — the VPS is not a jump box. SSH on the VPS is locked to Tailscale CGNAT + home /24 with key-only auth and fail2ban.
+
+**Adding a new tunnel:**
+1. Add `[server.services.NAME]` to `/etc/rathole/server.toml` on noc-baguette, open the port in firewalld
+2. Add matching `[client.services.NAME]` to `linux/services/rathole/client.toml` on noc-tux
+3. Restart rathole on both ends
+
+Template configs with commented examples (Minecraft, Bedrock/Geyser, Simple Voice Chat) are in `linux/services/rathole-server/server.toml` and `linux/services/rathole/client.toml`.
 
 ## Secrets Management
 
