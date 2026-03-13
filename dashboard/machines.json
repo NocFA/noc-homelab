@@ -349,6 +349,12 @@
           "manager": "systemd-user",
           "unit_name": "caddy-websites",
           "port": 8082
+        },
+        "rathole": {
+          "name": "Rathole Client",
+          "description": "UDP tunnel client for Resonite (→ noc-baguette)",
+          "manager": "systemd-user",
+          "unit_name": "rathole"
         }
       }
     }
