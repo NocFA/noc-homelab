@@ -762,39 +762,38 @@ def index():
 
     # Add remote machines from cached data
     for machine in MACHINES:
-        if machine.get('role') == 'agent':
-            machine_id = machine['id']
-            machine_data = status_data.get(machine_id, {})
-            reachable = machine_data.get('_reachable', False)
-            remote_services = []
+        machine_id = machine['id']
+        machine_data = status_data.get(machine_id, {})
+        reachable = machine_data.get('_reachable', False)
+        remote_services = []
 
-            for svc_id, svc in machine.get('services', {}).items():
-                is_online = machine_data.get(svc_id, False)
-                remote_services.append({
-                    'key': svc_id,
-                    'name': svc['name'],
-                    'port': svc.get('port', '--'),
-                    'status': 'online' if is_online else 'offline',
-                    'url': svc.get('url', '#'),
-                    'description': svc.get('description', ''),
-                    'machine': machine['id'],
-                    'remote': True
-                })
-
-            remote_uptime = machine_data.get('_uptime', '--')
-            remote_glances = get_glances_stats_cached(machine['hostname']) if reachable else {'memory_percent': None, 'battery_percent': None, 'temp_c': None}
-
-            machine_groups.append({
-                'id': machine['id'],
-                'name': machine.get('display_name', machine['id']),
-                'platform': {'windows': 'Windows', 'linux': 'Linux', 'darwin': 'macOS'}.get(machine.get('platform', ''), machine.get('platform', '')),
-                'reachable': reachable,
-                'uptime': remote_uptime,
-                'services': remote_services,
-                'memory_percent': remote_glances['memory_percent'],
-                'battery_percent': remote_glances['battery_percent'],
-                'temp_c': remote_glances.get('temp_c')
+        for svc_id, svc in machine.get('services', {}).items():
+            is_online = machine_data.get(svc_id, False)
+            remote_services.append({
+                'key': svc_id,
+                'name': svc['name'],
+                'port': svc.get('port', '--'),
+                'status': 'online' if is_online else 'offline',
+                'url': svc.get('url', '#'),
+                'description': svc.get('description', ''),
+                'machine': machine['id'],
+                'remote': True
             })
+
+        remote_uptime = machine_data.get('_uptime', '--')
+        remote_glances = get_glances_stats_cached(machine['hostname']) if reachable and machine.get('glances_port') else {'memory_percent': None, 'battery_percent': None, 'temp_c': None}
+
+        machine_groups.append({
+            'id': machine['id'],
+            'name': machine.get('display_name', machine['id']),
+            'platform': {'windows': 'Windows', 'linux': 'Linux', 'darwin': 'macOS'}.get(machine.get('platform', ''), machine.get('platform', '')),
+            'reachable': reachable,
+            'uptime': remote_uptime,
+            'services': remote_services,
+            'memory_percent': remote_glances['memory_percent'],
+            'battery_percent': remote_glances['battery_percent'],
+            'temp_c': remote_glances.get('temp_c')
+        })
 
     avg_uptime = status_data.get('_avg_uptime', '--')
 
