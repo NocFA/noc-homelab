@@ -118,7 +118,17 @@
           "manager": "launchd",
           "unit_name": "com.noc.homelab-agent",
           "port": 5005,
+          "url": "http://noc-local:5005",
           "log_paths": ["~/Library/Logs/noc-homelab/homelab-agent.log"]
+        },
+        "dmm": {
+          "name": "Debrid Media Manager",
+          "description": "Real-Debrid media library manager (self-hosted)",
+          "manager": "launchd",
+          "unit_name": "com.noc.dmm",
+          "port": 3002,
+          "url": "http://noc-local:3002",
+          "log_paths": ["~/Library/Logs/noc-homelab/dmm.log", "~/Library/Logs/noc-homelab/dmm.error.log"]
         },
         "git-autopull": {
           "name": "Git Auto-Pull",
@@ -142,14 +152,6 @@
           "port": 8025,
           "url": "http://noc-local:8025",
           "log_paths": ["~/Library/Logs/noc-homelab/mailpit.log"]
-        },
-        "games-tunnel": {
-          "name": "Games Tunnel",
-          "description": "Cloudflare tunnel for games.nocfa.net",
-          "manager": "launchd",
-          "unit_name": "com.noc.games-tunnel",
-          "url": "https://games.nocfa.net",
-          "log_paths": ["~/Library/Logs/noc-homelab/games-tunnel.log"]
         }
       }
     },

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.dmm</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/dmm.log; : > /Users/noc/Library/Logs/noc-homelab/dmm.error.log; exec /opt/homebrew/bin/node /Users/noc/dev/debrid-media-manager/.next/standalone/server.js</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/dev/debrid-media-manager/.next/standalone</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/dmm.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/dmm.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+        <key>PORT</key>
+        <string>3002</string>
+        <key>NODE_ENV</key>
+        <string>production</string>
+    </dict>
+</dict>
+</plist>

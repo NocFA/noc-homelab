@@ -206,6 +206,19 @@
       "log_paths": [
         "~/Library/Logs/noc-homelab/mailpit.log"
       ]
+    },
+    "dmm": {
+      "name": "Debrid Media Manager",
+      "description": "Real-Debrid media library manager (self-hosted)",
+      "launchd": "com.noc.dmm",
+      "port": 3002,
+      "web_ports": [
+        3002
+      ],
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/dmm.log",
+        "~/Library/Logs/noc-homelab/dmm.error.log"
+      ]
     }
   }
 }
