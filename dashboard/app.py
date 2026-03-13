@@ -838,8 +838,8 @@ def _update_status_cache():
 
         # Remote machines
         for machine in MACHINES:
+            machine_id = machine['id']
             if machine.get('role') == 'agent':
-                machine_id = machine['id']
                 # For agent machines, check reachability via agent port
                 check_port = machine.get('agent_port', 22)
                 reachable = is_remote_machine_reachable(machine['hostname'], check_port)
@@ -852,6 +852,15 @@ def _update_status_cache():
                 else:
                     status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
                     status[machine_id]['_uptime'] = '--'
+                status[machine_id]['_reachable'] = reachable
+            else:
+                # SSH-managed machines: check reachability via SSH port, service status via port checks
+                reachable = is_remote_machine_reachable(machine['hostname'], 22)
+                if reachable:
+                    status[machine_id] = get_remote_machine_status(machine)
+                else:
+                    status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
+                status[machine_id]['_uptime'] = '--'
                 status[machine_id]['_reachable'] = reachable
 
         # Average uptime
