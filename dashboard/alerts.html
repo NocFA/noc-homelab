@@ -202,7 +202,10 @@
 
             async function refresh() {
                 try {
-                    const resp = await fetch('/api/alerts?limit=100');
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 8000);
+                    const resp = await fetch('/api/alerts?limit=100', { signal: controller.signal });
+                    clearTimeout(timeoutId);
                     const data = await resp.json();
 
                     // Active count

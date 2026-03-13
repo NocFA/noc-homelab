@@ -1558,6 +1558,14 @@ LOCAL_APP_SITES = {
             {'id': 'com.noc.mdsf-org-tunnel', 'name': 'Tunnel', 'role': 'tunnel',   'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-org-tunnel.log'},
         ]
     },
+    'pelican': {
+        'type': 'app', 'domain': 'games.nocfa.net', 'aliases': [], 'host': 'mixed',
+        'components': [
+            {'id': 'com.noc.games-tunnel', 'name': 'Tunnel', 'role': 'tunnel',  'type': 'launchctl',    'log': '/Users/noc/Library/Logs/noc-homelab/games-tunnel.log'},
+            {'id': 'wings',                'name': 'Wings',  'role': 'backend', 'type': 'tux-systemd',  'unit': 'wings'},
+            {'id': 'pelican-queue',        'name': 'Queue',  'role': 'worker',  'type': 'tux-systemd',  'unit': 'pelican-queue'},
+        ]
+    },
 }
 
 # Remote app sites on noc-tux (docker-managed)
@@ -1605,6 +1613,11 @@ def _claw_launchctl_running(label):
     r = ssh_command('noc-claw', 'noc', f'launchctl list {label} 2>/dev/null', timeout=6)
     return r is not None and r.returncode == 0 and '"PID"' in r.stdout
 
+def _tux_systemd_running(unit):
+    """Check if a system-level (not user) systemd service is running on noc-tux."""
+    r = ssh_command('noc-tux', 'noc', f'systemctl is-active {unit} 2>/dev/null', timeout=6)
+    return r is not None and r.stdout.strip() == 'active'
+
 @app.route('/websites')
 def websites_page():
     return render_template('websites.html')
@@ -1613,13 +1626,17 @@ def websites_page():
 def websites_list():
     all_sites = {}
 
-    # 1. Local app sites (mdsf-crew, mdsf-org) — check via launchctl
+    # 1. Local app sites (mdsf-crew, mdsf-org, pelican) — check via launchctl or tux-systemd
     for sid, site in LOCAL_APP_SITES.items():
         s = dict(site)
         components = []
         all_up = True
         for comp in site['components']:
-            running = _local_launchctl_running(comp['id'])
+            comp_type = comp.get('type', 'launchctl')
+            if comp_type == 'tux-systemd':
+                running = _tux_systemd_running(comp['unit'])
+            else:
+                running = _local_launchctl_running(comp['id'])
             if not running:
                 all_up = False
             components.append({**comp, 'running': running})
@@ -1699,6 +1716,31 @@ def websites_tunnel_action(site_id, action):
 
 @app.route('/api/websites/<site_id>/logs')
 def websites_site_logs(site_id):
+    # Handle LOCAL_APP_SITES (e.g. pelican, mdsf-crew) — tail local log files per component
+    if site_id in LOCAL_APP_SITES:
+        site = LOCAL_APP_SITES[site_id]
+        lines = []
+        for comp in site.get('components', []):
+            log_path = comp.get('log', '')
+            if not log_path:
+                continue
+            log_path = os.path.expanduser(log_path)
+            if comp.get('type') == 'tux-systemd':
+                r = ssh_command('noc-tux', 'noc', f'journalctl -u {comp["unit"]} -n 50 --no-pager 2>/dev/null', timeout=8)
+                if r and r.stdout.strip():
+                    lines.append(f'--- {comp["name"]} ---')
+                    lines.extend(r.stdout.strip().splitlines()[-50:])
+            elif os.path.exists(log_path):
+                try:
+                    with open(log_path) as f:
+                        tail = f.readlines()[-50:]
+                    if tail:
+                        lines.append(f'--- {comp["name"]} ---')
+                        lines.extend(l.rstrip() for l in tail)
+                except Exception:
+                    pass
+        return jsonify({'logs': '\n'.join(lines) if lines else 'No logs available.'})
+
     r = _websites_ssh(f"cat {NOC_TUX_SITES_JSON} 2>/dev/null || echo '{{}}'")
     if not r:
         return jsonify({'logs': 'Cannot reach noc-tux'})
@@ -1828,6 +1870,23 @@ def websites_component_action(site_id, comp_id, action):
     comp_type = comp_def.get('type') if comp_def else 'docker'
     host = site.get('host') if site else 'noc-tux'
 
+    # --- TUX SYSTEMD (system-level, not user) ---
+    if comp_type == 'tux-systemd':
+        unit = comp_def.get('unit', comp_id) if comp_def else comp_id
+        if action == 'logs':
+            r = ssh_command('noc-tux', 'noc', f'sudo journalctl -u {unit} -n 100 --no-pager 2>&1', timeout=12)
+            if not r:
+                return jsonify({'logs': 'Cannot reach noc-tux'})
+            return jsonify({'logs': r.stdout or 'No logs available'})
+        if action in ('start', 'stop', 'restart'):
+            r = ssh_command('noc-tux', 'noc', f'sudo systemctl {action} {unit}', timeout=15)
+            if not r:
+                return jsonify({'error': 'Cannot reach noc-tux'}), 503
+            if r.returncode == 0:
+                return jsonify({'success': True})
+            return jsonify({'error': r.stderr.strip() or f'Failed to {action} {unit}'}), 500
+        return jsonify({'error': 'Invalid action'}), 400
+
     # --- LOCAL LAUNCHCTL ---
     if host == 'noc-local' or comp_type == 'launchctl':
         plist = f'/Users/noc/Library/LaunchAgents/{comp_id}.plist'
@@ -1865,6 +1924,74 @@ def websites_component_action(site_id, comp_id, action):
             return jsonify({'success': True})
         return jsonify({'error': r.stderr.strip() or f'Failed to {action} {comp_id}'}), 500
     return jsonify({'error': 'Invalid action'}), 400
+
+# --- Pelican Panel ---
+
+@app.route('/api/pelican/component/<component_id>/<action>', methods=['POST'])
+def pelican_component_action(component_id, action):
+    """Start/stop/restart a Pelican component (tunnel on noc-local, wings/queue on noc-tux)."""
+    if action not in ('start', 'stop', 'restart'):
+        return jsonify({'error': 'Invalid action'}), 400
+    if not re.match(r'^[a-zA-Z0-9._-]+$', component_id):
+        return jsonify({'error': 'Invalid component ID'}), 400
+
+    if component_id == 'com.noc.games-tunnel':
+        # LaunchAgent on noc-local
+        plist = f'/Users/noc/Library/LaunchAgents/{component_id}.plist'
+        try:
+            if action == 'start':
+                subprocess.run(['launchctl', 'load', plist], capture_output=True, timeout=5)
+            elif action == 'stop':
+                subprocess.run(['launchctl', 'unload', plist], capture_output=True, timeout=5)
+            elif action == 'restart':
+                subprocess.run(['launchctl', 'unload', plist], capture_output=True, timeout=5)
+                time.sleep(0.5)
+                subprocess.run(['launchctl', 'load', plist], capture_output=True, timeout=5)
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    elif component_id in ('wings', 'pelican-queue'):
+        # systemd system service on noc-tux
+        r = ssh_command('noc-tux', 'noc', f'sudo systemctl {action} {component_id}', timeout=15)
+        if not r:
+            return jsonify({'error': 'Cannot reach noc-tux'}), 503
+        if r.returncode == 0:
+            return jsonify({'success': True})
+        return jsonify({'error': r.stderr.strip() or f'Failed to {action} {component_id}'}), 500
+
+    else:
+        return jsonify({'error': f'Unknown component: {component_id}'}), 404
+
+
+@app.route('/api/pelican/maintenance', methods=['GET'])
+def pelican_maintenance_status():
+    """Check if Pelican maintenance mode is active."""
+    r = ssh_command('noc-tux', 'noc', 'test -f /var/www/pelican/storage/framework/down && echo active || echo inactive', timeout=8)
+    if not r:
+        return jsonify({'error': 'Cannot reach noc-tux'}), 503
+    active = r.stdout.strip() == 'active'
+    return jsonify({'maintenance': active})
+
+
+@app.route('/api/pelican/maintenance/<action>', methods=['POST'])
+def pelican_maintenance_action(action):
+    """Enable or disable Pelican maintenance mode."""
+    if action not in ('on', 'off'):
+        return jsonify({'error': 'Invalid action (use on or off)'}), 400
+
+    if action == 'on':
+        cmd = 'sudo php /var/www/pelican/artisan down'
+    else:
+        cmd = 'sudo php /var/www/pelican/artisan up'
+
+    r = ssh_command('noc-tux', 'noc', cmd, timeout=20)
+    if not r:
+        return jsonify({'error': 'Cannot reach noc-tux'}), 503
+    if r.returncode == 0:
+        return jsonify({'success': True, 'maintenance': action == 'on'})
+    return jsonify({'error': r.stderr.strip() or r.stdout.strip() or f'Failed to turn maintenance {action}'}), 500
+
 
 # Screen lock management (macOS only)
 

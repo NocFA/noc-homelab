@@ -149,12 +149,14 @@ class AlertEngine:
                     self._maybe_fire_alert(machine_id, metric, value, level, thresholds, stats, now)
             else:
                 # Value is back to normal
+                fired_at = None
                 with self.lock:
                     self._breach_counts.pop(key, None)
                     if key in self._active_alerts:
                         fired_at = self._active_alerts.pop(key)
-                        duration = int(now - fired_at)
-                        self._record_resolved(machine_id, metric, value, duration, now)
+                if fired_at is not None:
+                    duration = int(now - fired_at)
+                    self._record_resolved(machine_id, metric, value, duration, now)
 
     def _maybe_fire_alert(self, machine_id, metric, value, level, thresholds, stats, now):
         """Fire alert if not in cooldown."""
