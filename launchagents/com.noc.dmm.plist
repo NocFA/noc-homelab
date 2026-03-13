@@ -8,7 +8,7 @@
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>: > /Users/noc/Library/Logs/noc-homelab/dmm.log; : > /Users/noc/Library/Logs/noc-homelab/dmm.error.log; exec /opt/homebrew/bin/node /Users/noc/dev/debrid-media-manager/.next/standalone/server.js</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/dmm.log; : > /Users/noc/Library/Logs/noc-homelab/dmm.error.log; set -a; . /Users/noc/dev/debrid-media-manager/.env.local; set +a; exec /opt/homebrew/bin/node /Users/noc/dev/debrid-media-manager/.next/standalone/server.js</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/noc/dev/debrid-media-manager/.next/standalone</string>
