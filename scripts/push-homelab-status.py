@@ -16,6 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 DASHBOARD_URL = 'http://localhost:8080/api/status'
+WEBSITES_URL = 'http://localhost:8080/api/websites/list'
 HISTORY_FILE = Path.home() / '.homelab-status-history.json'
 OUTPUT_FILE = Path.home() / '.homelab-status.json'
 SCP_DEST = 'noc@noc-tux:/home/webdev/looney.eu/public_html/homelab-status.json'
@@ -31,7 +32,7 @@ PUBLIC_SERVICES = {
         'maloja':           'Maloja',
         'multi-scrobbler':  'Scrobbler',
         'teamspeak-6':      'TeamSpeak',
-        'mdsf':             {'label': 'MDSF', 'ids': ['mdsf-crew-api', 'mdsf-crew-web', 'mdsf-org']},
+        'mdsf':             {'label': 'MDSF', 'ids': ['mdsf-crew', 'mdsf-org']},
         'voiceseq':         {'label': 'VoiceSeq', 'ids': ['voiceseq', 'voiceseq-processor']},
         'beads-ui':         'Beads',
         'gatus':            'Gatus',
@@ -51,6 +52,9 @@ PUBLIC_SERVICES = {
         'ollama':           'Ollama',
         'open-llm-vtuber':  'VTuber',
     },
+    'noc-baguette': {
+        'rathole':          'Rathole',
+    },
 }
 
 
@@ -64,7 +68,27 @@ def fetch_status():
         return None
 
 
-def transform(raw):
+def fetch_websites():
+    try:
+        req = urllib.request.Request(WEBSITES_URL, headers={'User-Agent': 'homelab-status-push/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read())
+            return data.get('sites', {})
+    except Exception as e:
+        print(f'[push-homelab-status] websites fetch failed: {e}', file=sys.stderr)
+        return {}
+
+
+def transform(raw, websites=None):
+    # Inject website all_up status into noc-local so MDSF and similar
+    # app-sites (which live under /api/websites/list) can be checked by key.
+    if websites:
+        noc_local = dict(raw.get('noc-local', {}))
+        for site_id, site_data in websites.items():
+            noc_local[site_id] = bool(site_data.get('all_up', False))
+        raw = dict(raw)
+        raw['noc-local'] = noc_local
+
     machines = []
     for machine_id, services_map in PUBLIC_SERVICES.items():
         raw_machine = raw.get(machine_id, {})
@@ -155,7 +179,8 @@ if __name__ == '__main__':
     if raw is None:
         sys.exit(1)
 
-    current = transform(raw)
+    websites = fetch_websites()
+    current = transform(raw, websites)
     history = load_history()
     history = update_history(history, current)
     save_history(history)
