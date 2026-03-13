@@ -284,7 +284,3 @@ cp /path/to/homelab.agekey noc-homelab-beads/homelab.agekey
 Installs: Homebrew deps (SOPS, age, gpg), SOPS hooks, GPG signing, Codeberg as origin, LaunchAgents, auto-pull launchd timer, and links Claude Code memory to the beads repo.
 
 Dashboard available at `http://localhost:8080` after loading `com.noc.dashboard.plist`.
-
-## License
-
-MIT
