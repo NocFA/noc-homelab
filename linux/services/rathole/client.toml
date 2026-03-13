@@ -1,0 +1,7 @@
+[client]
+remote_addr = "VPS_IP:2333"
+
+[client.services.resonite]
+token = "CHANGE_ME_TOKEN"
+type = "udp"
+local_addr = "127.0.0.1:23512"

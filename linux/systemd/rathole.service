@@ -1,0 +1,14 @@
+[Unit]
+Description=Rathole Tunnel Client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/home/noc/noc-homelab/linux/services/rathole/rathole /home/noc/noc-homelab/linux/services/rathole/client.toml
+WorkingDirectory=/home/noc/noc-homelab/linux/services/rathole
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

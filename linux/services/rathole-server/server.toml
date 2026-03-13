@@ -1,0 +1,7 @@
+[server]
+bind_addr = "0.0.0.0:2333"
+
+[server.services.resonite]
+token = "CHANGE_ME_TOKEN"
+type = "udp"
+bind_addr = "0.0.0.0:23512"
