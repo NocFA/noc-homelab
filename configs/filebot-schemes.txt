@@ -1,14 +1,14 @@
 {
-	"data": "ENC[AES256_GCM,data:hJSObqJZKUtCzc/idy/dlb13Kp4bjAS4QduAyOKoeAD9oz2WxuLQsHwD5OclIFyFYqZxbIcd+f5k8FvnPTBstHfGCmXiXy9wJF0x/mjvCcmF/FQgsl15AhhwXyrFOP7n0jnPBU4RuDRIb/g00/BVjjr1X5J/GEBh+D2OrmXki4qAr70ih7R836G20vkLfaj63GDAEZwqbivIMRA=,iv:UpLJtgfklmFFt+6YNxv1usjb6FhJyu9CInuZMEuTtpo=,tag:dUuT0E7cX6x4aw+b2Xxheg==,type:str]",
+	"data": "ENC[AES256_GCM,data:pdDREZZPMkVnno1YV6BWvWSxccJtrBSeY6gUx3UhFXkUnk7jhERN4yNgElnjP/ItQ0rHjv+S/BBjdUxSDrYdbVcBaecrvPpsRn2G9hgtAIXN2QKRPUgvBmbIysgdz0nK68oNYTOjSVC7lSXXSaC7VCN9t6S7OMJa04q7j5ZxplfYypeHuxVNbWfFcQI4GBFunLxtZ7MY9pz+Sgg=,iv:ACPPHnvyUcaAUNtAki5nzwMgFXOjF0tsZRcAkTBz0ag=,tag:J+4Q6VSeuP/zJ6Fd0w2s1w==,type:str]",
 	"sops": {
 		"age": [
 			{
 				"recipient": "age1jdd07e42w6hgjncpsz0uxe0nruqgpexsl8nhh2vauwn9w0r53paqm9s87h",
-				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBKQTY3U2hWRlB6SXhwckkv\namhiM3RvcEJuUzFQaC85cVF3NDhzUlhINGpzCjVzazM3UXNtdlNqa1JKbEhoT0JX\nOUZ1eXYxS25HUEJYS3VCNERhYVdpR0UKLS0tIHhGSnJuVGVTSjFFd09LekpObUF4\ncGhxQnhJZ2ttZTNhRVNRU2dqZit5SzgK2yieLlg0+Vi9k1nIAdherIapMu8YqLJz\n3QIfz0n4GhQ8GczpUq46NzafCXcawZUi2LSnopEmaCEgIXRhoX0Wnw==\n-----END AGE ENCRYPTED FILE-----\n"
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBqQmxoOFN3ajV5aEtCNm5U\nSDZuLzdlekVEWWoyZUNUYWRKdEV4K0tKcFJzCmVuOWpqYm1JaXl2L2RabjFQU3cv\nN3NiaDZBUnFZWXpxK3ZFS0tXTjJGNEEKLS0tIFlXcW1GUjRBWldSVEFWRjNKd1lE\nR1RlQ2REcjErZW1DdXVCeUxaVFYzK2sK0ikf/OVw/5UcCAkR8FeU2h0USP9HyX9v\nOdvTptkB1llQqgbEofmVVtz5FEUuWW4rFy4KGwTLBVDIElcP0F2Myg==\n-----END AGE ENCRYPTED FILE-----\n"
 			}
 		],
-		"lastmodified": "2026-02-14T13:40:45Z",
-		"mac": "ENC[AES256_GCM,data:7q8PrDio6WWa3M2rXlCz9RhksUg409UyThVyG3Z0n0VAhsYlt5frABdqvp6PwxCUT2Z0NuccSnCeJfBaER52w0JwR5d0LAwtpTrDOVBlOe3kLs51SiZ8LUTHF/IKwoswz09hKGSUM6aNRyupGzysymdD4wdrb9INvfK0KmQzHw4=,iv:pAAzEyvQ9ejU1ApUN2OOzMxDlwN+ML+QotSLMz3XdaA=,tag:aSutaS9Ufi6e6qezimhHzg==,type:str]",
-		"version": "3.11.0"
+		"lastmodified": "2026-03-13T08:52:37Z",
+		"mac": "ENC[AES256_GCM,data:N5prVDk5UuyYD1FxarM0/p4hRRPSQirhZC4KoCen5Riwdk1ndr6GE3qZDzF3rT2+02tK5ArvnN0c/TF40viSG26WBIknWjSO0pcEkuVg4qkoMrQln02aPHxvINHOzDwRRP6sjtc5U5wfv3Gyi3J4nuY150BR5EiHl7Pk2JCRjYs=,iv:MQ7MAa+FC7nxaaior+cWh06OInOsJAR+uXxkNVQlDPk=,tag:cfulWLZDCqfUwZIyu1bL9g==,type:str]",
+		"version": "3.12.1"
 	}
 }
