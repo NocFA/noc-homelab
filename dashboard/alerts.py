@@ -14,13 +14,13 @@ from datetime import datetime
 # Alert thresholds (defaults)
 THRESHOLDS = {
     'memory_percent': {'warning': 85, 'critical': 90},
-    'temp_c': {'warning': 75, 'critical': 80},
+    'temp_c': {'warning': 100, 'critical': 110},
     'cpu_percent': {'warning': 90, 'critical': 95},
 }
 
 # How many consecutive checks before firing an alert (prevents transient spikes)
-# At 10s check intervals, 4 = requires ~40s of sustained high temp before alerting
-SUSTAINED_CHECKS = 4
+# At 10s check intervals, 12 = requires ~2 minutes of sustained breach before alerting
+SUSTAINED_CHECKS = 12
 
 # Cooldown: don't re-alert for the same metric on the same machine within this window
 COOLDOWN_SECS = 600  # 10 minutes

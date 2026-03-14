@@ -2006,54 +2006,134 @@ def pelican_maintenance_action(action):
     return jsonify({'error': r.stderr.strip() or r.stdout.strip() or f'Failed to turn maintenance {action}'}), 500
 
 
-# Screen lock management (macOS only)
+# Display lock management (noc-tux via SSH)
+# Controls GNOME Wayland session: loginctl lock/unlock + Mutter DPMS
+# When locked: display is OFF, GNOME lock screen requires password for physical access
+# When unlocked: display ON, auto-relocks after 1 hour via systemd timer
+
+_DISPLAY_LOCK_SSH_HOST = 'noc-tux'
+_DISPLAY_LOCK_SSH_USER = 'noc'
+_DISPLAY_LOCK_DBUS = 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus'
+_DISPLAY_LOCK_RELOCK_SECS = 3600  # 1 hour
+
+def _get_graphical_session_id():
+    """Find the graphical (wayland/x11) session ID on noc-tux."""
+    r = ssh_command(_DISPLAY_LOCK_SSH_HOST, _DISPLAY_LOCK_SSH_USER,
+                    "loginctl list-sessions --no-legend | while read sid rest; do "
+                    "  type=$(loginctl show-session $sid -p Type --value); "
+                    "  if [ \"$type\" = wayland ] || [ \"$type\" = x11 ]; then echo $sid; break; fi; "
+                    "done", timeout=8)
+    if r and r.returncode == 0 and r.stdout.strip():
+        return r.stdout.strip()
+    return None
+
+def _display_lock_status():
+    """Get lock state and display power from noc-tux."""
+    session_id = _get_graphical_session_id()
+    if not session_id:
+        return None, None, None, False
+
+    r = ssh_command(_DISPLAY_LOCK_SSH_HOST, _DISPLAY_LOCK_SSH_USER,
+                    f"echo LOCKED=$(loginctl show-session {session_id} -p LockedHint --value); "
+                    f"{_DISPLAY_LOCK_DBUS} gdbus call --session "
+                    f"--dest org.gnome.Mutter.DisplayConfig "
+                    f"--object-path /org/gnome/Mutter/DisplayConfig "
+                    f"--method org.freedesktop.DBus.Properties.Get "
+                    f"org.gnome.Mutter.DisplayConfig PowerSaveMode 2>/dev/null; "
+                    f"XDG_RUNTIME_DIR=/run/user/1000 systemctl --user is-active display-relock.timer 2>/dev/null",
+                    timeout=8)
+    if not r:
+        return session_id, None, None, False
+
+    lines = r.stdout.strip().split('\n')
+    locked = 'LOCKED=yes' in lines[0] if lines else None
+    # PowerSaveMode: (<0>,) = on, (<3>,) = off
+    display_off = '3' in lines[1] if len(lines) > 1 else None
+    timer_active = lines[2].strip() == 'active' if len(lines) > 2 else False
+
+    return session_id, locked, display_off, timer_active
 
 @app.route('/api/screenlock', methods=['GET'])
 def screenlock_status():
-    """Get current screen lock status"""
+    """Get noc-tux display lock status."""
     try:
-        ask = subprocess.run(
-            ['defaults', 'read', 'com.apple.screensaver', 'askForPassword'],
-            capture_output=True, text=True, timeout=5
-        )
-        enabled = ask.stdout.strip() == '1'
+        session_id, locked, display_off, timer_active = _display_lock_status()
 
-        idle = subprocess.run(
-            ['defaults', '-currentHost', 'read', 'com.apple.screensaver', 'idleTime'],
-            capture_output=True, text=True, timeout=5
-        )
-        timeout_secs = int(idle.stdout.strip()) if idle.returncode == 0 and idle.stdout.strip().isdigit() else 0
+        if session_id is None:
+            return jsonify({'error': 'No graphical session found on noc-tux'}), 503
 
+        # "enabled" = locked (display secured), matches frontend expectation
+        is_locked = bool(locked and display_off)
         return jsonify({
-            'enabled': enabled,
-            'timeout_minutes': timeout_secs // 60
+            'enabled': is_locked,
+            'timeout_minutes': 60 if timer_active else 0,
+            'session_id': session_id,
+            'details': {
+                'session_locked': locked,
+                'display_off': display_off,
+                'relock_timer': timer_active,
+            }
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/screenlock', methods=['POST'])
 def screenlock_toggle():
-    """Toggle screen lock on/off"""
+    """Lock or unlock noc-tux display."""
     data = request.get_json() or {}
     action = data.get('action', 'toggle')
 
     try:
-        if action in ('enable', 'disable', 'toggle'):
-            if action == 'toggle':
-                ask = subprocess.run(
-                    ['defaults', 'read', 'com.apple.screensaver', 'askForPassword'],
-                    capture_output=True, text=True, timeout=5
-                )
-                action = 'disable' if ask.stdout.strip() == '1' else 'enable'
+        session_id = _get_graphical_session_id()
+        if not session_id:
+            return jsonify({'error': 'No graphical session found on noc-tux'}), 503
 
-            if action == 'enable':
-                subprocess.run(['defaults', 'write', 'com.apple.screensaver', 'askForPassword', '-bool', 'true'], timeout=5)
-                subprocess.run(['defaults', 'write', 'com.apple.screensaver', 'askForPasswordDelay', '-int', '0'], timeout=5)
-                subprocess.run(['defaults', '-currentHost', 'write', 'com.apple.screensaver', 'idleTime', '-int', '3600'], timeout=5)
-                return jsonify({'success': True, 'enabled': True, 'timeout_minutes': 60})
-            else:
-                subprocess.run(['defaults', 'write', 'com.apple.screensaver', 'askForPassword', '-bool', 'false'], timeout=5)
-                return jsonify({'success': True, 'enabled': False})
+        if action == 'toggle':
+            result = _display_lock_status()
+            locked = result[1] if len(result) > 1 else None
+            display_off = result[2] if len(result) > 2 else None
+            action = 'disable' if (locked and display_off) else 'enable'
+
+        if action == 'enable':
+            # Lock session + display off + cancel any relock timer
+            r = ssh_command(_DISPLAY_LOCK_SSH_HOST, _DISPLAY_LOCK_SSH_USER,
+                            f"loginctl lock-session {session_id}; "
+                            f"{_DISPLAY_LOCK_DBUS} gdbus call --session "
+                            f"--dest org.gnome.Mutter.DisplayConfig "
+                            f"--object-path /org/gnome/Mutter/DisplayConfig "
+                            f"--method org.freedesktop.DBus.Properties.Set "
+                            f"org.gnome.Mutter.DisplayConfig PowerSaveMode '<int32 3>'; "
+                            f"XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop display-relock.timer 2>/dev/null; "
+                            f"echo OK", timeout=10)
+            if r and 'OK' in r.stdout:
+                return jsonify({'success': True, 'enabled': True, 'timeout_minutes': 0})
+            return jsonify({'error': 'Failed to lock display'}), 500
+
+        elif action == 'disable':
+            # Unlock session + display on + schedule auto-relock in 1 hour
+            r = ssh_command(_DISPLAY_LOCK_SSH_HOST, _DISPLAY_LOCK_SSH_USER,
+                            f"loginctl unlock-session {session_id}; "
+                            f"{_DISPLAY_LOCK_DBUS} gdbus call --session "
+                            f"--dest org.gnome.Mutter.DisplayConfig "
+                            f"--object-path /org/gnome/Mutter/DisplayConfig "
+                            f"--method org.freedesktop.DBus.Properties.Set "
+                            f"org.gnome.Mutter.DisplayConfig PowerSaveMode '<int32 0>'; "
+                            f"XDG_RUNTIME_DIR=/run/user/1000 systemctl --user stop display-relock.timer 2>/dev/null; "
+                            f"XDG_RUNTIME_DIR=/run/user/1000 systemd-run --user "
+                            f"--on-active={_DISPLAY_LOCK_RELOCK_SECS} "
+                            f"--unit=display-relock "
+                            f"--description='Auto-relock display after 1hr' "
+                            f"/bin/bash -c 'loginctl lock-session {session_id} && "
+                            f"{_DISPLAY_LOCK_DBUS} gdbus call --session "
+                            f"--dest org.gnome.Mutter.DisplayConfig "
+                            f"--object-path /org/gnome/Mutter/DisplayConfig "
+                            f"--method org.freedesktop.DBus.Properties.Set "
+                            f"org.gnome.Mutter.DisplayConfig PowerSaveMode \"<int32 3>\"'; "
+                            f"echo OK", timeout=10)
+            if r and 'OK' in r.stdout:
+                return jsonify({'success': True, 'enabled': False, 'timeout_minutes': 60})
+            return jsonify({'error': f'Failed to unlock display: {r.stderr if r else "timeout"}'}), 500
+
         else:
             return jsonify({'error': f'Invalid action: {action}'}), 400
     except Exception as e:

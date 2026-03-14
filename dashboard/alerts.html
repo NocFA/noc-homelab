@@ -240,7 +240,7 @@
                     if (data.alerts && data.alerts.length > 0) {
                         histDiv.innerHTML = data.alerts.map(renderAlert).join('');
                     } else {
-                        histDiv.innerHTML = '<div class="empty-state">No alerts recorded yet. Thresholds: Memory >85%/90%, CPU >90%/95%, Temp >75/80 C</div>';
+                        histDiv.innerHTML = '<div class="empty-state">No alerts recorded yet. Thresholds: Memory >85%/90%, CPU >90%/95%, Temp >100/110 C (2min sustained)</div>';
                     }
                 } catch (e) {
                     document.getElementById('alertHistory').innerHTML =

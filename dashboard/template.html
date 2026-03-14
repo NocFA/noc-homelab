@@ -472,6 +472,78 @@
                 overflow-y: auto;
                 border: 1px solid var(--border);
             }
+            /* Mobile responsive */
+            @media (max-width: 768px) {
+                body {
+                    overflow-x: hidden;
+                }
+                .container {
+                    padding: 0.5rem;
+                }
+                .header {
+                    padding: 0.75rem 1rem;
+                    margin-bottom: 1rem;
+                }
+                .header-top {
+                    flex-wrap: wrap;
+                    gap: 0.25rem 0.5rem;
+                }
+                .header-stats {
+                    gap: 0.75rem;
+                    flex-wrap: wrap;
+                }
+                .machine-header {
+                    flex-wrap: wrap;
+                    gap: 0.3rem 0.75rem;
+                    padding: 0.6rem 2rem 0.6rem 0.75rem;
+                    position: relative;
+                }
+                .machine-chevron {
+                    position: absolute;
+                    right: 0.75rem;
+                    top: 0.7rem;
+                }
+                .machine-stat,
+                .machine-uptime {
+                    margin-left: 0 !important;
+                    font-size: 0.7rem;
+                }
+                .services-grid {
+                    grid-template-columns: 1fr;
+                    gap: 0.75rem;
+                }
+                .service-card {
+                    padding: 1rem;
+                }
+                .service-name {
+                    font-size: 1rem;
+                }
+                .button-group {
+                    gap: 0.35rem;
+                }
+                .btn {
+                    padding: 0.4rem 0.5rem;
+                    font-size: 0.8rem;
+                }
+                .modal-content {
+                    width: 95%;
+                    padding: 1rem;
+                }
+            }
+            @media (max-width: 480px) {
+                .header-top {
+                    font-size: 0.65rem;
+                }
+                .header-title {
+                    font-size: 0.85rem;
+                }
+                .header-stats {
+                    font-size: 0.65rem;
+                }
+                .machine-header {
+                    font-size: 0.75rem;
+                }
+            }
         </style>
     </head>
     <body>
@@ -946,10 +1018,10 @@
                 if (!el) return;
                 if (enabled) {
                     el.style.color = "var(--success)";
-                    el.title = `Screen Lock: ON (${timeout || 60}min timeout)`;
+                    el.title = "noc-tux display: LOCKED (display off)";
                 } else {
-                    el.style.color = "var(--text-muted)";
-                    el.title = "Screen Lock: OFF";
+                    el.style.color = "var(--warning, orange)";
+                    el.title = timeout ? `noc-tux display: UNLOCKED (auto-locks in ${timeout}min)` : "noc-tux display: UNLOCKED";
                 }
             }
 
@@ -975,7 +1047,7 @@
                     if (data.success) {
                         updateScreenLockUI(data.enabled, data.timeout_minutes);
                         showNotification(
-                            `Screen lock ${data.enabled ? "enabled (1hr timeout)" : "disabled"}`,
+                            data.enabled ? "noc-tux display locked (off)" : "noc-tux display unlocked (1hr auto-relock)",
                             "success",
                         );
                     } else {
