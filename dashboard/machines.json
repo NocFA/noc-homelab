@@ -364,7 +364,8 @@
           "manager": "systemd-user",
           "unit_name": "wrapper",
           "port": 30020,
-          "status_port": 30020
+          "status_port": 30020,
+          "compose_dir": "/home/noc/services/wrapper"
         }
       }
     }
