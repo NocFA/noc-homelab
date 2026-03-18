@@ -357,6 +357,14 @@
           "description": "UDP tunnel client for Resonite (→ noc-baguette)",
           "manager": "systemd-user",
           "unit_name": "rathole"
+        },
+        "wrapper": {
+          "name": "Apple Music Wrapper",
+          "description": "Apple Music decryption & auth service (decrypt:10020, m3u8:20020, account:30020)",
+          "manager": "systemd-user",
+          "unit_name": "wrapper",
+          "port": 30020,
+          "status_port": 30020
         }
       }
     }
