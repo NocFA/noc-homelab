@@ -86,6 +86,7 @@ services/*/db/
 
 # Gatus config (contains Discord webhook secrets)
 services/gatus/config.yaml
+services/gatus/config.yml
 services/gatus/config-winlocal.yaml
 
 # Zurg binary and runtime data (downloaded/generated, not committed)
@@ -111,3 +112,14 @@ noc-homelab-beads/
 
 # Matrix — plaintext inventory (secrets), only SOPS-encrypted vars committed
 services/matrix/inventory/
+
+# Dolt SQL server runtime directories and config
+beads/
+beads_mdsf-crew/
+config.yaml
+
+# TeamSpeak server-generated backup files
+configs/teamspeak/backups/
+
+# Internal operational docs (not for public repo)
+docs/migration.md
