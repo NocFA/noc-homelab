@@ -14,11 +14,11 @@ ExecStart=/usr/bin/rclone mount zurg: /mnt/zurg \
     --vfs-cache-max-age 24h \
     --vfs-cache-max-size 50G \
     --vfs-cache-min-free-space 5G \
-    --vfs-read-ahead 128M \
-    --vfs-read-chunk-size 4M \
-    --vfs-read-chunk-size-limit 64M \
+    --vfs-read-ahead 512M \
+    --vfs-read-chunk-size 8M \
+    --vfs-read-chunk-size-limit 128M \
     --vfs-fast-fingerprint \
-    --buffer-size 64M \
+    --buffer-size 128M \
     --transfers 8 \
     --checkers 8 \
     --attr-timeout 1s \

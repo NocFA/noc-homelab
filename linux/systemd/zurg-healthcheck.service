@@ -1,0 +1,10 @@
+[Unit]
+Description=Zurg Stale Content Health Check
+After=network-online.target zurg.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/noc/noc-homelab/linux/scripts/zurg-healthcheck.sh
+StandardOutput=journal
+StandardError=journal

@@ -360,6 +360,14 @@
           "port": 8097,
           "url": "http://100.91.104.124:8097"
         },
+        "plex": {
+          "name": "Plex",
+          "description": "Media streaming server",
+          "manager": "system-service",
+          "unit_name": "plexmediaserver",
+          "port": 32400,
+          "url": "http://100.91.104.124:32400/web"
+        },
         "sunshine": {
           "name": "Sunshine",
           "description": "Game streaming server",
