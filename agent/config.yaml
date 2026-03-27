@@ -1,20 +1,37 @@
 machine:
-  id: noc-claw
-  display_name: noc-claw
-  role: agent
+  id: noc-local
+  display_name: noc-local
+  role: dashboard
 
 services:
-  ollama:
-    name: Ollama
-    port: 11434
-  openclaw:
-    name: OpenClaw Gateway
-    port: 18789
+  dashboard:
+    name: Dashboard
+    launchd: com.noc.dashboard
+    port: 8080
+  gatus:
+    name: Gatus
+    port: 3001
   glances:
     name: Glances
     launchd: com.noc.glances
     port: 61999
-  open-llm-vtuber:
-    name: Open-LLM-VTuber
-    launchd: com.noc.open-llm-vtuber
-    port: 12393
+  copyparty:
+    name: Copyparty
+    launchd: com.noc.copyparty
+    port: 8081
+  maloja:
+    name: Maloja
+    launchd: com.maloja.service
+    port: 42010
+  multi-scrobbler:
+    name: Multi-Scrobbler
+    launchd: com.multiscrobbler.service
+    port: 9078
+  voiceseq:
+    name: VoiceSeq
+    launchd: com.noc.voiceseq
+    port: 61998
+  dmm:
+    name: Debrid Media Manager
+    launchd: com.noc.dmm
+    port: 3002
