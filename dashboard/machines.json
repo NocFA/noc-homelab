@@ -21,7 +21,9 @@
           "unit_name": "com.noc.dashboard",
           "port": 8080,
           "status_port": 8080,
-          "log_paths": ["~/Library/Logs/noc-homelab/dashboard.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/dashboard.log"
+          ]
         },
         "caddy": {
           "name": "Caddy",
@@ -29,7 +31,9 @@
           "manager": "system-daemon",
           "unit_name": "com.noc.caddy",
           "port": 80,
-          "log_paths": ["~/Library/Logs/noc-homelab/caddy.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/caddy.log"
+          ]
         },
         "gatus": {
           "name": "Gatus",
@@ -38,7 +42,9 @@
           "unit_name": "gatus",
           "port": 3001,
           "url": "http://noc-local:3001",
-          "log_paths": ["~/Library/Logs/noc-homelab/gatus.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/gatus.log"
+          ]
         },
         "glances": {
           "name": "Glances",
@@ -47,7 +53,9 @@
           "unit_name": "com.noc.glances",
           "port": 61999,
           "url": "http://noc-local:61999",
-          "log_paths": ["~/Library/Logs/noc-homelab/glances.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/glances.log"
+          ]
         },
         "copyparty": {
           "name": "Copyparty",
@@ -56,7 +64,9 @@
           "unit_name": "com.noc.copyparty",
           "port": 8081,
           "url": "http://noc-local:8081",
-          "log_paths": ["~/Library/Logs/noc-homelab/copyparty.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/copyparty.log"
+          ]
         },
         "maloja": {
           "name": "Maloja",
@@ -65,7 +75,9 @@
           "unit_name": "com.maloja.service",
           "port": 42010,
           "url": "http://noc-local:42010",
-          "log_paths": ["~/Library/Logs/noc-homelab/maloja.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/maloja.log"
+          ]
         },
         "multi-scrobbler": {
           "name": "Multi-Scrobbler",
@@ -74,7 +86,9 @@
           "unit_name": "com.multiscrobbler.service",
           "port": 9078,
           "url": "http://noc-local:9078",
-          "log_paths": ["~/Library/Logs/noc-homelab/multi-scrobbler.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/multi-scrobbler.log"
+          ]
         },
         "teamspeak-6": {
           "name": "TeamSpeak 6",
@@ -86,7 +100,9 @@
           "status_port": 10080,
           "url": "/teamspeak",
           "use_wan_ip": true,
-          "log_paths": ["/Users/noc/noc-homelab/services/teamspeak6/data/logs/*_1.log"]
+          "log_paths": [
+            "/Users/noc/noc-homelab/services/teamspeak6/data/logs/*_1.log"
+          ]
         },
         "voiceseq": {
           "name": "Voice Sequence API",
@@ -94,14 +110,18 @@
           "manager": "launchd",
           "unit_name": "com.noc.voiceseq",
           "port": 61998,
-          "log_paths": ["~/Library/Logs/noc-homelab/voiceseq.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/voiceseq.log"
+          ]
         },
         "voiceseq-processor": {
           "name": "Voice Sequence Processor",
           "description": "Voice Sequence Processor",
           "manager": "launchd",
           "unit_name": "com.noc.voiceseq-processor",
-          "log_paths": ["~/Library/Logs/noc-homelab/voiceseq-processor.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/voiceseq-processor.log"
+          ]
         },
         "beads-ui": {
           "name": "Beads UI",
@@ -110,7 +130,9 @@
           "unit_name": "com.noc.beads-ui",
           "port": 3000,
           "url": "http://noc-local:3000",
-          "log_paths": ["~/Library/Logs/noc-homelab/beads-ui.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/beads-ui.log"
+          ]
         },
         "homelab-agent": {
           "name": "Homelab Agent",
@@ -119,7 +141,9 @@
           "unit_name": "com.noc.homelab-agent",
           "port": 5005,
           "url": "http://noc-local:5005",
-          "log_paths": ["~/Library/Logs/noc-homelab/homelab-agent.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/homelab-agent.log"
+          ]
         },
         "dmm": {
           "name": "Debrid Media Manager",
@@ -128,14 +152,19 @@
           "unit_name": "com.noc.dmm",
           "port": 3002,
           "url": "http://noc-local:3002",
-          "log_paths": ["~/Library/Logs/noc-homelab/dmm.log", "~/Library/Logs/noc-homelab/dmm.error.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/dmm.log",
+            "~/Library/Logs/noc-homelab/dmm.error.log"
+          ]
         },
         "git-autopull": {
           "name": "Git Auto-Pull",
           "description": "Git Repository Sync Service",
           "manager": "launchd",
           "unit_name": "com.noc.git-autopull",
-          "log_paths": ["~/Library/Logs/noc-homelab/git-autopull.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/git-autopull.log"
+          ]
         },
         "tailscale": {
           "name": "Tailscale",
@@ -151,7 +180,9 @@
           "unit_name": "com.noc.mailpit",
           "port": 8025,
           "url": "http://noc-local:8025",
-          "log_paths": ["~/Library/Logs/noc-homelab/mailpit.log"]
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/mailpit.log"
+          ]
         }
       }
     },
@@ -354,7 +385,7 @@
         },
         "rathole": {
           "name": "Rathole Client",
-          "description": "UDP tunnel client for Resonite (→ noc-baguette)",
+          "description": "UDP tunnel client for Resonite (\u2192 noc-baguette)",
           "manager": "systemd-user",
           "unit_name": "rathole"
         },
@@ -366,6 +397,14 @@
           "port": 30020,
           "status_port": 30020,
           "compose_dir": "/home/noc/services/wrapper"
+        },
+        "chatterbox": {
+          "name": "Chatterbox TTS",
+          "description": "Voice cloning TTS server for VTuber characters",
+          "manager": "systemd-user",
+          "unit_name": "chatterbox",
+          "port": 4123,
+          "status_port": 4123
         }
       }
     }
