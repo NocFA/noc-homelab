@@ -90,6 +90,7 @@ MEDIA_KEYS=$(sops -d "$REPO_ROOT/configs/media-keys.yaml" 2>/dev/null) || {
 
 EMBY_API_KEY=$(echo "$MEDIA_KEYS" | grep '^emby_api_key:' | awk '{print $2}')
 JELLYFIN_API_KEY=$(echo "$MEDIA_KEYS" | grep '^jellyfin_api_key:' | awk '{print $2}')
+PLEX_TOKEN=$(echo "$MEDIA_KEYS" | grep '^plex_token:' | awk '{print $2}')
 
 # === EMBY SCAN ===
 if [[ -n "$EMBY_API_KEY" ]]; then
@@ -113,6 +114,18 @@ if [[ -n "$JELLYFIN_API_KEY" ]]; then
     fi
 else
     log "Jellyfin API key not found - skipping"
+fi
+
+# === PLEX SCAN ===
+if [[ -n "$PLEX_TOKEN" ]]; then
+    log "Triggering Plex library scan..."
+    if curl -sf "http://localhost:32400/library/sections/all/refresh?X-Plex-Token=$PLEX_TOKEN" >/dev/null 2>&1; then
+        log "Plex scan triggered successfully"
+    else
+        log "Plex scan failed (is Plex running?)"
+    fi
+else
+    log "Plex token not found - skipping"
 fi
 
 log "=== Library Update Complete ==="
