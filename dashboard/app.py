@@ -1557,11 +1557,14 @@ NOC_TUX_ACCESS_LOG = '/home/noc/websites/logs/access.log'
 # Local app sites (managed via LaunchAgents on noc-local)
 LOCAL_APP_SITES = {
     'mdsf-crew': {
-        'type': 'app', 'domain': 'crew.nocfa.net', 'aliases': [], 'host': 'noc-local',
+        'type': 'app', 'domain': 'crew.mdsf.net', 'aliases': [], 'host': 'noc-local',
         'components': [
             {'id': 'com.noc.mdsf-crew-api',    'name': 'API',    'role': 'api',      'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-api.log'},
             {'id': 'com.noc.mdsf-crew-web',    'name': 'Web',    'role': 'frontend', 'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-web.log'},
             {'id': 'com.noc.mdsf-crew-tunnel', 'name': 'Tunnel', 'role': 'tunnel',   'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-tunnel.log'},
+            {'id': 'com.noc.mdsf-crew-bot',    'name': 'Bot',    'role': 'bot',      'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-bot.log'},
+            {'id': 'homebrew.mxcl.redis',       'name': 'Redis',     'role': 'cache',  'type': 'homebrew'},
+            {'id': 'mdsf-crew-pgbouncer',       'name': 'PgBouncer', 'role': 'pool',  'type': 'local-docker'},
         ]
     },
     'mdsf-org': {
@@ -1616,6 +1619,28 @@ def _local_launchctl_running(label):
     except Exception:
         return False
 
+def _local_homebrew_running(service_name):
+    """Check if a Homebrew service is running."""
+    try:
+        result = subprocess.run(['brew', 'services', 'info', service_name, '--json'], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            import json
+            info = json.loads(result.stdout)
+            if isinstance(info, list) and len(info) > 0:
+                return info[0].get('running', False)
+        return False
+    except Exception:
+        return False
+
+def _local_docker_running(container_name):
+    """Check if a local Docker container is running."""
+    try:
+        result = subprocess.run(['docker', 'inspect', '--format', '{{.State.Running}}', container_name],
+                              capture_output=True, text=True, timeout=5)
+        return result.returncode == 0 and result.stdout.strip() == 'true'
+    except Exception:
+        return False
+
 def _remote_docker_running(container_name):
     """Check if a docker container is running on noc-tux."""
     r = _websites_ssh(f'docker inspect --format "{{{{.State.Running}}}}" {container_name} 2>/dev/null', timeout=6)
@@ -1639,7 +1664,7 @@ def websites_page():
 def websites_list():
     all_sites = {}
 
-    # 1. Local app sites (mdsf-crew, mdsf-org, pelican) — check via launchctl or tux-systemd
+    # 1. Local app sites (mdsf-crew, mdsf-org, pelican) — check via launchctl, homebrew, docker, or tux-systemd
     for sid, site in LOCAL_APP_SITES.items():
         s = dict(site)
         components = []
@@ -1648,6 +1673,10 @@ def websites_list():
             comp_type = comp.get('type', 'launchctl')
             if comp_type == 'tux-systemd':
                 running = _tux_systemd_running(comp['unit'])
+            elif comp_type == 'homebrew':
+                running = _local_homebrew_running(comp['id'].replace('homebrew.mxcl.', ''))
+            elif comp_type == 'local-docker':
+                running = _local_docker_running(comp['id'])
             else:
                 running = _local_launchctl_running(comp['id'])
             if not running:
@@ -1900,6 +1929,36 @@ def websites_component_action(site_id, comp_id, action):
             return jsonify({'error': r.stderr.strip() or f'Failed to {action} {unit}'}), 500
         return jsonify({'error': 'Invalid action'}), 400
 
+    # --- HOMEBREW SERVICE (Redis, etc) ---
+    if comp_type == 'homebrew':
+        svc_name = comp_id.replace('homebrew.mxcl.', '')
+        if action == 'logs':
+            return jsonify({'logs': f'Homebrew service {svc_name} -- use `brew services info {svc_name}` for details'})
+        if action in ('start', 'stop', 'restart'):
+            try:
+                subprocess.run(['brew', 'services', action, svc_name], capture_output=True, text=True, timeout=10, check=True)
+                return jsonify({'success': True})
+            except subprocess.CalledProcessError as e:
+                return jsonify({'error': e.stderr.strip() or f'Failed to {action} {svc_name}'}), 500
+        return jsonify({'error': 'Invalid action'}), 400
+
+    # --- LOCAL DOCKER CONTAINER (PgBouncer, etc) ---
+    if comp_type == 'local-docker':
+        container = comp_id
+        if action == 'logs':
+            try:
+                result = subprocess.run(['docker', 'logs', '--tail', '100', container], capture_output=True, text=True, timeout=10)
+                return jsonify({'logs': result.stdout + result.stderr or 'No logs available'})
+            except Exception as e:
+                return jsonify({'logs': f'Error: {e}'})
+        if action in ('start', 'stop', 'restart'):
+            try:
+                subprocess.run(['docker', action, container], capture_output=True, text=True, timeout=15, check=True)
+                return jsonify({'success': True})
+            except subprocess.CalledProcessError as e:
+                return jsonify({'error': e.stderr.strip() or f'Failed to {action} {container}'}), 500
+        return jsonify({'error': 'Invalid action'}), 400
+
     # --- LOCAL LAUNCHCTL ---
     if host == 'noc-local' or comp_type == 'launchctl':
         plist = f'/Users/noc/Library/LaunchAgents/{comp_id}.plist'
@@ -1937,6 +1996,48 @@ def websites_component_action(site_id, comp_id, action):
             return jsonify({'success': True})
         return jsonify({'error': r.stderr.strip() or f'Failed to {action} {comp_id}'}), 500
     return jsonify({'error': 'Invalid action'}), 400
+
+# --- Bulk Start/Stop All Components for a Site ---
+
+@app.route('/api/websites/<site_id>/all/<action>', methods=['POST'])
+def websites_all_components(site_id, action):
+    """Start or stop all components of an app site at once."""
+    if action not in ('start', 'stop', 'restart'):
+        return jsonify({'error': 'Invalid action'}), 400
+
+    site = LOCAL_APP_SITES.get(site_id) or REMOTE_APP_SITES.get(site_id)
+    if not site:
+        return jsonify({'error': 'Site not found'}), 404
+
+    results = []
+    for comp in site.get('components', []):
+        comp_id = comp['id']
+        comp_type = comp.get('type', 'launchctl')
+
+        try:
+            if comp_type == 'homebrew':
+                svc_name = comp_id.replace('homebrew.mxcl.', '')
+                subprocess.run(['brew', 'services', action, svc_name], capture_output=True, text=True, timeout=10, check=True)
+            elif comp_type == 'local-docker':
+                subprocess.run(['docker', action, comp_id], capture_output=True, text=True, timeout=15, check=True)
+            elif comp_type == 'tux-systemd':
+                unit = comp.get('unit', comp_id)
+                ssh_command('noc-tux', 'noc', f'sudo systemctl {action} {unit}', timeout=15)
+            else:
+                plist = f'/Users/noc/Library/LaunchAgents/{comp_id}.plist'
+                if action == 'restart':
+                    subprocess.run(['launchctl', 'unload', plist], capture_output=True, timeout=5)
+                    time.sleep(0.5)
+                    subprocess.run(['launchctl', 'load', plist], capture_output=True, timeout=5)
+                elif action == 'stop':
+                    subprocess.run(['launchctl', 'unload', plist], capture_output=True, timeout=5)
+                else:
+                    subprocess.run(['launchctl', 'load', plist], capture_output=True, timeout=5)
+            results.append({'id': comp_id, 'name': comp['name'], 'ok': True})
+        except Exception as e:
+            results.append({'id': comp_id, 'name': comp['name'], 'ok': False, 'error': str(e)})
+
+    return jsonify({'success': True, 'results': results})
 
 # --- Pelican Panel ---
 

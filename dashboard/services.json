@@ -82,6 +82,21 @@
       "name": "MDSF Crew API",
       "port": 3100
     },
+    "mdsf-crew-bot": {
+      "description": "MDSF Crew Discord Bot",
+      "launchd": "com.noc.mdsf-crew-bot",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/mdsf-crew-bot.log"
+      ],
+      "name": "MDSF Crew Bot",
+      "port": 3101
+    },
+    "redis": {
+      "description": "Redis Cache (sessions, rate limiting, pub/sub)",
+      "launchd": "homebrew.mxcl.redis",
+      "name": "Redis",
+      "port": 6379
+    },
     "mdsf-crew-tunnel": {
       "description": "Cloudflare Tunnel for MDSF Crew",
       "launchd": "com.noc.mdsf-crew-tunnel",

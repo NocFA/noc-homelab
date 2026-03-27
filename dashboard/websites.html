@@ -565,6 +565,11 @@
                                 <span>host: ${s.host}</span>
                                 <span>${s.components.filter(c => c.running).length}/${s.components.length} components up</span>
                             </div>
+                            <div class="site-actions" style="margin-bottom: 0.75rem;">
+                                <button class="btn btn-success" onclick="bulkAction('${id}','start')">Start All</button>
+                                <button class="btn btn-error" onclick="bulkAction('${id}','stop')">Stop All</button>
+                                <button class="btn btn-accent" onclick="bulkAction('${id}','restart')">Restart All</button>
+                            </div>
                             <div class="component-grid">${compHtml}</div>
                         </div>`;
                     } else {
@@ -674,6 +679,29 @@
                 if (data.success) {
                     showNotification('Site removed', 'success');
                     setTimeout(loadSites, 1000);
+                } else {
+                    showNotification('Error: ' + (data.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                showNotification('Error: ' + e.message, 'error');
+            }
+        }
+
+        async function bulkAction(siteId, action) {
+            try {
+                showNotification(`${action}ing all components...`, 'success');
+                const data = await apiFetch(`/api/websites/${siteId}/all/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (data.success) {
+                    const failed = (data.results || []).filter(r => !r.ok);
+                    if (failed.length > 0) {
+                        showNotification(`${action} done -- ${failed.length} failed: ${failed.map(f => f.name).join(', ')}`, 'error');
+                    } else {
+                        showNotification(`All components ${action}ed`, 'success');
+                    }
+                    setTimeout(loadSites, 1500);
                 } else {
                     showNotification('Error: ' + (data.error || 'Unknown'), 'error');
                 }
