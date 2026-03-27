@@ -1,0 +1,16 @@
+[Unit]
+Description=Homelab Agent API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/noc/noc-homelab/agent
+ExecStart=/usr/bin/python3 agent.py --port 8080 --config config.yaml
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

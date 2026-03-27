@@ -243,6 +243,23 @@ def _query_agent_api(hostname, agent_port, endpoint, method='GET', json_data=Non
         pass
     return None
 
+# Per-machine service catalogs fetched from agent APIs.
+# Keyed by machine_id, values are {svc_id: {name, port, url, description, manager}} dicts.
+# Populated by _refresh_remote_batch(); used as live source of truth for agent machines.
+_agent_catalogs: dict = {}
+
+def get_machine_services(machine: dict) -> dict:
+    """Return the service map for a machine.
+
+    For agent-role machines the live catalog fetched from the agent API is used
+    when available, falling back to whatever is in machines.json.  For all other
+    machines the machines.json services block is used directly.
+    """
+    mid = machine['id']
+    if machine.get('role') == 'agent' and mid in _agent_catalogs:
+        return _agent_catalogs[mid]
+    return machine.get('services', {})
+
 def _refresh_remote_batch(machine):
     """Get service status + uptime from a remote machine (agent API or SSH)"""
     machine_id = machine['id']
@@ -266,6 +283,19 @@ def _refresh_remote_batch(machine):
         info = _query_agent_api(hostname, agent_port, '/api/agent/info')
         if info and 'uptime' in info:
             data['uptime_secs'] = info['uptime']
+        # Fetch live service catalog (source of truth for service list)
+        catalog_resp = _query_agent_api(hostname, agent_port, '/api/agent/services')
+        if catalog_resp and 'services' in catalog_resp:
+            _agent_catalogs[machine_id] = {
+                s['id']: {
+                    'name': s.get('name', s['id']),
+                    'port': s.get('port'),
+                    'url': s.get('url'),
+                    'description': s.get('description', ''),
+                    'manager': s.get('type', 'systemd'),
+                }
+                for s in catalog_resp['services']
+            }
 
     elif machine.get('platform') == 'windows':
         # One SSH call: comma-separated process names on line 1, uptime seconds on line 2
@@ -288,16 +318,15 @@ def _refresh_remote_batch(machine):
 def get_remote_machine_status(machine):
     """Get status of all services on a remote machine"""
     hostname = machine['hostname']
-    services = machine.get('services', {})
+    services = get_machine_services(machine)
     batch = _refresh_remote_batch(machine)
     results = {}
 
-    # Agent machines: use agent API response directly
+    # Agent machines: use agent API response directly.
+    # Iterate agent_status keys so new services in agent/config.yaml appear
+    # without needing a machines.json edit.
     if machine.get('role') == 'agent' and batch.get('agent_status') is not None:
-        agent_status = batch['agent_status']
-        for svc_id in services:
-            results[svc_id] = agent_status.get(svc_id, False)
-        return results
+        return dict(batch['agent_status'])
 
     # Fallback: port checks + process list (Windows / non-agent machines)
     for svc_id, svc in services.items():
@@ -315,7 +344,8 @@ def get_remote_machine_status(machine):
 
 def control_remote_service(machine, svc_id, action):
     """Start/stop/restart a service on a remote machine"""
-    svc = machine.get('services', {}).get(svc_id)
+    services = get_machine_services(machine)
+    svc = services.get(svc_id)
     if not svc:
         return {'success': False, 'message': 'Unknown service'}
 
@@ -767,14 +797,14 @@ def index():
         reachable = machine_data.get('_reachable', False)
         remote_services = []
 
-        for svc_id, svc in machine.get('services', {}).items():
+        for svc_id, svc in get_machine_services(machine).items():
             is_online = machine_data.get(svc_id, False)
             remote_services.append({
                 'key': svc_id,
                 'name': svc['name'],
                 'port': svc.get('port', '--'),
                 'status': 'online' if is_online else 'offline',
-                'url': svc.get('url', '#'),
+                'url': svc.get('url') or '#',
                 'description': svc.get('description', ''),
                 'machine': machine['id'],
                 'remote': True
@@ -849,7 +879,7 @@ def _update_status_cache():
                     if remote_secs:
                         uptime_values.append(remote_secs)
                 else:
-                    status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
+                    status[machine_id] = {svc_id: False for svc_id in get_machine_services(machine)}
                     status[machine_id]['_uptime'] = '--'
                 status[machine_id]['_reachable'] = reachable
             else:
@@ -858,7 +888,7 @@ def _update_status_cache():
                 if reachable:
                     status[machine_id] = get_remote_machine_status(machine)
                 else:
-                    status[machine_id] = {svc_id: False for svc_id in machine.get('services', {})}
+                    status[machine_id] = {svc_id: False for svc_id in get_machine_services(machine)}
                 status[machine_id]['_uptime'] = '--'
                 status[machine_id]['_reachable'] = reachable
 
@@ -923,7 +953,7 @@ def control_remote_service_api(action):
 
     # Find service by display name
     svc_id = None
-    for sid, svc in machine.get('services', {}).items():
+    for sid, svc in get_machine_services(machine).items():
         if svc['name'] == service_name:
             svc_id = sid
             break

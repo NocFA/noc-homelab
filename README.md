@@ -105,6 +105,7 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | Matrix Coturn | 3478 | systemd | TURN/STUN for calls |
 | Emby | 8096 | systemd | Media streaming |
 | Jellyfin | 8097 | systemd | Media streaming |
+| Plex | 32400 | systemd | Media streaming |
 | Zurg | 9999 | systemd (user) | Real-Debrid WebDAV |
 | Rclone Zurg | -- | systemd (user) | FUSE mount at `/mnt/zurg` |
 | Sunshine | 47990 | systemd (user) | Game streaming (HEVC/AV1) |
@@ -132,13 +133,16 @@ library-update.sh
   ├── FileBot: movies → media/movies/
   ├── FileBot: shows  → media/shows/
   ├── Emby /Library/Refresh
-  └── Jellyfin /Library/Refresh
+  ├── Jellyfin /Library/Refresh
+  └── Plex /library/sections/all/refresh
        │
        ▼
-Emby (8096) + Jellyfin (8097)
+Emby (8096) + Jellyfin (8097) + Plex (32400)
 ```
 
-Content stays in the Real-Debrid cloud — no local storage needed. Zurg exposes it as a WebDAV mount, Rclone makes it a local filesystem, FileBot organizes with symlinks, and both media servers auto-scan.
+Content stays in the Real-Debrid cloud — no local storage needed. Zurg exposes it as a WebDAV mount, Rclone makes it a local filesystem, FileBot organizes with symlinks, and all three media servers auto-scan.
+
+A `zurg-healthcheck` systemd timer runs every 5 minutes comparing the Real-Debrid API torrent count against what Zurg is serving. If they diverge by more than one item the stack is restarted automatically, catching the occasional state drift without requiring a manual reboot.
 
 ## Matrix Stack
 
@@ -192,10 +196,9 @@ Every clone of this repo runs the same framework, installed by the setup scripts
 | Codeberg auto-pull | Polls Codeberg every 5min and fast-forward pulls if new commits exist |
 
 **Remotes:**
-- noc-tux: `origin` = GitHub, `codeberg` = Codeberg
-- noc-local: `origin` = Codeberg, `github` = GitHub
+All machines use `origin` with dual push URLs (Codeberg SSH + GitHub SSH). A single `git push origin main` reaches both simultaneously.
 
-Codeberg is the canonical source. Changes pushed to either remote are mirrored.
+Codeberg is the canonical pull source. Each machine's auto-pull fetches from Codeberg; GitHub is a mirror for discoverability.
 
 ## Repository Structure
 
@@ -203,12 +206,12 @@ Codeberg is the canonical source. Changes pushed to either remote are mirrored.
 noc-homelab/
 ├── agent/                  # REST API agent (runs on all machines)
 │   ├── agent.py            # Flask app, port 5005 (macOS) / 8080 (Linux)
-│   ├── config.yaml         # Service definitions (gitignored)
+│   ├── config.yaml         # Per-machine service definitions (gitignored, skip-worktree)
 │   └── platforms/           # Linux/macOS/Windows handlers
 ├── dashboard/              # Control dashboard (runs on noc-local)
 │   ├── app.py              # Flask app, port 8080
 │   ├── template.html       # Dashboard UI
-│   └── machines.json       # Machine + service registry
+│   └── machines.json       # Machine topology (agent machines: service list from agent API)
 ├── linux/
 │   ├── scripts/            # Automation (library-update, filebot, ddns)
 │   ├── services/           # Native service configs (gatus, zurg)

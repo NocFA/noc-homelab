@@ -12,6 +12,7 @@ class ServiceInfo:
     port: Optional[int]
     status: str  # online, offline, unknown
     description: str = ""
+    url: Optional[str] = None
 
 
 class PlatformHandler(ABC):

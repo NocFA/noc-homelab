@@ -45,7 +45,8 @@ class DarwinHandler(PlatformHandler):
                 type=self._get_service_type(svc_config),
                 port=svc_config.get('port'),
                 status=status,
-                description=svc_config.get('description', '')
+                description=svc_config.get('description', ''),
+                url=svc_config.get('url')
             ))
         return services
 
