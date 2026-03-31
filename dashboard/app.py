@@ -1594,7 +1594,9 @@ LOCAL_APP_SITES = {
             {'id': 'com.noc.mdsf-crew-tunnel', 'name': 'Tunnel', 'role': 'tunnel',   'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-tunnel.log'},
             {'id': 'com.noc.mdsf-crew-bot',    'name': 'Bot',    'role': 'bot',      'type': 'launchctl', 'log': '/Users/noc/Library/Logs/noc-homelab/mdsf-crew-bot.log'},
             {'id': 'homebrew.mxcl.redis',       'name': 'Redis',     'role': 'cache',  'type': 'homebrew'},
-            {'id': 'mdsf-crew-pgbouncer',       'name': 'PgBouncer', 'role': 'pool',  'type': 'local-docker'},
+            {'id': 'mdsf-crew-pgbouncer',           'name': 'PgBouncer',  'role': 'pool',    'type': 'local-docker'},
+            {'id': 'mdsf-crew-postgres-primary',    'name': 'PG Primary', 'role': 'db',      'type': 'tux-docker',   'container': 'mdsf-crew-postgres'},
+            {'id': 'mdsf-crew-postgres-replica',    'name': 'PG Replica', 'role': 'db',      'type': 'local-docker', 'container': 'mdsf-crew-postgres'},
         ]
     },
     'mdsf-org': {
@@ -1706,7 +1708,9 @@ def websites_list():
             elif comp_type == 'homebrew':
                 running = _local_homebrew_running(comp['id'].replace('homebrew.mxcl.', ''))
             elif comp_type == 'local-docker':
-                running = _local_docker_running(comp['id'])
+                running = _local_docker_running(comp.get('container', comp['id']))
+            elif comp_type == 'tux-docker':
+                running = _remote_docker_running(comp.get('container', comp['id']))
             else:
                 running = _local_launchctl_running(comp['id'])
             if not running:
@@ -1974,7 +1978,7 @@ def websites_component_action(site_id, comp_id, action):
 
     # --- LOCAL DOCKER CONTAINER (PgBouncer, etc) ---
     if comp_type == 'local-docker':
-        container = comp_id
+        container = comp_def.get('container', comp_id) if comp_def else comp_id
         if action == 'logs':
             try:
                 result = subprocess.run(['docker', 'logs', '--tail', '100', container], capture_output=True, text=True, timeout=10)
@@ -2010,6 +2014,23 @@ def websites_component_action(site_id, comp_id, action):
             time.sleep(0.5)
             subprocess.run(['launchctl', 'load', plist], capture_output=True, timeout=5)
             return jsonify({'success': True})
+        return jsonify({'error': 'Invalid action'}), 400
+
+    # --- TUX DOCKER CONTAINER ---
+    if comp_type == 'tux-docker':
+        container = comp_def.get('container', comp_id) if comp_def else comp_id
+        if action == 'logs':
+            r = _websites_ssh(f'docker logs --tail 100 {container} 2>&1', timeout=12)
+            if not r:
+                return jsonify({'error': 'Cannot reach noc-tux'})
+            return jsonify({'logs': r.stdout or 'No logs available'})
+        if action in ('start', 'stop', 'restart'):
+            r = _websites_ssh(f'docker {action} {container}', timeout=15)
+            if not r:
+                return jsonify({'error': 'Cannot reach noc-tux'}), 503
+            if r.returncode == 0:
+                return jsonify({'success': True})
+            return jsonify({'error': r.stderr.strip() or f'Failed to {action} {container}'}), 500
         return jsonify({'error': 'Invalid action'}), 400
 
     # --- REMOTE DOCKER (noc-tux) ---
