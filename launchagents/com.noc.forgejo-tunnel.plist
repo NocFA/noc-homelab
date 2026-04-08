@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.forgejo-tunnel</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/noc/dev/rathole/rathole</string>
+        <string>--client</string>
+        <string>/Users/noc/dev/rathole/client-forgejo.toml</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/dev/rathole</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/forgejo-tunnel.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/forgejo-tunnel.error.log</string>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>

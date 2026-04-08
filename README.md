@@ -72,6 +72,7 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | Glances | 61999 | launchd | System metrics API |
 | Caddy | 80/443 | launchd | Reverse proxy |
 | Beads UI | 3000 | launchd | Issue tracker dashboard |
+| Forgejo | 3090 | launchd | Self-hosted Git forge (git.nocfa.net) |
 | VoiceSeq | 61998 | launchd | Voice note upload server (iOS) |
 | MDSF Crew API | 3100 | launchd | Crew management backend |
 | MDSF Crew Web | 5173 | launchd | Crew management frontend |
@@ -91,6 +92,7 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | Service | Port | Manager | Description |
 |---|---|---|---|
 | Rathole Server | 2333/tcp | systemd | Tunnel control (Tailscale-only) |
+| Forgejo SSH | 2222/tcp | rathole | Forgejo git-only SSH (ssh.git.nocfa.net) |
 | Resonite | 23512/udp | rathole | Resonite headless server tunnel |
 
 ### noc-tux
@@ -157,7 +159,8 @@ Admin interface at `matrix.nocfa.net/synapse-admin/`.
 Game servers run on noc-tux behind NAT. [Rathole](https://github.com/rapiz1/rathole) punches outbound through the NAT to noc-baguette (OVH VPS), exposing UDP/TCP ports publicly without opening the home router.
 
 ```
-Internet ──► noc-baguette :23512/udp ──► rathole tunnel ──► noc-tux :23512/udp ──► Resonite
+Internet ──► noc-baguette :23512/udp ──► rathole tunnel ──► noc-tux :23512/udp  ──► Resonite
+Internet ──► noc-baguette :2222/tcp  ──► rathole tunnel ──► noc-local :2222/tcp ──► Forgejo SSH (git-only)
 ```
 
 The control channel (port 2333) is Tailscale-only — the VPS is not a jump box. SSH on the VPS is locked to Tailscale CGNAT + home /24 with key-only auth and fail2ban.

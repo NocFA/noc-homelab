@@ -234,6 +234,37 @@
         "~/Library/Logs/noc-homelab/dmm.log",
         "~/Library/Logs/noc-homelab/dmm.error.log"
       ]
+    },
+    "forgejo": {
+      "name": "Forgejo",
+      "description": "Self-hosted Git Forge (git.nocfa.net, SSH on ssh.git.nocfa.net:2222)",
+      "launchd": "com.noc.forgejo",
+      "port": 3090,
+      "web_ports": [
+        3090
+      ],
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/forgejo.log",
+        "~/Library/Logs/noc-homelab/forgejo.error.log"
+      ]
+    },
+    "forgejo-cloudflared": {
+      "name": "Forgejo Cloudflared",
+      "description": "Cloudflare tunnel for Forgejo web (git.nocfa.net)",
+      "launchd": "com.noc.forgejo-cloudflared",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/forgejo-cloudflared.log",
+        "~/Library/Logs/noc-homelab/forgejo-cloudflared.error.log"
+      ]
+    },
+    "forgejo-tunnel": {
+      "name": "Forgejo SSH Tunnel",
+      "description": "Rathole tunnel for Forgejo SSH (ssh.git.nocfa.net:2222)",
+      "launchd": "com.noc.forgejo-tunnel",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/forgejo-tunnel.log",
+        "~/Library/Logs/noc-homelab/forgejo-tunnel.error.log"
+      ]
     }
   }
 }

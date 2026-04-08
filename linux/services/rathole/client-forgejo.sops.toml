@@ -1,0 +1,15 @@
+# Rathole Client Config - Forgejo on noc-local
+# Control channel connects to noc-baguette on port 2333 (Tailscale only)
+
+[client]
+remote_addr = "100.96.57.116:2333"
+
+# Forgejo SSH tunnel - forwards Forgejo built-in SSH → noc-baguette:2222
+# NOTE: This tunnels Forgejo's git-only SSH server, NOT system SSH
+[client.services.forgejo-ssh]
+token = "a8288c1787f565d00daf4a291c3b2df3fd52ffad0032e049662ebf65d96cead8"
+type = "tcp"
+local_addr = "127.0.0.1:2222"
+
+# Web: handled by cloudflared tunnel directly (com.noc.forgejo-cloudflared)
+# No rathole needed for HTTPS — Cloudflare proxies that natively

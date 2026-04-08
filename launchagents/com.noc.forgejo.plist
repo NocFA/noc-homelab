@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.forgejo</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/forgejo.log; : > /Users/noc/Library/Logs/noc-homelab/forgejo.error.log; exec /opt/homebrew/opt/forgejo/bin/forgejo web --config /Users/noc/forgejo/app.ini</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/forgejo</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/forgejo.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/forgejo.error.log</string>
+
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+</dict>
+</plist>
