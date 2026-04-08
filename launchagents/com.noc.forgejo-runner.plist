@@ -13,6 +13,14 @@
         <string>/Users/noc/forgejo/runners/config.yaml</string>
     </array>
 
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+    </dict>
+
     <key>WorkingDirectory</key>
     <string>/Users/noc/forgejo/runners</string>
 
