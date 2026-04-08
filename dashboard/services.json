@@ -265,6 +265,15 @@
         "~/Library/Logs/noc-homelab/forgejo-tunnel.log",
         "~/Library/Logs/noc-homelab/forgejo-tunnel.error.log"
       ]
+    },
+    "forgejo-runner": {
+      "name": "Forgejo Runner (macOS)",
+      "description": "Forgejo Actions runner (macos-arm64, noc-local)",
+      "launchd": "com.noc.forgejo-runner",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/forgejo-runner.log",
+        "~/Library/Logs/noc-homelab/forgejo-runner.error.log"
+      ]
     }
   }
 }
