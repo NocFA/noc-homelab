@@ -1,15 +1,14 @@
-# Rathole Client Config - Forgejo on noc-local
-# Control channel connects to noc-baguette on port 2333 (Tailscale only)
-
-[client]
-remote_addr = "100.96.57.116:2333"
-
-# Forgejo SSH tunnel - forwards Forgejo built-in SSH → noc-baguette:2222
-# NOTE: This tunnels Forgejo's git-only SSH server, NOT system SSH
-[client.services.forgejo-ssh]
-token = "a8288c1787f565d00daf4a291c3b2df3fd52ffad0032e049662ebf65d96cead8"
-type = "tcp"
-local_addr = "127.0.0.1:2222"
-
-# Web: handled by cloudflared tunnel directly (com.noc.forgejo-cloudflared)
-# No rathole needed for HTTPS — Cloudflare proxies that natively
+{
+	"data": "ENC[AES256_GCM,data:/jkI6EdCdbPBlSX1Cz/eWEAZuYRApTlSplkfDEEtBc3i2gJTR985ONzfsF4lmlBQQI5QHUnzy8DhgRtixzHs4M2tCzudStfNM/1268Wu5j0EYUTltboAv1JsRuQ/NotOP52IW3Lsy1gxfQCVD6FluRH+8TGI+2X32v3UiKXVl19weAWQEKpMCxw7Gguitb9uTBPFC1r440Xbr2bG4m3BqKHxPQMxfetW5KQI9gDGr0wXqqMKJVJhNOHLBZkiZb3zN87OcRLRCuwt5sC1U8tOh67V/JYZZy5aiPen+L9a9zYIuaTZ6VwxF6rtCF2GlkY7lbqK8zX+9X+LZvvjQGb8JgQ5uy6W8hlJVblYIzPQ9Gx3DBzJbaXJudV3pbH1jHyllzkp8v2D2FWPMGk2SYphB94pXgg5zWm4cXcFKWskmp2uiEVXjkodczEe9CrIwpUqZjD7gbyIMXBPhGkuiLXcZen3xozkr6chdfUAWRXebl/6GVQtd9pOR7fp6PrQpKuxmnOmM2+P9sa5xlHr58drh8RnatoeoqPMvYOey4ieol877DSu72vdVQRuJK4+LviQliqxRW+fVWKaD6N0DbLsVunYg0LqEJxOgu3GKNO/nT7MPTy/MnvUJ+srUH8E4yImjBryUphOHTkr2aTusrOzJCirFgm8Zpz93j2e6o0gPFglGNcCIJhm+gS3HmdKGQ02fIrFAhipKrtMGreLpAFQySQjuXWqyBhDb1+5mwD/NkKA5EXveM3uLb8BXq+U4ggerUCxe0L0rR4dNuLqUzMjG0JSuD0O8RRl,iv:l176VP/YfFkqOBtoPvbbu/L9HHQZ0Ax4a8mJei7EMFA=,tag:6cHjKDCH4mFxCpeUbl0TuQ==,type:str]",
+	"sops": {
+		"age": [
+			{
+				"recipient": "age1jdd07e42w6hgjncpsz0uxe0nruqgpexsl8nhh2vauwn9w0r53paqm9s87h",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSArb0U1dVdha05ZaUpDUVpq\nYTNzNkFBZnJGbTU5bmhjdVhXU0NvQkM3ZjFvCnc4dnZsbElBZUtJaE1HbDlVbXZE\nZUR5eWxMejBMNGhjM0t0TlJJaWxUUzgKLS0tIHI5N2NsdFZhRklJOGY2aFo4ejZC\nc2d3ckZ5YU41dXlIc1hRMGV3QW4xVmsKVTBXdbNO4GfSaGC+jDZMiQ5NGVVQkni5\ng2kpxgSFc3f3bwwus3HRK6BHA9bqDqkk5Z/sA23LXa5fBvOnn40cgQ==\n-----END AGE ENCRYPTED FILE-----\n"
+			}
+		],
+		"lastmodified": "2026-04-08T05:23:10Z",
+		"mac": "ENC[AES256_GCM,data:aDe354Y+4qnR/ojBL34CcLUDmHH+f5mV8Q+bk/c8h0Gh4yrCtGMUWmuyjemCbGqSkRi6I2vSgUj4ix6dQBBOAUxszOZHxsPLI1qo/YSY0Ynv9FjBNfTjZSTyXUEfFNE5VRI0DN9yEa2mIyAg5zpzz2W0+nkbPvXnMZ5Lz8CEeSw=,iv:9nshDdkMn3mks5mwqfnCdarpl8NN471BiVnBJaC3yRg=,tag:6arkkslUVaFqJDIaOmK5zg==,type:str]",
+		"version": "3.12.1"
+	}
+}
