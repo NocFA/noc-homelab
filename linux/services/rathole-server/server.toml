@@ -18,6 +18,12 @@ token = "CHANGE_ME_TOKEN"
 type = "udp"
 bind_addr = "0.0.0.0:23512"
 
+# Perforce Helix Core - TCP 1666 (SSL enforced by p4d -C1)
+[server.services.perforce]
+token = "REDACTED_TOKEN"
+type = "tcp"
+bind_addr = "0.0.0.0:1666"
+
 # Example: Minecraft Java - TCP 25565
 # [server.services.minecraft]
 # token = "CHANGE_ME_TOKEN_2"
