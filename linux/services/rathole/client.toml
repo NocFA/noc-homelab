@@ -1,42 +1,14 @@
-# Rathole Client Config - noc-tux
-# Deployed at: ~/noc-homelab/linux/services/rathole/client.toml (same path, real values)
-# Connects to noc-baguette via Tailscale IP (100.96.57.116) on control port 2333
-# local_addr is where the game server is actually listening on this machine
-#
-# Adding a new tunnel:
-#   1. Add matching [server.services.NAME] block in linux/services/rathole-server/server.toml
-#   2. Add [client.services.NAME] block below with same token
-#   3. Restart rathole: systemctl --user restart rathole
-
-[client]
-remote_addr = "100.96.57.116:2333"
-
-# Resonite headless server - forwards VPS:23512 UDP → local:23512
-[client.services.resonite]
-token = "REDACTED_TOKEN"
-type = "udp"
-local_addr = "192.168.1.114:23512"
-
-# Perforce Helix Core - forwards VPS:1666 TCP → local Docker container
-[client.services.perforce]
-token = "REDACTED_TOKEN"
-type = "tcp"
-local_addr = "127.0.0.1:1666"
-
-# Example: Minecraft Java - forwards VPS:25565 TCP → local:25565
-# [client.services.minecraft]
-# token = "REDACTED_TOKEN_2"
-# type = "tcp"
-# local_addr = "192.168.1.114:25565"
-
-# Example: Minecraft Bedrock/Geyser - forwards VPS:19132 UDP → local:19132
-# [client.services.minecraft-bedrock]
-# token = "REDACTED_TOKEN_3"
-# type = "udp"
-# local_addr = "192.168.1.114:19132"
-
-# Example: Simple Voice Chat - forwards VPS:24454 UDP → local:24454
-# [client.services.voicechat]
-# token = "REDACTED_TOKEN_4"
-# type = "udp"
-# local_addr = "192.168.1.114:24454"
+{
+	"data": "ENC[AES256_GCM,data:2zF3eVNlm4un9LX/RS0xTIy3bFHhfDwxDIg8APSAckjF1lxUH0wVV0MoSLfQ8645QFEpotAXRnNeJoXjPw5d2ng96gq6giIYchq+KQzOp8CLRpwNG1QQFl//0PLB/hto5L/E23BQlauzDns6Qt12Z2AifuBESk5DR4hzmUFT8hWl0gtjU5QnlkGqNMFdBq/+dUXyfphNc0tJLBJzYpEZcUn2Z54yIMPL7hcAt4AqKdo7seznFY4wAz7V4zHfxwvePdj9t8h3NQpSOn8Vgc6Yo4KBYyV9UNH234omy7aJyK4nmoE0BOZqsScrQjRQVyRw9mvWDzdKpIgS4hsyUhihtPminvDNM2pxW+GC2tgdt12XYjy4ibUcFKeFiG/6pC/fL/A6ekxAErERentqkJxOqaEG+of0GGfDDq0vibjNKIIJV6MU6XhUxs80ZoshINbzXr+illJ2vVmw1m7TvQrImqfahJrym78heaR4x9blzkm+62ZlB+XyhYtM0cj9wYPjf0NBacbNhUC2j+zzgyBubyQHccp3jTPRFuYpO5QEcU2OmP3v3aS2GJO1z+dTWDieBHIWCaxrXLvosDw8PCKb/KWb25szfcFQlnCL62ZSBpiwMDLw1mNtZenI6gYirazzR5UlvwPvBcNYqpTqomwSs9VjFrIpyAiPfOYMs2VeyNgfAESqQ9EiEDfzVxev/Fp1FMEYMYrv8VavSR++e/NqcNlhQVpnkvGZ1gT+EPdu9EBFpUwt3QmVptZuRm/JxBs1wv9za+tetNsQB35bvBZoPSKv4Or1qpfg2PaAQ9SwFPNB74uNRdfDK6aP+4UWOP4LxslDzERtDUGHjEpoARzUJhikMmqcJ16uYy8oRlZ6SfCAaaUxevs/VvU0g5myIznYEWqhzFlQ8Vhrle2WBdBEO6yajUM/VqVgT/MXJ4zlMiH+sVMxB7lNyfCAli437i4bbGsLyk9D8Gj0QmKxFcCndHKWBn9thaGxa4w4/Bp4H4uPzsQlhQFrtvnSC2DxPHJXQ8Bay4e/mxdrWBRAi2kClfPr6vIj++6wE57XP0ZX3LR2gLBVmE+5y2zHu4LGjkS2rOzqtoE61earuBBKFIwNFNHm3VaFrYBfPRLDlPFr25t12laxNIJbpOVqeBGVHZnstePI+rs0vjlLnxQNEXZiUlBwAtc4cqV9JDZeXz4UlJeZSjsfJ1z/JT+kj9nyow2KXJurvQnOUMC0Sg9jyxb8CkjoNWmtrHGeqT/NluhAkDYeT8x3DjFymsP6HZVcgbJGOeCELRukf+MmPGShGseP1mRG+v5n8KBYMBo0GL2BNEUGpvolZrOlELUWxWlAYA53plUZhu/aJ6qzjPmNVpR1qFpJpfjRsmnod3VQsP+zAit8xPyloNIk+Ihq0iB7vJdef8o8jyfS0PQCUC0AT8FOZB4hPzRWol6c3GkjgX5nbXch6cZfkSsLRba3oCLz8ZZ5AgDCsv8Yv16nyHCHMcENGA/gK4IYpYT4reu4QW6QyYnbzZn0HTA359Bif2fSBOb1pt6FzXVIjsKyoYma1//xTC2QAGcBGoQxg+2GU4m6j78C2vQKLfcWnbyVlE7kZrv1DZiy7Bl3tQsKRc6H0fQj02+xGvYlUxyEOIYCEWIrGKOtXqfZT23+tTwd8up03K7froRhqzCvIeY8HVD1v4VPuM1xLjiHAKvs/ejS2yvreLBpSqeYXwR78tw3WCTPaQAKPX3tM2xHJ3iqrNm1PVJj+04KR3SexEU1jzz9bXUHRgTjrG/OWnDsoht0uc9JszOjJ6dIBiMy3J/OCi8uI34k/hZ0nPwENNe0KyXz1poqVAdqWmLTq5lbUduLVOgwZyo5WicVKlMnL4YsLZHSqRP6x8yL6/EtEJgRkR/8IBkaIvIHSS1tVZtGgx0VKRXDeCIBwMSQaYxAyFLVeqsWz1Sd5YCBS+3h6V641OpgEWbpgqmzXJ+B8xxb4lgQxmdlGUfvhMh7P+tWbA3qyQNWr3cpwqnjwApQLn3mriAEoY84GRBDZjoynGQBPM3CHV6DxdmZ4NQj4oPOb7qazHuUtLU3yLSmumbS+Bg=,iv:ESkCMye6FfTqm3Dqn5UbHQGDr3OPdD+iFVIt63cbhpY=,tag:H0BHXS2vk6ITVYsKazjVdQ==,type:str]",
+	"sops": {
+		"age": [
+			{
+				"recipient": "age1jdd07e42w6hgjncpsz0uxe0nruqgpexsl8nhh2vauwn9w0r53paqm9s87h",
+				"enc": "-----BEGIN AGE ENCRYPTED FILE-----\nYWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSB3TVNFYzhvKzZZSG1LbWV5\nUFhYckFob3gvNE1uZHhvOW9sai96Rm0rSVVBCksyLzJhelhjWDFNdmVNS2RpVVB6\nOG1QV2Vkc1paUU91SmRYNzNpWEZCaHcKLS0tIE5TeUVHS0kwTklSV3N5UWl2bVIr\nbmwrUlF2ZzhKc28wQ2R5MU9lZ01LYTAK9lde1veMiGLCkl1Us47vOx6dJR2HDn8N\nzAI+O38pDd+hmFRZWcFz5eIL1SEd9rnNBN5s+cVqqduNzQDe8QOhKA==\n-----END AGE ENCRYPTED FILE-----\n"
+			}
+		],
+		"lastmodified": "2026-04-08T02:49:35Z",
+		"mac": "ENC[AES256_GCM,data:fxw+n+uxaTVZDBAqe0LFR+EoSGM2hh+rlnpr2ZqRsIwjWSrhRpQPTwoy7NBKPOlZStn3rbCEoG7ly2nfkh35i/Bby2ms4XJPIEnk7hqz5OwM0xMWJRWZ2AuzzH8RnYW2lL4v4ehhAC4RYWTIibkYUdyAyP8CUTiRdbNVVjvHXqc=,iv:GMl1e2apRNeLu1BjjLYaQ9bgl1iN2rfAve5XtBp3yr0=,tag:bqzO/mXjcJtICpJCWnMoZQ==,type:str]",
+		"version": "3.11.0"
+	}
+}
