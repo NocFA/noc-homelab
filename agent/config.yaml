@@ -1,37 +1,100 @@
 machine:
-  id: noc-local
-  display_name: noc-local
-  role: dashboard
+  id: noc-tux
+  display_name: noc-tux
+  role: media
 
 services:
-  dashboard:
-    name: Dashboard
-    launchd: com.noc.dashboard
-    port: 8080
+  emby:
+    name: Emby
+    manager: systemd
+    service_name: emby-server
+    scope: system
+    port: 8096
+    description: Emby Media Server
+    url: http://noc-tux:8096
+  jellyfin:
+    name: Jellyfin
+    manager: systemd
+    service_name: jellyfin
+    scope: system
+    port: 8097
+    description: Jellyfin Media Server
+    url: http://noc-tux:8097
+  plex:
+    name: Plex
+    manager: systemd
+    service_name: plexmediaserver
+    scope: system
+    port: 32400
+    description: Plex Media Server
+    url: http://noc-tux:32400/web
+  sunshine:
+    name: Sunshine
+    manager: systemd
+    service_name: sunshine
+    scope: user
+    port: 47990
+    description: Sunshine Game Stream
+    url: https://noc-tux:47990
+  zurg:
+    name: Zurg
+    manager: systemd
+    service_name: zurg
+    scope: user
+    port: 9999
+    description: Zurg WebDAV for Real-Debrid
+    url: http://noc-tux:9999
+  rclone-zurg:
+    name: Rclone Mount
+    manager: systemd
+    service_name: rclone-zurg
+    scope: user
+    description: Rclone FUSE mount for Zurg
   gatus:
     name: Gatus
+    manager: systemd
+    service_name: gatus
+    scope: user
     port: 3001
-  glances:
-    name: Glances
-    launchd: com.noc.glances
-    port: 61999
-  copyparty:
-    name: Copyparty
-    launchd: com.noc.copyparty
-    port: 8081
-  maloja:
-    name: Maloja
-    launchd: com.maloja.service
-    port: 42010
-  multi-scrobbler:
-    name: Multi-Scrobbler
-    launchd: com.multiscrobbler.service
-    port: 9078
-  voiceseq:
-    name: VoiceSeq
-    launchd: com.noc.voiceseq
-    port: 61998
-  dmm:
-    name: Debrid Media Manager
-    launchd: com.noc.dmm
-    port: 3002
+    description: Health monitoring
+    url: http://noc-tux:3001
+  homelab-agent:
+    name: Homelab Agent
+    manager: systemd
+    service_name: homelab-agent
+    scope: user
+    port: 8080
+    description: Homelab Agent API
+  plextraktsync:
+    name: PlexTraktSync
+    manager: systemd
+    service_name: plextraktsync
+    scope: user
+    description: Plex to Trakt.tv sync
+  authentik:
+    name: Authentik
+    manager: docker
+    container: authentik-server
+    description: Authentik SSO
+    url: https://auth.nocfa.net
+  arcane:
+    name: Arcane
+    manager: docker
+    container: arcane
+    port: 3552
+    description: Arcane Game Server
+  matrix-synapse:
+    name: Matrix Synapse
+    manager: docker
+    container: matrix-synapse
+    description: Matrix Synapse homeserver
+  matrix-coturn:
+    name: Matrix Coturn
+    manager: docker
+    container: matrix-coturn
+    description: Matrix TURN/STUN server
+  matrix-client-element:
+    name: Element
+    manager: docker
+    container: matrix-client-element
+    description: Element Matrix client
