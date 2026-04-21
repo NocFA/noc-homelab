@@ -1,0 +1,11 @@
+# macOS /var/log/system.log acquisition.
+#
+# System.log is the legacy syslog stream — modern macOS routes most traffic
+# into the unified log (`log stream`), but `sshd-session` still writes here
+# so we can catch SSH auth activity. If we want richer coverage later, add
+# a sidecar that pipes `log stream --style syslog` into a file and tail
+# that too.
+filenames:
+  - /var/log/system.log
+labels:
+  type: syslog
