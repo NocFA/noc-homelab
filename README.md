@@ -12,7 +12,7 @@ A three-machine homelab running macOS and Linux, connected over Tailscale. Manag
 | Machine | OS | Role | Connectivity |
 |---|---|---|---|
 | **noc-local** | macOS (Sonoma) | Dashboard host, local services | LAN + Tailscale |
-| **noc-claw** | macOS (Sequoia) | AI Gateway, LLM runtime | Tailscale `100.95.102.128` |
+| **noc-claw** | macOS (Sequoia) | On-device LLM runtime (MLX) | Tailscale `100.95.102.128` |
 | **noc-tux** | Ubuntu 24.04 LTS | Agent, media, Matrix, streaming | LAN + Tailscale `100.91.104.124` |
 | **noc-baguette** | AlmaLinux 9 | VPS, rathole tunnel server | Public IP + Tailscale `100.96.57.116` |
 
@@ -45,8 +45,8 @@ noc-local (macOS)                          noc-tux (Ubuntu)
 ┌──────────────────────┐                   └──────────────────────┘         │
 │  noc-claw (macOS)    │                                              (Tailscale tunnel)
 │                      │                   ┌──────────────────────┐         │
-│  OpenClaw Gateway    │                   │  noc-baguette (VPS)  │◄────────┘
-│  Ollama (Local LLMs) │                   │                      │
+│  MLX Server :8181    │                   │  noc-baguette (VPS)  │◄────────┘
+│    Gemma-3 12B 4bit  │                   │                      │
 │  Glances             │                   │  Rathole Server      │
 └──────────────────────┘                   │    :23512/udp ──────────► Internet (Resonite)
                                            │    :2333/tcp (Tailscale only)
@@ -83,8 +83,7 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 
 | Service | Port | Manager | Description |
 |---|---|---|---|
-| OpenClaw | 18789 | launchd | On-device AI gateway |
-| Ollama | 11434 | system | Local LLM runtime (Metal/M4) |
+| MLX Server | 8181 | launchd | `mlx_lm.server` serving `mlx-community/gemma-3-12b-it-4bit` (OpenAI-compatible API) |
 | Glances | 61999 | launchd | System metrics API |
 
 ### noc-baguette
