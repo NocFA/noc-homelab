@@ -18,6 +18,21 @@ THRESHOLDS = {
     'cpu_percent': {'warning': 90, 'critical': 95},
 }
 
+# Per-machine threshold overrides. Merge on top of THRESHOLDS by metric.
+# noc-claw runs mlx_lm.server (~7.5GB resident) so memory routinely sits in the
+# high 80s -- default 85/90 memory thresholds would fire constantly. Bump the
+# floor so we only get alerted when it's genuinely out of headroom.
+MACHINE_OVERRIDES = {
+    'noc-claw': {
+        'memory_percent': {'warning': 92, 'critical': 96},
+    },
+}
+
+
+def _get_thresholds(machine_id, metric):
+    override = MACHINE_OVERRIDES.get(machine_id, {}).get(metric)
+    return override if override else THRESHOLDS[metric]
+
 # How many consecutive checks before firing an alert (prevents transient spikes)
 # At 10s check intervals, 12 = requires ~2 minutes of sustained breach before alerting
 SUSTAINED_CHECKS = 12
@@ -127,11 +142,12 @@ class AlertEngine:
         """Check stats against thresholds, manage breach counts, fire/resolve alerts."""
         now = time.time()
 
-        for metric, thresholds in THRESHOLDS.items():
+        for metric in THRESHOLDS.keys():
             value = stats.get(metric)
             if value is None:
                 continue
 
+            thresholds = _get_thresholds(machine_id, metric)
             key = (machine_id, metric)
             level = None
 
