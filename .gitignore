@@ -124,6 +124,17 @@ configs/teamspeak/backups/
 # Internal operational docs (not for public repo)
 docs/migration.md
 
+# Branch-local scratch, planning, and handoff notes.
+# Ephemeral docs generated during a branch's lifecycle (HANDOFF.md,
+# TRACKING.md, session checkpoints, etc.). These MUST NOT ship to the
+# public repo — if anything here deserves to persist, promote it
+# explicitly into docs/ or noc-homelab-beads/memory/ first.
+# Named dirs cover current/past branches; generic .scratch/ + scratch/
+# catch future ones by convention.
+.homelab-lockdown/
+.scratch/
+scratch/
+
 # Re-include .env.example placeholder files so fork/clone knows what to
 # configure. Global gitignore blocks `.env.*`; negate here for examples only.
 !*.env.example
