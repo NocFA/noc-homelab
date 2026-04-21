@@ -1,0 +1,36 @@
+# CrowdSec decision profiles.
+#
+# A profile matches alerts and emits decisions + notifications. By default,
+# CrowdSec ships a profile that bans IPs for 4h and emails admin. We override
+# it to:
+#   (a) keep the 4h ban decision (recorded, but no active bouncer applies it)
+#   (b) fire a Discord webhook on every ban
+#
+# Because no bouncer is installed (observation-only), decisions are stored in
+# the local SQLite DB but NOT enforced. To go active later: install firewall
+# bouncer, pf bouncer, etc.
+
+name: default_ip_remediation
+#debug: true
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip"
+decisions:
+ - type: ban
+   duration: 4h
+#duration_expr: Sprintf('%dh', (GetDecisionsCount(Alert.GetValue()) + 1) * 4)
+on_success: break
+notifications:
+  - http_discord
+  - http_triage
+
+---
+name: default_range_remediation
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Range"
+decisions:
+ - type: ban
+   duration: 4h
+on_success: break
+notifications:
+  - http_discord
+  - http_triage

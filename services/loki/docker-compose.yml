@@ -1,0 +1,74 @@
+# Loki + Grafana log aggregation stack
+#
+# Runs on noc-tux. Receives logs from Alloy agents on all homelab machines via
+# HTTP push on port 3100. Grafana UI on port 3000.
+#
+# Exposure:
+#   - UFW default-deny from WAN (DOCKER-USER chain blocks 3000/3100 on wlo1)
+#   - Reachable from Tailscale (100.64.0.0/10) and LAN (192.168.1.0/24)
+#
+# Storage:
+#   - 14 day retention (filesystem, Docker volume)
+#   - Grafana SQLite persisted to Docker volume
+#
+# Start:   docker compose up -d
+# Stop:    docker compose down
+# Logs:    docker compose logs -f
+
+services:
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: loki
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./config/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki_data:/loki
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3100/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - observability
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      # Viewer access without auth on the LAN/Tailscale-trusted network.
+      # Admin login for edits is still required.
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
+      GF_SECURITY_ADMIN_USER: "admin"
+      # Password is set on first boot from GF_SECURITY_ADMIN_PASSWORD__FILE if
+      # you want to supply via secret; otherwise change via UI after login.
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_INSTALL_PLUGINS: ""
+    depends_on:
+      loki:
+        condition: service_healthy
+    networks:
+      - observability
+
+volumes:
+  loki_data:
+  grafana_data:
+
+networks:
+  observability:
+    driver: bridge

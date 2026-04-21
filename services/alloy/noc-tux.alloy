@@ -1,0 +1,176 @@
+// Alloy log shipper — noc-tux (Ubuntu)
+//
+// Ships systemd journal + Docker container logs + selected files to Loki.
+// Runs as systemd unit (apt package: `alloy`).
+//
+// Install location: /etc/alloy/config.alloy (symlink to this file via
+// `services/alloy/deploy-noc-tux.sh`).
+
+// -----------------------------------------------------------------------------
+// Loki write target (shared by all sources below)
+// -----------------------------------------------------------------------------
+
+loki.write "default" {
+  endpoint {
+    url = "http://localhost:3100/loki/api/v1/push"
+  }
+  external_labels = {
+    machine = "noc-tux",
+  }
+}
+
+// -----------------------------------------------------------------------------
+// systemd journal
+// -----------------------------------------------------------------------------
+
+loki.source.journal "journal" {
+  forward_to    = [loki.process.journal_relabel.receiver]
+  max_age       = "12h"
+  labels        = {
+    job = "journal",
+  }
+  relabel_rules = loki.relabel.journal_labels.rules
+}
+
+loki.relabel "journal_labels" {
+  forward_to = []
+
+  // Promote only low-cardinality journal fields to Loki stream labels.
+  // Avoid unit/pid/comm because session-*.scope, user-*.slice, and per-PID
+  // values explode stream count and hit Loki's max_streams_per_user.
+  //
+  // For drilling into a specific unit, query with a filter expression on
+  // the log body: {machine="noc-tux"} |= "_SYSTEMD_UNIT=ssh.service"
+  rule {
+    source_labels = ["__journal_syslog_identifier"]
+    target_label  = "service_name"
+  }
+}
+
+loki.process "journal_relabel" {
+  forward_to = [loki.write.default.receiver]
+
+  // Drop anything older than 5 minutes to avoid replaying stale journal
+  // on fresh Alloy starts and hitting Loki's reject_old_samples window.
+  stage.drop {
+    older_than          = "5m"
+    drop_counter_reason = "retention_older_than_5m"
+  }
+
+  // Route auth events (sshd, sudo, su, login, PAM) to job=auth so the
+  // dashboard can query failed-login counts without scanning all journal
+  // entries. Keep the match set small and pinned to known syslog idents.
+  stage.match {
+    selector = `{service_name=~"sshd|sudo|su|login"}`
+    stage.static_labels {
+      values = {
+        job = "auth",
+      }
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Docker containers (Traefik, Matrix, Arcane, etc.)
+// -----------------------------------------------------------------------------
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+
+  filter {
+    name   = "status"
+    values = ["running"]
+  }
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/matrix-traefik.*"
+    target_label  = "job"
+    replacement   = "traefik"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/matrix-synapse.*"
+    target_label  = "job"
+    replacement   = "synapse"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/matrix-.*"
+    target_label  = "job"
+    replacement   = "matrix"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.relabel.containers.output
+  labels        = {
+    job = "docker",
+  }
+  forward_to    = [loki.process.docker_drop_old.receiver]
+  relabel_rules = discovery.relabel.containers.rules
+}
+
+// Containers that have been running for weeks replay all their historical
+// stdout/stderr on first scrape. Loki rejects batches containing entries
+// older than `reject_old_samples_max_age` (168h), nuking the whole batch.
+// Drop anything older than 5 minutes client-side so current logs flow.
+loki.process "docker_drop_old" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.drop {
+    older_than          = "5m"
+    drop_counter_reason = "retention_older_than_5m"
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Non-journal files (Caddy websites access log)
+// -----------------------------------------------------------------------------
+
+local.file_match "caddy" {
+  path_targets = [
+    {__path__ = "/home/noc/websites/logs/access.log", job = "caddy"},
+  ]
+}
+
+loki.source.file "caddy" {
+  targets    = local.file_match.caddy.targets
+  forward_to = [loki.process.caddy.receiver]
+}
+
+loki.process "caddy" {
+  forward_to = [loki.write.default.receiver]
+
+  // Caddy JSON access log → structured metadata
+  stage.json {
+    expressions = {
+      status  = "status",
+      method  = "request.method",
+      host    = "request.host",
+      uri     = "request.uri",
+    }
+  }
+
+  stage.labels {
+    values = {
+      status = "",
+      method = "",
+      host   = "",
+    }
+  }
+}

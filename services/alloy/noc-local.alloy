@@ -1,0 +1,96 @@
+// Alloy log shipper — noc-local (macOS)
+//
+// macOS has no systemd journal. Tails:
+//   - /var/log/system.log  (unified system log tail)
+//   - ~/Library/Logs/noc-homelab/*.log  (LaunchAgent output)
+//
+// Install via `brew install grafana/grafana/alloy`.
+// Launched via brew services (loads
+// /opt/homebrew/opt/alloy/*.plist which reads /opt/homebrew/etc/alloy/config.alloy).
+
+// -----------------------------------------------------------------------------
+// Loki write target — points at noc-tux across Tailscale
+// -----------------------------------------------------------------------------
+
+loki.write "default" {
+  endpoint {
+    url = "http://noc-tux:3100/loki/api/v1/push"
+  }
+  external_labels = {
+    machine = "noc-local",
+  }
+}
+
+// -----------------------------------------------------------------------------
+// System log
+// -----------------------------------------------------------------------------
+
+local.file_match "system" {
+  path_targets = [
+    {__path__ = "/var/log/system.log", job = "system"},
+  ]
+}
+
+loki.source.file "system" {
+  targets    = local.file_match.system.targets
+  forward_to = [loki.process.system.receiver]
+}
+
+loki.process "system" {
+  forward_to = [loki.write.default.receiver]
+
+  // Drop stale lines on first-read to avoid replaying all of system.log.
+  stage.drop {
+    older_than          = "5m"
+    drop_counter_reason = "retention_older_than_5m"
+  }
+
+  // Mark sshd / auth-related lines as job=auth for dashboard queries.
+  stage.match {
+    selector = `{job="system"} |~ "(?i)sshd|authentication|authorization|sudo|pam"`
+    stage.static_labels {
+      values = {
+        job = "auth",
+      }
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Homelab LaunchAgent logs
+// -----------------------------------------------------------------------------
+
+local.file_match "homelab" {
+  path_targets = [
+    {__path__ = "/Users/noc/Library/Logs/noc-homelab/*.log", job = "homelab"},
+  ]
+
+  // Pick up newly-created logs quickly (plists truncate on restart)
+  sync_period = "10s"
+}
+
+loki.source.file "homelab" {
+  targets    = local.file_match.homelab.targets
+  forward_to = [loki.process.homelab.receiver]
+}
+
+loki.process "homelab" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.drop {
+    older_than          = "5m"
+    drop_counter_reason = "retention_older_than_5m"
+  }
+
+  stage.regex {
+    // Extract the service name from the log filename
+    source     = "filename"
+    expression = "/(?P<service>[^/]+?)(\\.error)?\\.log$"
+  }
+
+  stage.labels {
+    values = {
+      service = "",
+    }
+  }
+}

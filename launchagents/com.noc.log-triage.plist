@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.log-triage</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: &gt; ~/Library/Logs/noc-homelab/log-triage.log; : &gt; ~/Library/Logs/noc-homelab/log-triage.error.log; cd /Users/noc/noc-homelab/services/log-triage &amp;&amp; set -a &amp;&amp; . ./.env &amp;&amp; set +a &amp;&amp; exec ./.venv/bin/python app.py</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/log-triage.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/log-triage.error.log</string>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/noc/noc-homelab/services/log-triage</string>
+</dict>
+</plist>
