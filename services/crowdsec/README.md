@@ -44,6 +44,37 @@ sudo systemctl enable --now crowdsec
 sudo systemctl restart crowdsec
 ```
 
+## Exposing LAPI to Tailscale peers (for remote agents)
+
+By default LAPI listens on `127.0.0.1:8150`. To let agents on noc-local /
+noc-claw forward alerts, expose it on all interfaces (UFW already allows
+`100.64.0.0/10` inbound to anything). Use the supported `.local` overlay
+so package upgrades don't clobber it:
+
+```bash
+sudo tee /etc/crowdsec/config.yaml.local > /dev/null <<'EOF'
+api:
+  server:
+    listen_uri: 0.0.0.0:8150
+    trusted_ips:
+      - 127.0.0.1
+      - ::1
+      - 100.64.0.0/10
+EOF
+sudo chmod 0600 /etc/crowdsec/config.yaml.local
+sudo systemctl restart crowdsec
+```
+
+Then issue per-machine credentials (run once per remote agent):
+
+```bash
+sudo cscli machines add noc-local-mac --auto -f -
+sudo cscli machines add noc-claw-mac --auto -f -
+```
+
+The output goes straight into the agent's `.env` on the other host —
+see `services/crowdsec-agent/README.md` for the agent side.
+
 ## Validate
 
 ```bash
