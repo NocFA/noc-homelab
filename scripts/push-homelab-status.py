@@ -48,9 +48,7 @@ PUBLIC_SERVICES = {
         'sunshine':         'Sunshine',
     },
     'noc-claw': {
-        'openclaw':         'OpenClaw',
-        'ollama':           'Ollama',
-        'open-llm-vtuber':  'VTuber',
+        'mlx-server':       'MLX',
     },
     'noc-baguette': {
         'rathole':          'Rathole',

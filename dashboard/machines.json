@@ -197,30 +197,13 @@
       "agent_port": 5005,
       "glances_port": 61999,
       "services": {
-        "openclaw": {
-          "name": "OpenClaw Gateway",
-          "description": "On-device AI gateway (local LLMs via Ollama)",
+        "mlx-server": {
+          "name": "MLX Server",
+          "description": "Local LLM runtime (mlx_lm.server, gemma-3-12b-it-4bit)",
           "manager": "launchd",
-          "unit_name": "ai.openclaw.gateway",
-          "port": 18789,
-          "url": "http://100.95.102.128:18789"
-        },
-        "ollama": {
-          "name": "Ollama",
-          "description": "Local LLM runtime (Metal/M4)",
-          "manager": "launchd",
-          "unit_name": "com.ollama.server",
-          "port": 11434,
-          "url": "http://100.95.102.128:11434"
-        },
-        "open-llm-vtuber": {
-          "name": "Open-LLM-VTuber",
-          "description": "Open source AI VTuber (using Ollama)",
-          "manager": "launchd",
-          "unit_name": "com.noc.open-llm-vtuber",
-          "port": 12393,
-          "status_port": 12393,
-          "url": "https://noc-claw:12394"
+          "unit_name": "com.noc.mlx-server",
+          "port": 8181,
+          "url": "http://100.95.102.128:8181"
         },
         "glances": {
           "name": "Glances",
