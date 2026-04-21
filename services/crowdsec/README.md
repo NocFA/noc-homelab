@@ -14,8 +14,11 @@ bouncer.
 ## Install (noc-tux)
 
 ```bash
-# Ubuntu apt already has crowdsec:
-sudo apt-get install -y crowdsec
+# IMPORTANT: do NOT use Ubuntu's apt crowdsec — 24.04 ships a broken 1.4.6
+# with incorrect plugin naming. Use the upstream packagecloud repo:
+curl -fsSL https://install.crowdsec.net | sudo sh
+sudo apt-get install -y crowdsec   # pulls >=1.7.x from crowdsec/crowdsec
+# (verify: apt-cache policy crowdsec → version from packagecloud.io)
 
 # Install recommended collections
 sudo cscli collections install \
