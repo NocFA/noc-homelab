@@ -1,0 +1,36 @@
+# Discord webhook notifier for CrowdSec.
+#
+# The real webhook URL lives in /etc/crowdsec/notifications/http_discord.yaml
+# on the host (gitignored / SOPS-encrypted). This file in the repo has a
+# placeholder. The deploy script substitutes ${CROWDSEC_DISCORD_WEBHOOK} from
+# a .env file.
+#
+# Docs: https://docs.crowdsec.net/docs/notification_plugins/http/
+
+type: http
+name: http_discord
+log_level: info
+
+# One embed per alert, joined into a Discord payload.
+format: |
+  {
+    "username": "CrowdSec / noc-tux",
+    "embeds":
+      [{{range $i, $a := .}}{{if $i}},{{end}}{
+        "title": "{{$a.Source.Scope}}: {{$a.Source.IP}}{{if $a.Source.Cn}} ({{$a.Source.Cn}}){{end}}",
+        "description": "Scenario `{{$a.Scenario}}` triggered {{len $a.Decisions}} decision(s). Events: {{$a.EventsCount}}.",
+        "color": 15158332,
+        "fields": [
+          {"name": "Source",      "value": "`{{$a.Source.IP}}`",                     "inline": true},
+          {"name": "Scenario",    "value": "`{{$a.Scenario}}`",                      "inline": true},
+          {"name": "Duration",    "value": "{{(index $a.Decisions 0).Duration}}",     "inline": true},
+          {"name": "Remediation", "value": "{{(index $a.Decisions 0).Type}} (observation mode)", "inline": false}
+        ],
+        "footer": {"text": "noc-tux crowdsec · bouncer not attached · informational only"}
+      }{{end}}]
+  }
+
+url: ${CROWDSEC_DISCORD_WEBHOOK}
+method: POST
+headers:
+  Content-Type: application/json

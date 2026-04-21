@@ -1,0 +1,83 @@
+// Alloy log shipper — noc-claw (macOS, M4)
+//
+// Same shape as noc-local but tails mlx-server + other noc-claw LaunchAgent
+// logs instead of dashboard/maloja/etc.
+
+loki.write "default" {
+  endpoint {
+    url = "http://noc-tux:3100/loki/api/v1/push"
+  }
+  external_labels = {
+    machine = "noc-claw",
+  }
+}
+
+// -----------------------------------------------------------------------------
+// System log
+// -----------------------------------------------------------------------------
+
+local.file_match "system" {
+  path_targets = [
+    {__path__ = "/var/log/system.log", job = "system"},
+  ]
+}
+
+loki.source.file "system" {
+  targets    = local.file_match.system.targets
+  forward_to = [loki.process.system.receiver]
+}
+
+loki.process "system" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.drop {
+    older_than          = "5m"
+    drop_counter_reason = "retention_older_than_5m"
+  }
+
+  stage.match {
+    selector = `{job="system"} |~ "(?i)sshd|authentication|authorization|sudo|pam"`
+    stage.static_labels {
+      values = {
+        job = "auth",
+      }
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Homelab LaunchAgent logs (mlx-server, agent, etc.)
+// -----------------------------------------------------------------------------
+
+local.file_match "homelab" {
+  path_targets = [
+    {__path__ = "/Users/noc/Library/Logs/noc-homelab/*.log", job = "homelab"},
+  ]
+
+  sync_period = "10s"
+}
+
+loki.source.file "homelab" {
+  targets    = local.file_match.homelab.targets
+  forward_to = [loki.process.homelab.receiver]
+}
+
+loki.process "homelab" {
+  forward_to = [loki.write.default.receiver]
+
+  stage.drop {
+    older_than          = "5m"
+    drop_counter_reason = "retention_older_than_5m"
+  }
+
+  stage.regex {
+    source     = "filename"
+    expression = "/(?P<service>[^/]+?)(\\.error)?\\.log$"
+  }
+
+  stage.labels {
+    values = {
+      service = "",
+    }
+  }
+}

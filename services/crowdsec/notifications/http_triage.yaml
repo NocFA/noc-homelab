@@ -1,0 +1,36 @@
+# Secondary CrowdSec notifier → log-triage webhook on noc-claw.
+#
+# Fires alongside http_discord. The triage service hydrates each alert with
+# Loki context + an LLM-generated summary before posting to Discord.
+# http_discord still fires for immediate/simple coverage; http_triage is the
+# slower, "why is this happening" variant.
+#
+# The notifier sends the array of alert objects as JSON (same as what cscli
+# alerts inspect gives you). Headers include the auth token that matches the
+# webhook's AUTH_TOKEN env.
+
+type: http
+name: http_triage
+log_level: info
+
+# Pass the full CrowdSec Alert array. The service handles both single-object
+# and array payloads.
+format: |
+  [{{range $i, $a := .}}{{if $i}},{{end}}{
+    "scenario":     {{$a.Scenario | toJson}},
+    "events_count": {{$a.EventsCount}},
+    "source": {
+      "ip":    {{$a.Source.IP | toJson}},
+      "cn":    {{$a.Source.Cn | toJson}},
+      "scope": {{$a.Source.Scope | toJson}}
+    },
+    "decisions": [{{range $j, $d := $a.Decisions}}{{if $j}},{{end}}{"type": {{$d.Type | toJson}}, "duration": {{$d.Duration | toJson}}}{{end}}],
+    "start_at": {{$a.StartAt | toJson}},
+    "stop_at":  {{$a.StopAt | toJson}}
+  }{{end}}]
+
+url: ${LOG_TRIAGE_URL}
+method: POST
+headers:
+  Content-Type: application/json
+  X-Auth-Token: ${LOG_TRIAGE_TOKEN}

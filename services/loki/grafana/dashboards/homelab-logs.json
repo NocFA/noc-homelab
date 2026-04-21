@@ -1,0 +1,215 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "liveNow": true,
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Log volume per machine over time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "normal"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "legend": {"calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum by (machine) (count_over_time({machine=~\".+\"} [$__auto]))",
+          "legendFormat": "{{machine}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Log Volume by Machine",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Auth failures and SSH brute force attempts across homelab",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 2,
+      "options": {
+        "legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "single", "sort": "none"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum by (machine) (count_over_time({job=\"auth\"} |~ \"(?i)failed|invalid|authentication failure\" [$__auto]))",
+          "legendFormat": "{{machine}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Auth Failures (SSH / PAM)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "HTTP 4xx responses from Traefik (client errors, path probes)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {"group": "A", "mode": "none"}
+          },
+          "thresholds": {"mode": "absolute", "steps": [{"color": "yellow", "value": null}]}
+        }
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 3,
+      "options": {
+        "legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "single", "sort": "none"}
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "sum by (status) (count_over_time({job=\"traefik\"} | json | status=~\"4..\" [$__auto]))",
+          "legendFormat": "{{status}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Traefik 4xx Responses",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Live tail of everything — newest first",
+      "gridPos": {"h": 16, "w": 24, "x": 0, "y": 16},
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {"type": "loki", "uid": "loki"},
+          "expr": "{machine=~\"$machine\", job=~\"$job\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Live Log Tail",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["homelab", "logs"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": "All", "value": "$__all"},
+        "datasource": {"type": "loki", "uid": "loki"},
+        "definition": "label_values(machine)",
+        "includeAll": true,
+        "label": "Machine",
+        "multi": true,
+        "name": "machine",
+        "options": [],
+        "query": "label_values(machine)",
+        "refresh": 1,
+        "type": "query"
+      },
+      {
+        "current": {"selected": false, "text": "All", "value": "$__all"},
+        "datasource": {"type": "loki", "uid": "loki"},
+        "definition": "label_values(job)",
+        "includeAll": true,
+        "label": "Job",
+        "multi": true,
+        "name": "job",
+        "options": [],
+        "query": "label_values(job)",
+        "refresh": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Homelab Logs",
+  "uid": "homelab-logs",
+  "version": 1,
+  "weekStart": ""
+}

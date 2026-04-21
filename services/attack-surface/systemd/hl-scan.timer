@@ -1,0 +1,12 @@
+[Unit]
+Description=Weekly external attack-surface scan
+
+[Timer]
+# Sunday 03:15 UTC — low-traffic window
+OnCalendar=Sun *-*-* 03:15:00 UTC
+RandomizedDelaySec=30m
+Persistent=yes
+Unit=hl-scan.service
+
+[Install]
+WantedBy=timers.target

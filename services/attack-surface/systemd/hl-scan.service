@@ -1,0 +1,26 @@
+[Unit]
+Description=External attack-surface scan (nuclei + testssl + ssh-audit)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/hl-scan.env
+ExecStart=/opt/hl-scan/scan.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+# Sandboxing — scan should never write outside /var/lib/hl-scan
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/var/lib/hl-scan /root/nuclei-templates /root/.config/nuclei
+NoNewPrivileges=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

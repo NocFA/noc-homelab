@@ -1,0 +1,41 @@
+# CrowdSec acquisitions (extras).
+#
+# The CrowdSec debian package auto-generates `/etc/crowdsec/acquis.d/setup.*`
+# on install, covering auth.log, syslog, kern.log, and journalctl for
+# `caddy.service`. We only ADD what the auto-setup misses.
+#
+# Install location: /etc/crowdsec/acquis.yaml on noc-tux.
+# Matches `setup.*` by-product is intentionally avoided to prevent dupes.
+
+---
+# Caddy *websites* journalctl — the auto-setup assumes unit name
+# `caddy.service`, but our unit is `caddy-websites.service`.
+source: journalctl
+journalctl_filter:
+ - "_SYSTEMD_UNIT=caddy-websites.service"
+labels:
+  type: caddy
+
+---
+# Matrix Traefik — docker container stdout/stderr (HTTP probes, 401/403)
+source: docker
+container_name_regexp:
+ - matrix-traefik
+labels:
+  type: traefik
+
+---
+# Matrix Synapse — login abuse, registration scraping
+source: docker
+container_name_regexp:
+ - matrix-synapse
+labels:
+  type: syslog
+
+---
+# Forgejo runner (hit by misconfig / malicious workflow attempts)
+source: journalctl
+journalctl_filter:
+ - "_SYSTEMD_UNIT=forgejo-runner.service"
+labels:
+  type: syslog
