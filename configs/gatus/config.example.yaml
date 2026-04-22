@@ -98,19 +98,7 @@ endpoints:
             send-on-resolved: true
             failure-threshold: 2
 
-    # --- Cloud & Utilities ---
-    - name: "Nextcloud"
-      group: "Cloud"
-      url: "http://noc-local:9080"
-      interval: 30s
-      conditions:
-          - "[STATUS] == 200"
-      alerts:
-          - type: discord
-            enabled: false
-            send-on-resolved: true
-            failure-threshold: 2
-
+    # --- Utilities ---
     - name: "Syncthing"
       group: "Utilities"
       url: "http://noc-local:8384"

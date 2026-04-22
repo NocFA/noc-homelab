@@ -27,12 +27,12 @@ noc-local (macOS)                          noc-tux (Ubuntu)
 │  Maloja              │                   │    Synapse           │
 │  Multi-Scrobbler     │                   │    Element Web       │
 │  TeamSpeak 6         │                   │    Synapse Admin     │
-│  Nextcloud           │                   │    Postgres/Traefik  │
-│  Syncthing           │                   │    Coturn (TURN)     │
-│  Gatus / Glances     │                   │                      │
-│  Caddy / Beads UI    │                   │  Media Pipeline      │
-│  VoiceSeq            │                   │    Zurg → Rclone     │
-│  Tailscale           │                   │    FileBot           │
+│  Syncthing           │                   │    Postgres/Traefik  │
+│  Gatus / Glances     │                   │    Coturn (TURN)     │
+│  Caddy / Beads UI    │                   │                      │
+│  VoiceSeq            │                   │  Media Pipeline      │
+│  Tailscale           │                   │    Zurg → Rclone     │
+│                      │                   │    FileBot           │
 │                      │                   │    Emby / Jellyfin   │
 │  MDSF Crew (Web/API) │                   │                      │
 │  MDSF Org Dashboard  │                   │  Sunshine / NoMachine│
@@ -66,7 +66,6 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | Maloja | 42010 | launchd | Music scrobble server |
 | Multi-Scrobbler | 9078 | launchd | Scrobbler aggregator |
 | TeamSpeak 6 | 9987 | Docker | Voice chat + P2P Screenshare |
-| Nextcloud | 9080 | Docker | Cloud storage |
 | Syncthing | 8384 | launchd | File sync |
 | Gatus | 3001 | Docker | Health monitoring |
 | Glances | 61999 | launchd | System metrics API |

@@ -28,7 +28,6 @@ The NOC Homelab is a distributed service management system spanning multiple mac
     │ - Copyparty     │         │ - TBD           │         │                 │
     │ - Maloja        │         │ - TBD           │         │                 │
     │ - TeamSpeak     │         │                 │         │                 │
-    │ - Nextcloud     │         │                 │         │                 │
     │ - etc.          │         │                 │         │                 │
     └─────────────────┘         └─────────────────┘         └─────────────────┘
 ```
@@ -306,7 +305,6 @@ noc-homelab/
 │       └── windows.py     # Windows service handlers
 ├── services/              # Docker Compose services
 │   ├── gatus/
-│   ├── nextcloud/
 │   └── ...
 ├── launchagents/          # macOS LaunchAgent plists
 ├── scripts/               # Utility scripts
