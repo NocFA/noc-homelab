@@ -748,7 +748,7 @@ def index():
                 'description': 'VPN & Mesh Network',
                 'remote': False
             })
-        elif key == 'teamspeak':
+        elif key == 'teamspeak-6':
             services_list.append({
                 'key': key,
                 'name': service['name'],
