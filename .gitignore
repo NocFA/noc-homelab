@@ -74,8 +74,9 @@ tmp/
 # SOPS decrypted files (plaintext secrets, never commit)
 *.dec
 
-# Docker service runtime data
+# Docker service runtime data (incl. timestamped migration/backup snapshots)
 services/*/data/
+services/*/data.*/
 services/*/db/
 
 
