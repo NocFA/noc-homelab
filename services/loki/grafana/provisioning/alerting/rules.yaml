@@ -1,0 +1,248 @@
+apiVersion: 1
+
+# Grafana alerting rules for homelab anomaly detection.
+#
+# Each rule: Query (A) → Reducer 'last' (B) → Threshold (C).
+# The reducer collapses the query's time series to a single scalar per
+# instance label, which is what the threshold expression needs. Skipping
+# the reducer produces 'frame cannot uniquely be identified by its labels'
+# errors from Grafana's evaluator.
+#
+# Thresholds are conservative — a homelab at idle should never hit any of
+# these. Tune via Grafana UI and re-export to YAML if needed.
+
+groups:
+  - orgId: 1
+    name: homelab-anomaly
+    folder: Homelab
+    interval: 1m
+    rules:
+      - uid: wan-egress-spike
+        title: WAN bandwidth sustained spike
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: |
+                sum by (instance) (
+                  abs(netdata_net_net_kilobits_persec_average{chart=~"net\\.(wlo1|en0|en1)",dimension=~"received|sent"})
+                ) / 1024
+              intervalMs: 15000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: mean
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [500], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "{{ $labels.instance }} sustained WAN traffic > 500 Mbit/s"
+          value: "{{ $values.B }} Mbit/s (5m mean)"
+          runbook_url: http://noc-tux:3000/d/homelab-network/homelab-network?var-instance={{ $labels.instance }}
+        labels:
+          severity: warning
+          component: network
+
+      - uid: cpu-pegged
+        title: CPU > 95% sustained
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: 100 - avg by (instance) (netdata_system_cpu_percentage_average{dimension="idle"})
+              intervalMs: 15000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: mean
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [95], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "{{ $labels.instance }} CPU sustained > 95%"
+          value: "{{ $values.B }}% (10m mean)"
+          runbook_url: http://noc-tux:3000/d/homelab-overview/homelab-overview
+        labels:
+          severity: warning
+          component: cpu
+
+      - uid: mem-pressure
+        title: Memory > 92% sustained
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: |
+                100 * (
+                  sum by (instance) (netdata_system_ram_MiB_average{chart="system.ram"})
+                  - sum by (instance) (netdata_system_ram_MiB_average{chart="system.ram",dimension=~"free|inactive|purgeable|cached|buffers"})
+                ) / sum by (instance) (netdata_system_ram_MiB_average{chart="system.ram"})
+              intervalMs: 15000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: mean
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [92], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: "{{ $labels.instance }} memory sustained > 92%"
+          value: "{{ $values.B }}%"
+          runbook_url: http://noc-tux:3000/d/homelab-overview/homelab-overview
+        labels:
+          severity: warning
+          component: memory
+
+      - uid: disk-nearly-full
+        title: Root FS > 90% used
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: |
+                100 * netdata_disk_space_GiB_average{chart="disk_space./",dimension="used"}
+                / (netdata_disk_space_GiB_average{chart="disk_space./",dimension="used"}
+                   + netdata_disk_space_GiB_average{chart="disk_space./",dimension="avail"})
+              intervalMs: 15000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [90], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "{{ $labels.instance }} / filesystem > 90% full"
+          value: "{{ $values.B }}%"
+          runbook_url: http://noc-tux:3000/d/homelab-overview/homelab-overview
+        labels:
+          severity: critical
+          component: disk
+
+      - uid: netdata-scrape-down
+        title: Netdata scrape target down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 180, to: 0}
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: up{job="netdata"}
+              intervalMs: 15000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 180, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [1], type: lt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 3m
+        annotations:
+          summary: "Netdata on {{ $labels.instance }} not scraping — metrics blind here"
+          value: "0 (down)"
+          runbook_url: http://noc-tux:9090/targets
+        labels:
+          severity: warning
+          component: monitoring

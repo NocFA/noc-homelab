@@ -35,6 +35,36 @@ services:
     networks:
       - observability
 
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    extra_hosts:
+      # noc-tux (self) via Docker bridge gateway — Tailscale interface
+      # isn't reachable from inside the container when host == target.
+      - "noc-tux:host-gateway"
+      # Peers via Tailscale IPs — stable across LAN flaps.
+      - "noc-local:100.111.190.104"
+      - "noc-claw:100.95.102.128"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - observability
+
   grafana:
     image: grafana/grafana:11.4.0
     container_name: grafana
@@ -59,8 +89,15 @@ services:
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_INSTALL_PLUGINS: ""
+      # Substituted into provisioning/alerting/contact-points.yaml at boot.
+      # Fallback is a clearly-invalid Discord URL that satisfies Grafana's
+      # URL validation without delivering alerts. Set a real webhook in
+      # services/loki/.env to enable delivery.
+      GRAFANA_DISCORD_WEBHOOK: "${GRAFANA_DISCORD_WEBHOOK:-https://discord.com/api/webhooks/DISABLED/DISABLED_SET_GRAFANA_DISCORD_WEBHOOK_IN_ENV}"
     depends_on:
       loki:
+        condition: service_healthy
+      prometheus:
         condition: service_healthy
     networks:
       - observability
@@ -68,6 +105,7 @@ services:
 volumes:
   loki_data:
   grafana_data:
+  prometheus_data:
 
 networks:
   observability:

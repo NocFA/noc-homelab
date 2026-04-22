@@ -210,6 +210,10 @@
   "timezone": "",
   "title": "Homelab Logs",
   "uid": "homelab-logs",
-  "version": 1,
-  "weekStart": ""
+  "version": 2,
+  "weekStart": "",
+  "links": [
+    {"title": "Overview", "type": "link", "url": "/d/homelab-overview", "targetBlank": false},
+    {"title": "Network deep-dive", "type": "link", "url": "/d/homelab-network", "targetBlank": false}
+  ]
 }
