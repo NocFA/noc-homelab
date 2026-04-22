@@ -60,7 +60,7 @@ docker compose up -d
 
 ```bash
 # Check LaunchAgent services
-launchctl list | grep -E "(dashboard|maloja|multi|copyparty|teamspeak|voiceseq)"
+launchctl list | grep -E "(dashboard|maloja|multi|copyparty|voiceseq)"
 
 # Check Docker services
 docker ps
