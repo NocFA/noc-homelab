@@ -52,9 +52,6 @@ done
 cd /Users/noc/noc-homelab/services/gatus
 docker compose up -d
 
-cd /Users/noc/noc-homelab/services/nextcloud
-docker compose up -d
-
 cd /Users/noc/noc-homelab/services/ts3audiobot
 docker compose up -d
 ```
@@ -132,7 +129,7 @@ tail -f ~/Library/Logs/noc-homelab/dashboard.error.log
 Service-specific secrets go in `.env` files (gitignored). Copy from examples:
 
 ```bash
-cp services/nextcloud/.env.example services/nextcloud/.env
+cp services/<name>/.env.example services/<name>/.env
 # Edit with your values
 ```
 
