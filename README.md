@@ -76,6 +76,9 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | MDSF Crew API | 3100 | launchd | Crew management backend |
 | MDSF Crew Web | 5173 | launchd | Crew management frontend |
 | MDSF Org Dashboard | 8190 | launchd | Organization landing page |
+| Alloy | -- | brew | Log shipper → Loki |
+| CrowdSec Agent | -- | launchd | Native v1.7.7, forwards alerts to noc-tux LAPI |
+| Netdata | 19999 | brew | System metrics (child, streams to noc-tux parent) |
 | Tailscale | -- | system | Mesh VPN |
 
 ### noc-claw
@@ -83,6 +86,10 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | Service | Port | Manager | Description |
 |---|---|---|---|
 | MLX Server | 8181 | launchd | `mlx_lm.server` serving `mlx-community/gemma-3-12b-it-4bit` (OpenAI-compatible API) |
+| log-triage | 8182 | launchd | MLX-backed CrowdSec alert enricher (FastAPI) |
+| Alloy | -- | brew | Log shipper → Loki |
+| CrowdSec Agent | -- | launchd | Native v1.7.7, forwards alerts to noc-tux LAPI |
+| Netdata | 19999 | brew | System metrics (child, streams to noc-tux parent) |
 | Glances | 61999 | launchd | System metrics API |
 
 ### noc-baguette
@@ -92,6 +99,7 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | Rathole Server | 2333/tcp | systemd | Tunnel control (Tailscale-only) |
 | Forgejo SSH | 2222/tcp | rathole | Forgejo git-only SSH (ssh.git.nocfa.net) |
 | Resonite | 23512/udp | rathole | Resonite headless server tunnel |
+| Attack-surface scanner | -- | systemd timer | Weekly nuclei + testssl + ssh-audit scan of public endpoints |
 
 ### noc-tux
 
@@ -115,6 +123,11 @@ The dashboard on noc-local polls the agent API on noc-tux and noc-claw for real-
 | Arcane | 3552 | Docker | Docker management UI |
 | Animated Media API | -- | Docker | Animated cover art converter |
 | looney.eu | -- | Caddy | Personal homepage |
+| Loki | 3100 | Docker | Log aggregation (14-day retention) |
+| Grafana | 3000 | Docker | Log + metrics dashboards |
+| Alloy | -- | systemd | Log shipper (local → Loki) |
+| CrowdSec LAPI | 8150 | systemd | Central alerting (3 agents connected, observation mode) |
+| Netdata | 19999 | systemd | Metrics parent (streams from noc-local + noc-claw) |
 
 ## Media Pipeline
 
@@ -169,6 +182,51 @@ The control channel (port 2333) is Tailscale-only — the VPS is not a jump box.
 3. Restart rathole on both ends
 
 Template configs with commented examples (Minecraft, Bedrock/Geyser, Simple Voice Chat) are in `linux/services/rathole-server/server.toml` and `linux/services/rathole/client.toml`.
+
+## Observability & Security
+
+Four pillars, all deployed on the `homelab-lockdown` branch.
+
+**Central log aggregation** — Loki (noc-tux :3100) ingests logs from all
+three machines via [Grafana Alloy](https://grafana.com/docs/alloy/).
+Grafana at `noc-tux:3000` surfaces a provisioned "Homelab Logs"
+dashboard. Retention 14 days, filesystem backend, ~118MB at bootstrap.
+Label cardinality kept tight (no `unit=session-*.scope` explosion);
+every Alloy pipeline drops samples older than 5 minutes so stale file
+reads don't flood on restart.
+
+**Per-process network & metrics visibility** — Netdata parent on
+noc-tux (:19999) with brew-installed children on both macs streaming
+via the parent-child API. Dropdown at the UI switches between hosts.
+4GB dbengine retention.
+
+**Intrusion detection** — CrowdSec LAPI on noc-tux (:8150, Tailscale +
+LAN only, trusted_ips 127.0.0.1 + ::1 + 100.64.0.0/10). Both macs run
+native v1.7.7 agents (brew-built, under `/opt/homebrew/`, managed by
+`com.noc.crowdsec-agent` LaunchAgent) in agent-only mode. Two notifiers:
+a direct Discord webhook (`http_discord`) and an LLM-enrichment
+(`http_triage`) that fires the alert at the **log-triage** service on
+noc-claw (:8182), which pulls Loki context, asks the local MLX server
+for a short triage summary, and posts the enriched embed back to
+Discord. Fire-and-forget (202 in <5s) so CrowdSec's notifier never
+times out on a cold MLX call. Running in **observation mode** —
+decisions stored, nothing blocked yet. Flipping the firewall bouncer
+is tracked in `noc-homelab-b2r`.
+
+**External attack-surface audit** — nuclei + testssl + ssh-audit
+installed under `/opt/hl-scan/` on noc-baguette, fired by a weekly
+systemd timer (Sundays 03:15 UTC). Rate-limited (8rps / 4 concurrency)
+to avoid tripping Cloudflare anti-abuse. Results stash in
+`/var/lib/hl-scan/runs/`, Discord webhook on findings.
+
+Baseline host-hardening audit (Lynis) was run once on all three hosts;
+findings triaged into follow-up beads.
+
+See [`noc-homelab-beads/memory/observability_stack.md`](./noc-homelab-beads/memory/observability_stack.md)
+for the deployment detail and gotchas; the stack is driven entirely
+from tracked configs under `services/loki/`, `services/alloy/`,
+`services/crowdsec/`, `services/crowdsec-agent/`, `services/log-triage/`,
+`services/attack-surface/`.
 
 ## Secrets Management
 
