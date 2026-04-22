@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.crowdsec-agent</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>: &gt; /Users/noc/Library/Logs/noc-homelab/crowdsec-agent.log; : &gt; /Users/noc/Library/Logs/noc-homelab/crowdsec-agent.error.log; exec /opt/homebrew/bin/crowdsec -c /opt/homebrew/etc/crowdsec/config.yaml</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/crowdsec-agent.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/crowdsec-agent.error.log</string>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>
