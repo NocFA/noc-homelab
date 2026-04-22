@@ -1,0 +1,361 @@
+{
+  "annotations": {"list": []},
+  "description": "At-a-glance homelab health — spot anomalies (bandwidth spikes, CPU runaway, disk fill) across all three machines without drilling in.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "liveNow": false,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["homelab", "overview"],
+  "timezone": "",
+  "title": "Homelab Overview",
+  "uid": "homelab-overview",
+  "time": {"from": "now-24h", "to": "now"},
+  "timepicker": {},
+  "weekStart": "",
+  "templating": {
+    "list": [
+      {
+        "name": "wan_iface_tux",
+        "label": "WAN iface (noc-tux)",
+        "type": "textbox",
+        "query": "wlo1",
+        "current": {"text": "wlo1", "value": "wlo1"}
+      },
+      {
+        "name": "wan_iface_local",
+        "label": "WAN iface (noc-local)",
+        "type": "textbox",
+        "query": "en0",
+        "current": {"text": "en0", "value": "en0"}
+      },
+      {
+        "name": "wan_iface_claw",
+        "label": "WAN iface (noc-claw)",
+        "type": "textbox",
+        "query": "en1",
+        "current": {"text": "en1", "value": "en1"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "title": "Vitals — current",
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "CPU %",
+      "gridPos": {"h": 5, "w": 8, "x": 0, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "orange", "value": 85},
+              {"color": "red", "value": 95}
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "value_and_name",
+        "colorMode": "background_solid",
+        "orientation": "horizontal",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "expr": "100 - avg by (instance) (netdata_system_cpu_percentage_average{dimension=\"idle\"})",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Memory used %",
+      "gridPos": {"h": 5, "w": 8, "x": 8, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 75},
+              {"color": "orange", "value": 85},
+              {"color": "red", "value": 92}
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "value_and_name",
+        "colorMode": "background_solid",
+        "orientation": "horizontal",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum by (instance) (netdata_system_ram_MiB_average{chart=\"system.ram\"}) - sum by (instance) (netdata_system_ram_MiB_average{chart=\"system.ram\",dimension=~\"free|inactive|purgeable|cached|buffers\"})) / sum by (instance) (netdata_system_ram_MiB_average{chart=\"system.ram\"})",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 3,
+      "title": "Load (1m)",
+      "gridPos": {"h": 5, "w": 8, "x": 16, "y": 1},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none", "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 4},
+              {"color": "orange", "value": 8},
+              {"color": "red", "value": 16}
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "value_and_name",
+        "colorMode": "background_solid",
+        "orientation": "horizontal",
+        "graphMode": "area"
+      },
+      "targets": [
+        {
+          "expr": "netdata_system_load_load_average{dimension=\"load1\"}",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 6},
+      "title": "WAN bandwidth — spike detection",
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 10,
+      "title": "WAN traffic kbit/s (noc-tux=$wan_iface_tux, noc-local=$wan_iface_local, noc-claw=$wan_iface_claw)",
+      "description": "Combined rx+tx on the WAN-facing interface per host. A sustained spike here with nothing running = something's fishy.",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 7},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Kbits",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "spanNulls": false,
+            "showPoints": "never",
+            "gradientMode": "opacity"
+          },
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "legend": {"calcs": ["max", "mean"], "displayMode": "table", "placement": "right", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "abs(netdata_net_net_kilobits_persec_average{instance=\"noc-tux\",chart=\"net.$wan_iface_tux\",dimension=\"received\"}) + abs(netdata_net_net_kilobits_persec_average{instance=\"noc-tux\",chart=\"net.$wan_iface_tux\",dimension=\"sent\"})",
+          "legendFormat": "noc-tux ($wan_iface_tux)",
+          "refId": "A"
+        },
+        {
+          "expr": "abs(netdata_net_net_kilobits_persec_average{instance=\"noc-local\",chart=\"net.$wan_iface_local\",dimension=\"received\"}) + abs(netdata_net_net_kilobits_persec_average{instance=\"noc-local\",chart=\"net.$wan_iface_local\",dimension=\"sent\"})",
+          "legendFormat": "noc-local ($wan_iface_local)",
+          "refId": "B"
+        },
+        {
+          "expr": "abs(netdata_net_net_kilobits_persec_average{instance=\"noc-claw\",chart=\"net.$wan_iface_claw\",dimension=\"received\"}) + abs(netdata_net_net_kilobits_persec_average{instance=\"noc-claw\",chart=\"net.$wan_iface_claw\",dimension=\"sent\"})",
+          "legendFormat": "noc-claw ($wan_iface_claw)",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 102,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 16},
+      "title": "CPU & Memory over time",
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 20,
+      "title": "CPU % used (all hosts)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 17},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never",
+            "stacking": {"mode": "none"}
+          },
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "100 - avg by (instance) (netdata_system_cpu_percentage_average{dimension=\"idle\"})",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 21,
+      "title": "Memory used % (all hosts)",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 17},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          },
+          "color": {"mode": "palette-classic"}
+        }
+      },
+      "options": {
+        "legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum by (instance) (netdata_system_ram_MiB_average{chart=\"system.ram\"}) - sum by (instance) (netdata_system_ram_MiB_average{chart=\"system.ram\",dimension=~\"free|inactive|purgeable|cached|buffers\"})) / sum by (instance) (netdata_system_ram_MiB_average{chart=\"system.ram\"})",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 103,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 25},
+      "title": "Disk space",
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "id": 30,
+      "title": "Root filesystem — % used",
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 26},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 75},
+              {"color": "orange", "value": 85},
+              {"color": "red", "value": 92}
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "expr": "100 * netdata_disk_space_GiB_average{chart=\"disk_space./\",dimension=\"used\"} / (netdata_disk_space_GiB_average{chart=\"disk_space./\",dimension=\"used\"} + netdata_disk_space_GiB_average{chart=\"disk_space./\",dimension=\"avail\"})",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "bargauge",
+      "id": 31,
+      "title": "Zurg mount — % used (noc-tux)",
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 26},
+      "description": "Zurg mount is WebDAV via rclone; capacity is pseudo. Value near 100% is normal.",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0, "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": null}
+            ]
+          }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showUnfilled": true
+      },
+      "targets": [
+        {
+          "expr": "100 * netdata_disk_space_GiB_average{chart=~\"disk_space./mnt/zurg.*\",dimension=\"used\"} / (netdata_disk_space_GiB_average{chart=~\"disk_space./mnt/zurg.*\",dimension=\"used\"} + netdata_disk_space_GiB_average{chart=~\"disk_space./mnt/zurg.*\",dimension=\"avail\"})",
+          "legendFormat": "{{mount_point}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {"title": "Homelab Logs", "type": "dashboards", "tags": ["homelab", "logs"], "asDropdown": false, "keepTime": true, "targetBlank": false},
+    {"title": "Network deep-dive", "type": "link", "url": "/d/homelab-network", "targetBlank": false}
+  ]
+}

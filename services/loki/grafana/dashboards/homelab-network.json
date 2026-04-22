@@ -1,0 +1,170 @@
+{
+  "annotations": {"list": []},
+  "description": "Per-interface network bandwidth and packet rates — use this when the overview shows a spike and you need to know what's moving traffic.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["homelab", "network"],
+  "timezone": "",
+  "title": "Homelab Network",
+  "uid": "homelab-network",
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "templating": {
+    "list": [
+      {
+        "name": "instance",
+        "label": "Host",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": "label_values(netdata_info, instance)",
+        "refresh": 1,
+        "multi": false,
+        "includeAll": false,
+        "current": {"text": "noc-tux", "value": "noc-tux"}
+      },
+      {
+        "name": "iface",
+        "label": "Interface",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "prometheus"},
+        "query": "query_result(group by (chart) (netdata_net_net_kilobits_persec_average{instance=\"$instance\"}))",
+        "regex": "/chart=\"net\\.([^\"]+)\"/",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "current": {"text": "All", "value": "$__all"}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "id": 1,
+      "title": "Received (rx) kbit/s per interface — $instance",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Kbits",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "stacking": {"mode": "none"}
+          }
+        }
+      },
+      "options": {
+        "legend": {"calcs": ["max", "mean"], "displayMode": "table", "placement": "right"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "abs(netdata_net_net_kilobits_persec_average{instance=\"$instance\",chart=~\"net\\\\.($iface)\",dimension=\"received\"})",
+          "legendFormat": "{{chart}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 2,
+      "title": "Sent (tx) kbit/s per interface — $instance",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 9},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Kbits",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        }
+      },
+      "options": {
+        "legend": {"calcs": ["max", "mean"], "displayMode": "table", "placement": "right"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "targets": [
+        {
+          "expr": "abs(netdata_net_net_kilobits_persec_average{instance=\"$instance\",chart=~\"net\\\\.($iface)\",dimension=\"sent\"})",
+          "legendFormat": "{{chart}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 3,
+      "title": "Packets/sec per interface — $instance",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        }
+      },
+      "options": {
+        "legend": {"calcs": ["mean"], "displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "abs(netdata_net_packets_packets_persec_average{instance=\"$instance\",chart=~\"net_packets\\\\.($iface)\",dimension=\"received\"}) + abs(netdata_net_packets_packets_persec_average{instance=\"$instance\",chart=~\"net_packets\\\\.($iface)\",dimension=\"sent\"})",
+          "legendFormat": "{{chart}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 4,
+      "title": "Errors + drops per sec — $instance",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "pps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        }
+      },
+      "options": {
+        "legend": {"calcs": ["sum"], "displayMode": "list", "placement": "bottom"},
+        "tooltip": {"mode": "multi"}
+      },
+      "targets": [
+        {
+          "expr": "abs(netdata_net_errors_errors_persec_average{instance=\"$instance\",chart=~\"net_errors\\\\.($iface)\"})",
+          "legendFormat": "errors {{chart}} {{dimension}}",
+          "refId": "A"
+        },
+        {
+          "expr": "abs(netdata_net_drops_drops_persec_average{instance=\"$instance\",chart=~\"net_drops\\\\.($iface)\"})",
+          "legendFormat": "drops {{chart}} {{dimension}}",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {"title": "Overview", "type": "link", "url": "/d/homelab-overview", "targetBlank": false},
+    {"title": "Logs", "type": "link", "url": "/d/homelab-logs", "targetBlank": false}
+  ]
+}
