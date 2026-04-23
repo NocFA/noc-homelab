@@ -95,18 +95,10 @@ discovery.relabel "containers" {
     source_labels = ["__meta_docker_container_log_stream"]
     target_label  = "stream"
   }
-  rule {
-    source_labels = ["__meta_docker_container_name"]
-    regex         = "/matrix-traefik.*"
-    target_label  = "job"
-    replacement   = "traefik"
-  }
-  rule {
-    source_labels = ["__meta_docker_container_name"]
-    regex         = "/matrix-synapse.*"
-    target_label  = "job"
-    replacement   = "synapse"
-  }
+  // matrix-traefik and matrix-synapse are handled by dedicated
+  // loki.source.file blocks below — the matrix playbook sets
+  // `--log-driver=none` on those containers so docker discovery never
+  // sees any log lines. See noc-homelab-5ej.
   rule {
     source_labels = ["__meta_docker_container_name"]
     regex         = "/matrix-.*"
@@ -173,4 +165,56 @@ loki.process "caddy" {
       host   = "",
     }
   }
+}
+
+// -----------------------------------------------------------------------------
+// Matrix Traefik access log (JSON, written via accessLog.filePath)
+// -----------------------------------------------------------------------------
+
+local.file_match "matrix_traefik" {
+  path_targets = [
+    {__path__ = "/matrix/traefik/logs/access.log", job = "traefik", instance = "matrix"},
+  ]
+}
+
+loki.source.file "matrix_traefik" {
+  targets    = local.file_match.matrix_traefik.targets
+  forward_to = [loki.process.matrix_traefik.receiver]
+}
+
+loki.process "matrix_traefik" {
+  forward_to = [loki.write.default.receiver]
+
+  // Traefik JSON access log → structured metadata
+  stage.json {
+    expressions = {
+      status = "DownstreamStatus",
+      method = "RequestMethod",
+      host   = "RequestHost",
+      uri    = "RequestPath",
+    }
+  }
+
+  stage.labels {
+    values = {
+      status = "",
+      method = "",
+      host   = "",
+    }
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Matrix Synapse homeserver log (RotatingFileHandler, plain-text)
+// -----------------------------------------------------------------------------
+
+local.file_match "matrix_synapse" {
+  path_targets = [
+    {__path__ = "/matrix/synapse/logs/homeserver.log", job = "synapse", instance = "matrix"},
+  ]
+}
+
+loki.source.file "matrix_synapse" {
+  targets    = local.file_match.matrix_synapse.targets
+  forward_to = [loki.write.default.receiver]
 }
