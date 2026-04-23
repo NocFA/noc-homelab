@@ -106,8 +106,14 @@ CLAUDE.md
 .gitattributes
 noc-homelab-beads/
 
-# Matrix — plaintext inventory (secrets), only SOPS-encrypted vars committed
-services/matrix/inventory/
+# Matrix — plaintext inventory (secrets), only SOPS-encrypted vars committed.
+# Allow the synapse log config template through since it has no secrets and
+# the ansible var matrix_synapse_template_synapse_log references it directly.
+# Use `**` so the negation below can re-include specific files.
+services/matrix/inventory/**
+!services/matrix/inventory/host_vars/
+!services/matrix/inventory/host_vars/matrix.nocfa.net/
+!services/matrix/inventory/host_vars/matrix.nocfa.net/synapse.log.config.j2
 
 # Dolt SQL server runtime directories and config
 beads/

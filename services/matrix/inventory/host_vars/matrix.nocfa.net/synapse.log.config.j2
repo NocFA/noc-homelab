@@ -1,0 +1,54 @@
+#jinja2: lstrip_blocks: True
+# Custom synapse log config — adds a RotatingFileHandler so logs land on disk
+# (in a bind-mounted volume at /logs) where CrowdSec and Alloy can tail them.
+#
+# matrix-* containers have `--log-driver=none` hardcoded in the spantaleev
+# playbook templates, so without this override, synapse's `console` handler
+# (stdout) logs are silently discarded. See noc-homelab-5ej for context.
+#
+# Referenced by `matrix_synapse_template_synapse_log` in
+# services/matrix/vars.sops.yml — ansible copies this file to
+# /matrix/synapse/config/matrix.nocfa.net.log.config on the host, which is
+# bind-mounted read-only into the container as /data/.../log.config.
+version: 1
+
+formatters:
+    precise:
+        format: '%(asctime)s - %(name)s - %(lineno)d - %(levelname)s - %(request)s - %(message)s'
+
+filters:
+    context:
+        (): synapse.util.logcontext.LoggingContextFilter
+        request: ''
+
+handlers:
+    console:
+        class: logging.StreamHandler
+        formatter: precise
+        filters: [context]
+    file:
+        class: logging.handlers.RotatingFileHandler
+        formatter: precise
+        filters: [context]
+        filename: /logs/homeserver.log
+        maxBytes: 104857600
+        backupCount: 5
+        encoding: utf8
+
+loggers:
+    synapse:
+        level: {{ matrix_synapse_log_level }}
+
+    synapse.storage.SQL:
+        # beware: increasing this to DEBUG will make synapse log sensitive
+        # information such as access tokens.
+        level: {{ matrix_synapse_storage_sql_log_level }}
+
+{% for logger in matrix_synapse_additional_loggers %}
+    {{ logger.name }}:
+        level: {{ logger.level }}
+{% endfor %}
+
+root:
+    level: {{ matrix_synapse_root_log_level }}
+    handlers: [console, file]

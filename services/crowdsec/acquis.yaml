@@ -17,18 +17,26 @@ labels:
   type: caddy
 
 ---
-# Matrix Traefik — docker container stdout/stderr (HTTP probes, 401/403)
-source: docker
-container_name_regexp:
- - matrix-traefik
+# Matrix Traefik — JSON access log (HTTP probes, 401/403) for
+# matrix.nocfa.net, the main direct-A WAN surface. Matrix containers
+# have `--log-driver=none` hardcoded in the spantaleev playbook, so the
+# docker source silently fails — see noc-homelab-5ej. Log file is
+# written to disk via `traefik_config_accessLog_filePath` + a bind-mount
+# configured in services/matrix/vars.sops.yml.
+source: file
+filenames:
+ - /matrix/traefik/logs/access.log
 labels:
   type: traefik
 
 ---
-# Matrix Synapse — login abuse, registration scraping
-source: docker
-container_name_regexp:
- - matrix-synapse
+# Matrix Synapse — login abuse, registration scraping. Writes via
+# RotatingFileHandler in the custom
+# inventory/host_vars/matrix.nocfa.net/synapse.log.config.j2 template,
+# bind-mounted to /matrix/synapse/logs/homeserver.log on host.
+source: file
+filenames:
+ - /matrix/synapse/logs/homeserver.log
 labels:
   type: syslog
 
