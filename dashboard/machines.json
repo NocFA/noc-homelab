@@ -57,6 +57,14 @@
             "~/Library/Logs/noc-homelab/glances.log"
           ]
         },
+        "netdata": {
+          "name": "Netdata",
+          "description": "Real-time metrics (child → noc-tux parent)",
+          "manager": "launchd",
+          "unit_name": "homebrew.mxcl.netdata",
+          "port": 19999,
+          "url": "http://noc-local:19999"
+        },
         "copyparty": {
           "name": "Copyparty",
           "description": "File Server & Sharing",
@@ -212,6 +220,14 @@
           "unit_name": "com.noc.glances",
           "port": 61999,
           "url": "http://100.95.102.128:61999"
+        },
+        "netdata": {
+          "name": "Netdata",
+          "description": "Real-time metrics (child → noc-tux parent)",
+          "manager": "launchd",
+          "unit_name": "homebrew.mxcl.netdata",
+          "port": 19999,
+          "url": "http://100.95.102.128:19999"
         }
       }
     },
