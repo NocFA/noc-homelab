@@ -161,6 +161,15 @@
         9078
       ]
     },
+    "netdata": {
+      "description": "Real-time metrics (child → noc-tux parent)",
+      "launchd": "homebrew.mxcl.netdata",
+      "name": "Netdata",
+      "port": 19999,
+      "web_ports": [
+        19999
+      ]
+    },
     "tailscale": {
       "description": "VPN & Private Networking",
       "name": "Tailscale",
