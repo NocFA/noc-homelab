@@ -1530,7 +1530,11 @@ OBSERVABILITY_TARGETS = [
         'name': 'Loki',
         'role': 'Log aggregation (14d retention)',
         'machine': 'noc-tux',
-        'probe_url': 'http://noc-tux:3100/ready',
+        # /ready is strict — returns 503 while Loki runs compactor / WAL
+        # checkpoint / ring recalc jobs (every ~30s).  A single transient 503
+        # pins the "down" cache for 20s and makes the tile flap.  buildinfo is
+        # stable 200 whenever the process is responsive.
+        'probe_url': 'http://noc-tux:3100/loki/api/v1/status/buildinfo',
         'link_url': 'http://noc-tux:3000/explore?orgId=1&left=%7B%22datasource%22%3A%22loki%22%7D',
     },
     {
@@ -1602,22 +1606,31 @@ _obs_summary_ttl = 30  # seconds
 
 
 def _probe_obs_target(target, timeout=3):
-    """Probe a single observability target. Returns dict with status + latency."""
-    start = time.time()
-    try:
-        resp = requests.get(target['probe_url'], timeout=timeout)
-        elapsed_ms = int((time.time() - start) * 1000)
-        ok_codes = target.get('probe_ok_codes', [200])
-        healthy = resp.status_code in ok_codes
-        return {
-            'status': 'up' if healthy else 'degraded',
-            'status_code': resp.status_code,
-            'latency_ms': elapsed_ms,
-        }
-    except requests.exceptions.Timeout:
-        return {'status': 'down', 'error': 'timeout', 'latency_ms': int(timeout * 1000)}
-    except Exception as e:
-        return {'status': 'down', 'error': str(e)[:100], 'latency_ms': int((time.time() - start) * 1000)}
+    """Probe a single observability target. Returns dict with status + latency.
+
+    Retries once on any failure (timeout, connection error, non-ok status) so
+    a single transient hiccup (Tailscale blip, endpoint mid-restart, Loki ring
+    recalc) doesn't pin the 20s 'down' cache and make the tile flap.
+    """
+    ok_codes = target.get('probe_ok_codes', [200])
+    last = None
+    for attempt in range(2):
+        start = time.time()
+        try:
+            resp = requests.get(target['probe_url'], timeout=timeout)
+            elapsed_ms = int((time.time() - start) * 1000)
+            if resp.status_code in ok_codes:
+                return {
+                    'status': 'up',
+                    'status_code': resp.status_code,
+                    'latency_ms': elapsed_ms,
+                }
+            last = {'status': 'degraded', 'status_code': resp.status_code, 'latency_ms': elapsed_ms}
+        except requests.exceptions.Timeout:
+            last = {'status': 'down', 'error': 'timeout', 'latency_ms': int(timeout * 1000)}
+        except Exception as e:
+            last = {'status': 'down', 'error': str(e)[:100], 'latency_ms': int((time.time() - start) * 1000)}
+    return last
 
 
 def get_obs_targets_cached():
