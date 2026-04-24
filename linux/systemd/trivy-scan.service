@@ -1,0 +1,12 @@
+[Unit]
+Description=Homelab CVE scan (Trivy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/home/noc/noc-homelab/scripts/trivy-scan.sh
+StandardOutput=journal
+StandardError=journal

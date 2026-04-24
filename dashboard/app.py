@@ -2079,6 +2079,148 @@ def api_network_top():
     })
 
 
+# ─── Pre-emptive CVE scanning (Trivy) ──────────────────────────────────────
+#
+# Each machine runs scripts/trivy-scan.sh (via LaunchAgent on macOS, systemd
+# timer on Linux) and writes a JSON report to ~/.cache/homelab-cve/report.json.
+# This endpoint reads each machine's report and aggregates severity counts +
+# top findings.  Visibility only — never auto-patches.
+#
+# Scanner: Trivy 0.70+, rootfs scan on Linux (OS packages), fs scan on macOS
+# (/opt/homebrew/bin for Go binaries), plus image scan of running containers.
+
+_cves_cache = {'data': None, 'timestamp': 0}
+_cves_ttl = 300  # 5 min — reports are daily, no need to re-read hot
+
+# Machines we expect to have scan reports.  noc-baguette scans will land here
+# once the script is rolled out; skipping it for now avoids unnecessary SSH.
+_CVE_MACHINE_IDS = {'noc-local', 'noc-tux', 'noc-claw'}
+
+_CVE_REPORT_PATH = '$HOME/.cache/homelab-cve/report.json'
+
+
+def _read_cve_report_for_machine(machine):
+    """Fetch and parse the Trivy report for one machine.
+
+    Returns a trimmed dict suitable for API response:
+      {machine, hostname, timestamp, totals, targets_count, top, error}
+    """
+    mid = machine.get('id')
+    ssh_host = machine.get('ssh_host') or machine.get('hostname') or mid
+    ssh_user = machine.get('ssh_user', 'noc')
+    result = {
+        'machine': mid,
+        'hostname': None,
+        'timestamp': None,
+        'totals': {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0},
+        'targets_count': 0,
+        'top': [],
+        'error': None,
+    }
+    try:
+        if mid == SELF_MACHINE_ID:
+            path = os.path.expanduser('~/.cache/homelab-cve/report.json')
+            if not os.path.exists(path):
+                result['error'] = 'no report yet (scanner has not run)'
+                return result
+            with open(path) as f:
+                doc = json.load(f)
+        else:
+            # Use `cat` over SSH — report is small (<200KB capped by scanner).
+            proc = subprocess.run(
+                ['ssh', '-o', 'ConnectTimeout=3', '-o', 'BatchMode=yes',
+                 f'{ssh_user}@{ssh_host}', f'cat {_CVE_REPORT_PATH}'],
+                capture_output=True, text=True, timeout=10)
+            if proc.returncode != 0:
+                err = (proc.stderr or '').strip()
+                if 'No such file' in err or not err:
+                    result['error'] = 'no report yet (scanner has not run)'
+                else:
+                    result['error'] = err[:200]
+                return result
+            doc = json.loads(proc.stdout)
+
+        result['hostname'] = doc.get('hostname')
+        result['timestamp'] = doc.get('timestamp')
+        totals = doc.get('totals') or {}
+        for sev in ('CRITICAL', 'HIGH', 'MEDIUM'):
+            result['totals'][sev] = int(totals.get(sev, 0) or 0)
+        result['targets_count'] = len(doc.get('targets') or [])
+        # Trim top findings to the fields the UI needs
+        for f in (doc.get('top') or [])[:25]:
+            result['top'].append({
+                'id': f.get('id', ''),
+                'pkg': f.get('pkg', ''),
+                'installed': f.get('installed', ''),
+                'fixed': f.get('fixed', ''),
+                'severity': f.get('severity', ''),
+                'title': f.get('title', ''),
+                'source': f.get('source', ''),
+            })
+    except subprocess.TimeoutExpired:
+        result['error'] = 'ssh timeout'
+    except json.JSONDecodeError as e:
+        result['error'] = f'json parse: {str(e)[:120]}'
+    except Exception as e:
+        result['error'] = str(e)[:200]
+    return result
+
+
+def get_cves_summary_cached():
+    """Fan out report reads across all known machines.  5-min cache."""
+    now = time.time()
+    if _cves_cache['data'] and (now - _cves_cache['timestamp']) < _cves_ttl:
+        return _cves_cache['data']
+
+    targets = [m for m in _ALL_MACHINES if m.get('id') in _CVE_MACHINE_IDS]
+    machines = []
+    if targets:
+        with ThreadPoolExecutor(max_workers=len(targets)) as executor:
+            futures = {executor.submit(_read_cve_report_for_machine, m): m for m in targets}
+            for future in as_completed(futures, timeout=20):
+                mach = futures[future]
+                try:
+                    machines.append(future.result())
+                except Exception as e:
+                    machines.append({
+                        'machine': mach.get('id'),
+                        'hostname': None,
+                        'timestamp': None,
+                        'totals': {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0},
+                        'targets_count': 0,
+                        'top': [],
+                        'error': str(e)[:200],
+                    })
+
+    order = {m['id']: idx for idx, m in enumerate(targets)}
+    machines.sort(key=lambda r: order.get(r.get('machine'), 99))
+
+    totals = {'CRITICAL': 0, 'HIGH': 0, 'MEDIUM': 0}
+    reporting = 0
+    for m in machines:
+        if not m.get('error'):
+            reporting += 1
+            for sev in totals:
+                totals[sev] += int(m.get('totals', {}).get(sev, 0) or 0)
+
+    payload = {
+        'timestamp': now,
+        'machines': machines,
+        'machines_total': len(targets),
+        'machines_reporting': reporting,
+        'totals': totals,
+    }
+    _cves_cache['data'] = payload
+    _cves_cache['timestamp'] = now
+    return payload
+
+
+@app.route('/api/cves/summary')
+def api_cves_summary():
+    """Aggregated Trivy CVE scan results across machines.  5-min cache."""
+    return jsonify(get_cves_summary_cached())
+
+
 # Settings Editor API Endpoints
 
 @app.route('/settings')
