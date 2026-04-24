@@ -572,6 +572,21 @@
                         >[alerts]</a
                     >
                     <a
+                        href="/observability"
+                        style="
+                            text-decoration: none;
+                            color: var(--text-secondary);
+                            opacity: 0.7;
+                            transition: opacity 0.2s;
+                            font-family: var(--font-mono);
+                            font-size: 0.75rem;
+                        "
+                        onmouseover="this.style.opacity = '1'"
+                        onmouseout="this.style.opacity = '0.7'"
+                        title="Observability (Gatus / CrowdSec / Grafana / Loki)"
+                        >[obs]</a
+                    >
+                    <a
                         href="/websites"
                         style="
                             text-decoration: none;
@@ -668,6 +683,8 @@
                     {% if group.memory_percent is not none %}<span class="machine-stat {{ 'warning' if group.memory_percent > 80 else '' }}" style="margin-left: auto">MEM <strong>{{ "%.1f" | format(group.memory_percent) }}%</strong></span>{% endif %}
                     {% if group.battery_percent is not none %}<span class="machine-stat {{ 'warning' if group.battery_percent < 40 else '' }}"{% if group.memory_percent is none %} style="margin-left: auto"{% endif %}>BAT <strong>{{ "%.0f" | format(group.battery_percent) }}%</strong></span>{% endif %}
                     {% if group.temp_c is not none %}<span class="machine-stat {{ 'warning' if group.temp_c > 80 else '' }}"{% if group.memory_percent is none and group.battery_percent is none %} style="margin-left: auto"{% endif %}>TEMP <strong>{{ "%.0f" | format(group.temp_c) }}°C</strong></span>{% endif %}
+                    {% if group.net_rx_bps is not none or group.net_tx_bps is not none %}<span class="machine-stat" title="RX {{ group.net_rx_bps | bitrate }} · TX {{ group.net_tx_bps | bitrate }}">NET <strong>&darr;{{ group.net_rx_bps | bitrate }} &uarr;{{ group.net_tx_bps | bitrate }}</strong></span>{% endif %}
+                    {% if group.disk_percent is not none %}<span class="machine-stat {{ 'warning' if group.disk_percent > 85 else '' }}">DISK <strong>{{ "%.0f" | format(group.disk_percent) }}%</strong></span>{% endif %}
                     <span
                         class="machine-uptime"
                         data-machine-uptime="{{ group.id }}"

@@ -1,0 +1,657 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>NOCNET Observability</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Commit+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --bg-primary: #0a2e30;
+                --bg-secondary: #0f3d40;
+                --bg-elevated: #145252;
+                --text-primary: #f0fdfa;
+                --text-secondary: #99e0d9;
+                --text-muted: #5eaba3;
+                --accent: #f59e0b;
+                --accent-dark: #b45309;
+                --success: #34d399;
+                --error: #f87171;
+                --border: #1a5456;
+                --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                --font-mono: "Commit Mono", ui-monospace, "SF Mono", Consolas, monospace;
+            }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: var(--font-body);
+                min-height: 100vh;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                -webkit-font-smoothing: antialiased;
+            }
+            .container { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+            .header {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 1rem 1.5rem;
+                margin-bottom: 1.5rem;
+                font-family: var(--font-mono);
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                flex-wrap: wrap;
+            }
+            .header a {
+                color: var(--text-muted);
+                text-decoration: none;
+                font-size: 0.875rem;
+            }
+            .header a:hover { color: var(--text-secondary); }
+            .header-title {
+                color: var(--success);
+                font-size: 1rem;
+                font-weight: 600;
+            }
+            .header-sub {
+                color: var(--text-muted);
+                font-size: 0.75rem;
+                margin-left: auto;
+            }
+            #refreshIndicator {
+                display: inline-block;
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--text-muted);
+                margin-left: 0.5rem;
+                transition: background 0.2s;
+            }
+            #refreshIndicator.active { background: var(--accent); }
+
+            /* ─── Banner row ─── */
+            .banners {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+                gap: 0.75rem;
+                margin-bottom: 1.5rem;
+            }
+            .banner {
+                background: var(--bg-secondary);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 1rem 1.25rem;
+                font-family: var(--font-mono);
+                display: flex;
+                flex-direction: column;
+                gap: 0.35rem;
+            }
+            .banner.healthy { border-left: 3px solid var(--success); }
+            .banner.warn { border-left: 3px solid var(--accent); }
+            .banner.crit { border-left: 3px solid var(--error); }
+            .banner.unknown { border-left: 3px solid var(--text-muted); }
+            .banner-label {
+                font-size: 0.7rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--text-muted);
+            }
+            .banner-value {
+                font-size: 1.5rem;
+                font-weight: 700;
+                color: var(--text-primary);
+                line-height: 1.2;
+            }
+            .banner-sub {
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+            }
+            .banner a {
+                color: var(--text-muted);
+                text-decoration: none;
+                font-size: 0.75rem;
+                margin-top: 0.25rem;
+            }
+            .banner a:hover { color: var(--text-secondary); }
+
+            /* ─── Sections ─── */
+            .section {
+                margin-bottom: 1.5rem;
+            }
+            .section-title {
+                font-family: var(--font-mono);
+                font-size: 0.75rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 0.75rem;
+                padding-bottom: 0.5rem;
+                border-bottom: 1px solid var(--border);
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+            }
+            .section-title-sub {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                font-weight: 400;
+                text-transform: none;
+                letter-spacing: 0;
+            }
+
+            /* ─── Target grid (obs stack health) ─── */
+            .target-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                gap: 0.5rem;
+            }
+            .target-card {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 0.75rem 1rem;
+                font-family: var(--font-mono);
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                text-decoration: none;
+                color: inherit;
+                transition: border-color 0.15s;
+            }
+            .target-card:hover { border-color: var(--text-muted); }
+            .target-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: var(--text-muted);
+                flex-shrink: 0;
+            }
+            .target-dot.up { background: var(--success); box-shadow: 0 0 4px rgba(52, 211, 153, 0.5); }
+            .target-dot.degraded { background: var(--accent); box-shadow: 0 0 4px rgba(245, 158, 11, 0.5); }
+            .target-dot.down { background: var(--error); box-shadow: 0 0 4px rgba(248, 113, 113, 0.5); }
+            .target-body { flex: 1; min-width: 0; }
+            .target-name {
+                font-size: 0.85rem;
+                font-weight: 600;
+                color: var(--text-primary);
+            }
+            .target-role {
+                font-size: 0.7rem;
+                color: var(--text-muted);
+            }
+            .target-meta {
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                text-align: right;
+                white-space: nowrap;
+            }
+            .target-machine {
+                font-size: 0.65rem;
+                color: var(--text-muted);
+            }
+
+            /* ─── Gatus table ─── */
+            .gatus-groups {
+                display: flex;
+                flex-direction: column;
+                gap: 1rem;
+            }
+            .gatus-group-title {
+                font-family: var(--font-mono);
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 0.35rem;
+            }
+            .gatus-row {
+                display: grid;
+                grid-template-columns: 10px 1fr auto auto;
+                gap: 0.75rem;
+                align-items: center;
+                padding: 0.5rem 0.75rem;
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 3px;
+                margin-bottom: 0.25rem;
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
+            }
+            .gatus-row.down { border-left: 3px solid var(--error); }
+            .gatus-row.up { border-left: 3px solid var(--success); }
+            .gatus-dot {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+            }
+            .gatus-dot.up { background: var(--success); }
+            .gatus-dot.down { background: var(--error); }
+            .gatus-name {
+                color: var(--text-primary);
+                font-weight: 500;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .gatus-status {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+            }
+            .gatus-latency {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                min-width: 60px;
+                text-align: right;
+            }
+
+            /* ─── CrowdSec decisions table ─── */
+            .decisions-table {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                overflow: hidden;
+                font-family: var(--font-mono);
+                font-size: 0.75rem;
+            }
+            .decisions-row {
+                display: grid;
+                grid-template-columns: 120px 1fr auto auto;
+                gap: 0.75rem;
+                align-items: center;
+                padding: 0.5rem 0.75rem;
+                border-bottom: 1px solid var(--border);
+            }
+            .decisions-row:last-child { border-bottom: none; }
+            .decisions-row.head {
+                background: var(--bg-secondary);
+                font-size: 0.65rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                color: var(--text-muted);
+                font-weight: 600;
+            }
+            .dec-ip { color: var(--text-primary); font-weight: 600; }
+            .dec-scenario { color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .dec-type {
+                color: var(--error);
+                font-size: 0.65rem;
+                text-transform: uppercase;
+                padding: 0.15rem 0.4rem;
+                background: rgba(248, 113, 113, 0.15);
+                border-radius: 3px;
+                white-space: nowrap;
+            }
+            .dec-duration { color: var(--text-muted); white-space: nowrap; }
+
+            /* ─── Quick-links ─── */
+            .quick-links {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .quick-link {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 0.5rem 0.9rem;
+                font-family: var(--font-mono);
+                font-size: 0.8rem;
+                color: var(--text-secondary);
+                text-decoration: none;
+                transition: border-color 0.15s, color 0.15s;
+            }
+            .quick-link:hover {
+                color: var(--text-primary);
+                border-color: var(--text-muted);
+            }
+            .quick-link .qk-label {
+                color: var(--text-muted);
+                font-size: 0.65rem;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                display: block;
+            }
+
+            .empty-state {
+                text-align: center;
+                color: var(--text-muted);
+                padding: 2rem;
+                font-family: var(--font-mono);
+                font-size: 0.85rem;
+            }
+
+            .error-state {
+                background: rgba(248, 113, 113, 0.08);
+                border: 1px solid rgba(248, 113, 113, 0.3);
+                color: var(--error);
+                padding: 0.75rem 1rem;
+                border-radius: 4px;
+                font-family: var(--font-mono);
+                font-size: 0.75rem;
+                margin-bottom: 0.75rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <a href="/">&larr; dashboard</a>
+                <span class="header-title">Observability</span>
+                <a href="/alerts" title="Alerts">[alerts]</a>
+                <a href="/websites" title="Websites">[web]</a>
+                <span class="header-sub">
+                    <span id="lastUpdated">loading...</span>
+                    <span id="refreshIndicator"></span>
+                </span>
+            </div>
+
+            <!-- ─── Banner summary ─── -->
+            <div class="banners">
+                <div class="banner unknown" id="bannerGatus">
+                    <span class="banner-label">Gatus endpoints</span>
+                    <span class="banner-value" id="gatusValue">—</span>
+                    <span class="banner-sub" id="gatusSub">loading</span>
+                    <a href="http://noc-local:3001" target="_blank">open Gatus &rarr;</a>
+                </div>
+                <div class="banner unknown" id="bannerCrowdsec">
+                    <span class="banner-label">CrowdSec decisions</span>
+                    <span class="banner-value" id="crowdsecValue">—</span>
+                    <span class="banner-sub" id="crowdsecSub">loading</span>
+                    <a href="#decisions">view details &darr;</a>
+                </div>
+                <div class="banner unknown" id="bannerStack">
+                    <span class="banner-label">Observability stack</span>
+                    <span class="banner-value" id="stackValue">—</span>
+                    <span class="banner-sub" id="stackSub">loading</span>
+                    <a href="#stack">view details &darr;</a>
+                </div>
+            </div>
+
+            <!-- ─── Quick-links ─── -->
+            <div class="section">
+                <div class="section-title">Open UI</div>
+                <div class="quick-links">
+                    <a class="quick-link" href="http://noc-tux:3000" target="_blank">
+                        <span class="qk-label">Dashboards</span>Grafana
+                    </a>
+                    <a class="quick-link" href='http://noc-tux:3000/explore?orgId=1&left=%7B"datasource":"loki"%7D' target="_blank">
+                        <span class="qk-label">Logs</span>Loki (via Grafana Explore)
+                    </a>
+                    <a class="quick-link" href="http://noc-tux:9090" target="_blank">
+                        <span class="qk-label">Metrics</span>Prometheus
+                    </a>
+                    <a class="quick-link" href="http://noc-tux:19999" target="_blank">
+                        <span class="qk-label">Real-time</span>Netdata noc-tux
+                    </a>
+                    <a class="quick-link" href="http://noc-local:19999" target="_blank">
+                        <span class="qk-label">Real-time</span>Netdata noc-local
+                    </a>
+                    <a class="quick-link" href="http://noc-claw:19999" target="_blank">
+                        <span class="qk-label">Real-time</span>Netdata noc-claw
+                    </a>
+                    <a class="quick-link" href="http://noc-local:3001" target="_blank">
+                        <span class="qk-label">Health</span>Gatus
+                    </a>
+                    <a class="quick-link" href="http://noc-claw:8182/health" target="_blank">
+                        <span class="qk-label">LLM triage</span>log-triage
+                    </a>
+                </div>
+            </div>
+
+            <!-- ─── Observability stack health ─── -->
+            <div class="section" id="stack">
+                <div class="section-title">
+                    Observability stack
+                    <span class="section-title-sub">Probed every ~20s · click to open</span>
+                </div>
+                <div class="target-grid" id="targetGrid">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+
+            <!-- ─── Gatus grid ─── -->
+            <div class="section" id="gatus">
+                <div class="section-title">
+                    Gatus health
+                    <span class="section-title-sub">Cross-machine service probes</span>
+                </div>
+                <div id="gatusError"></div>
+                <div class="gatus-groups" id="gatusGroups">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+
+            <!-- ─── CrowdSec decisions ─── -->
+            <div class="section" id="decisions">
+                <div class="section-title">
+                    Active CrowdSec decisions
+                    <span class="section-title-sub" id="crowdsecContext">—</span>
+                </div>
+                <div id="crowdsecError"></div>
+                <div id="decisionsWrap">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const REFRESH_MS = 30000;
+            let timer = null;
+
+            // ─── formatting helpers ───────────────────────────────────────
+            function timeAgo(iso) {
+                if (!iso) return "—";
+                const then = Date.parse(iso);
+                if (Number.isNaN(then)) return iso;
+                const secs = Math.floor((Date.now() - then) / 1000);
+                if (secs < 60) return `${secs}s ago`;
+                if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+                if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+                return `${Math.floor(secs / 86400)}d ago`;
+            }
+
+            function fmtLatency(ms) {
+                if (ms == null) return "—";
+                if (ms < 1) return `${ms.toFixed(1)}ms`;
+                if (ms < 1000) return `${Math.round(ms)}ms`;
+                return `${(ms / 1000).toFixed(2)}s`;
+            }
+
+            function escapeHtml(s) {
+                if (s == null) return "";
+                return String(s)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+
+            // ─── render: obs stack targets ────────────────────────────────
+            function renderTargets(targets) {
+                const grid = document.getElementById("targetGrid");
+                if (!targets || !targets.length) {
+                    grid.innerHTML = '<div class="empty-state">No targets configured.</div>';
+                    return;
+                }
+                grid.innerHTML = targets
+                    .map((t) => {
+                        const status = t.status || "down";
+                        const statusCode = t.status_code ?? t.error ?? "—";
+                        const latency = fmtLatency(t.latency_ms);
+                        return `
+                            <a class="target-card" href="${escapeHtml(t.link_url)}" target="_blank" rel="noopener">
+                                <div class="target-dot ${status}"></div>
+                                <div class="target-body">
+                                    <div class="target-name">${escapeHtml(t.name)}</div>
+                                    <div class="target-role">${escapeHtml(t.role || "")}</div>
+                                </div>
+                                <div class="target-meta">
+                                    <div>${escapeHtml(String(statusCode))}</div>
+                                    <div class="target-machine">${escapeHtml(t.machine || "")} · ${latency}</div>
+                                </div>
+                            </a>`;
+                    })
+                    .join("");
+            }
+
+            // ─── render: Gatus groups ─────────────────────────────────────
+            function renderGatus(gatus) {
+                const wrap = document.getElementById("gatusGroups");
+                const err = document.getElementById("gatusError");
+                err.innerHTML = "";
+                if (gatus.error) {
+                    err.innerHTML = `<div class="error-state">Gatus: ${escapeHtml(gatus.error)}</div>`;
+                    wrap.innerHTML = "";
+                    return;
+                }
+                if (!gatus.endpoints || !gatus.endpoints.length) {
+                    wrap.innerHTML = '<div class="empty-state">No Gatus endpoints.</div>';
+                    return;
+                }
+                const groups = {};
+                for (const ep of gatus.endpoints) {
+                    const g = ep.group || "(ungrouped)";
+                    (groups[g] = groups[g] || []).push(ep);
+                }
+                // Sort: failing endpoints first within each group
+                const groupNames = Object.keys(groups).sort();
+                wrap.innerHTML = groupNames
+                    .map((g) => {
+                        const rows = groups[g]
+                            .slice()
+                            .sort((a, b) => (a.up === b.up ? a.name.localeCompare(b.name) : a.up ? 1 : -1))
+                            .map(
+                                (ep) => `
+                                <div class="gatus-row ${ep.up ? "up" : "down"}">
+                                    <span class="gatus-dot ${ep.up ? "up" : "down"}"></span>
+                                    <span class="gatus-name" title="${escapeHtml(ep.key)}">${escapeHtml(ep.name)}</span>
+                                    <span class="gatus-status">${ep.status_code ?? "—"}</span>
+                                    <span class="gatus-latency">${fmtLatency(ep.latency_ms)}</span>
+                                </div>`
+                            )
+                            .join("");
+                        return `
+                            <div class="gatus-group">
+                                <div class="gatus-group-title">${escapeHtml(g)}</div>
+                                ${rows}
+                            </div>`;
+                    })
+                    .join("");
+            }
+
+            // ─── render: CrowdSec ─────────────────────────────────────────
+            function renderCrowdsec(cs) {
+                const wrap = document.getElementById("decisionsWrap");
+                const err = document.getElementById("crowdsecError");
+                const ctx = document.getElementById("crowdsecContext");
+                err.innerHTML = "";
+                if (cs.error) {
+                    err.innerHTML = `<div class="error-state">CrowdSec: ${escapeHtml(cs.error)}</div>`;
+                }
+                ctx.textContent = `${cs.decisions_count} active · ${cs.alerts_24h} alerts in 24h`;
+                if (!cs.decisions || !cs.decisions.length) {
+                    wrap.innerHTML = '<div class="empty-state">No active decisions &mdash; stack is quiet.</div>';
+                    return;
+                }
+                const rows = cs.decisions
+                    .slice(0, 50)
+                    .map(
+                        (d) => `
+                        <div class="decisions-row">
+                            <span class="dec-ip">${escapeHtml(d.value)}</span>
+                            <span class="dec-scenario" title="${escapeHtml(d.scenario)}">${escapeHtml(d.scenario)}</span>
+                            <span class="dec-type">${escapeHtml(d.type)}</span>
+                            <span class="dec-duration">${escapeHtml(d.duration)} · ${timeAgo(d.created_at)}</span>
+                        </div>`
+                    )
+                    .join("");
+                wrap.innerHTML = `
+                    <div class="decisions-table">
+                        <div class="decisions-row head">
+                            <span>source</span>
+                            <span>scenario</span>
+                            <span>action</span>
+                            <span>remaining · since</span>
+                        </div>
+                        ${rows}
+                    </div>`;
+            }
+
+            // ─── banner updates ───────────────────────────────────────────
+            function setBanner(id, level, value, sub) {
+                const el = document.getElementById(id);
+                el.classList.remove("healthy", "warn", "crit", "unknown");
+                el.classList.add(level);
+                const valEl = el.querySelector(".banner-value");
+                const subEl = el.querySelector(".banner-sub");
+                if (valEl) valEl.textContent = value;
+                if (subEl) subEl.textContent = sub;
+            }
+
+            function updateBanners(s) {
+                // Gatus
+                if (s.gatus.error) {
+                    setBanner("bannerGatus", "unknown", "—", s.gatus.error);
+                } else if (s.gatus.total === 0) {
+                    setBanner("bannerGatus", "unknown", "0", "no endpoints");
+                } else {
+                    const level = s.gatus.down === 0 ? "healthy" : s.gatus.down <= 2 ? "warn" : "crit";
+                    setBanner("bannerGatus", level, `${s.gatus.up}/${s.gatus.total}`, `${s.gatus.down} failing`);
+                }
+                // CrowdSec
+                if (s.crowdsec.error) {
+                    setBanner("bannerCrowdsec", "unknown", "—", s.crowdsec.error);
+                } else {
+                    const n = s.crowdsec.decisions_count;
+                    const level = n === 0 ? "healthy" : n < 5 ? "warn" : "crit";
+                    setBanner("bannerCrowdsec", level, String(n), `${s.crowdsec.alerts_24h} alerts in 24h`);
+                }
+                // Stack
+                const down = s.targets_total - s.targets_up;
+                const level = down === 0 ? "healthy" : down <= 2 ? "warn" : "crit";
+                setBanner("bannerStack", level, `${s.targets_up}/${s.targets_total}`, `${down} down/degraded`);
+            }
+
+            // ─── fetch + refresh ──────────────────────────────────────────
+            async function refresh() {
+                const ind = document.getElementById("refreshIndicator");
+                ind.classList.add("active");
+                try {
+                    const resp = await fetch("/api/observability/summary");
+                    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                    const data = await resp.json();
+                    updateBanners(data);
+                    renderTargets(data.targets);
+                    renderGatus(data.gatus);
+                    renderCrowdsec(data.crowdsec);
+                    document.getElementById("lastUpdated").textContent =
+                        "updated " + new Date().toLocaleTimeString();
+                } catch (e) {
+                    document.getElementById("lastUpdated").textContent = "error: " + e.message;
+                } finally {
+                    setTimeout(() => ind.classList.remove("active"), 300);
+                }
+            }
+
+            refresh();
+            timer = setInterval(refresh, REFRESH_MS);
+            // Pause polling when tab is hidden
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) {
+                    if (timer) { clearInterval(timer); timer = null; }
+                } else {
+                    if (!timer) {
+                        refresh();
+                        timer = setInterval(refresh, REFRESH_MS);
+                    }
+                }
+            });
+        </script>
+    </body>
+</html>
