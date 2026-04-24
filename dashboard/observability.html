@@ -383,6 +383,97 @@
                 text-align: right;
                 min-width: 70px;
             }
+            /* ── CVE / pre-emptive patching panel ── */
+            .cve-machines {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            .cve-card {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 0.75rem 1rem;
+                font-family: var(--font-mono);
+                font-size: 0.72rem;
+            }
+            .cve-card-head {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+            }
+            .cve-card-title {
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                font-weight: 600;
+            }
+            .cve-card-age {
+                font-size: 0.65rem;
+                color: var(--text-muted);
+            }
+            .cve-severity-row {
+                display: flex;
+                gap: 0.5rem;
+                margin-bottom: 0.5rem;
+                flex-wrap: wrap;
+            }
+            .cve-sev {
+                padding: 0.15rem 0.5rem;
+                border-radius: 2px;
+                font-size: 0.7rem;
+                font-weight: 600;
+                border: 1px solid var(--border);
+            }
+            .cve-sev.critical { color: var(--error); border-color: var(--error); }
+            .cve-sev.high { color: var(--accent); border-color: var(--accent-dark); }
+            .cve-sev.medium { color: var(--text-secondary); }
+            .cve-sev.none { color: var(--success); border-color: var(--success); }
+            .cve-top {
+                border-top: 1px solid var(--border);
+                padding-top: 0.4rem;
+                margin-top: 0.25rem;
+            }
+            .cve-row {
+                display: grid;
+                grid-template-columns: 70px 1fr auto;
+                gap: 0.5rem;
+                padding: 0.2rem 0;
+                align-items: baseline;
+                font-size: 0.68rem;
+            }
+            .cve-row + .cve-row { border-top: 1px dashed var(--border); }
+            .cve-row-id {
+                color: var(--text-primary);
+                font-weight: 600;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .cve-row-id.critical { color: var(--error); }
+            .cve-row-id.high { color: var(--accent); }
+            .cve-row-pkg {
+                color: var(--text-secondary);
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .cve-row-fix {
+                color: var(--text-muted);
+                font-size: 0.65rem;
+                text-align: right;
+                white-space: nowrap;
+            }
+            .cve-row-fix.has-fix { color: var(--success); }
+            .cve-empty {
+                color: var(--text-muted);
+                font-size: 0.7rem;
+                padding: 0.3rem 0;
+            }
         </style>
     </head>
     <body>
@@ -494,6 +585,18 @@
                 </div>
                 <div id="networkError"></div>
                 <div class="network-machines" id="networkMachines">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+
+            <!-- ─── Pre-emptive patching (Trivy CVE scan) ─── -->
+            <div class="section" id="cves">
+                <div class="section-title">
+                    Pre-emptive patching
+                    <span class="section-title-sub" id="cveContext">Trivy scan — visibility only, nothing auto-applied</span>
+                </div>
+                <div id="cveError"></div>
+                <div class="cve-machines" id="cveMachines">
                     <div class="empty-state">Loading…</div>
                 </div>
             </div>
@@ -638,6 +741,68 @@
                     .join("");
             }
 
+            // ─── render: CVE / pre-emptive patching ───────────────────────
+            function renderCves(cves) {
+                const wrap = document.getElementById("cveMachines");
+                const err = document.getElementById("cveError");
+                const ctx = document.getElementById("cveContext");
+                err.innerHTML = "";
+                if (!cves || cves.error) {
+                    err.innerHTML = `<div class="error-state">CVE summary: ${escapeHtml(cves && cves.error || "no data")}</div>`;
+                    wrap.innerHTML = "";
+                    return;
+                }
+                const t = cves.totals || {CRITICAL:0,HIGH:0,MEDIUM:0};
+                ctx.textContent = `${cves.machines_reporting}/${cves.machines_total} machines · ${t.CRITICAL}C · ${t.HIGH}H · ${t.MEDIUM}M · Trivy scan — visibility only`;
+                const machines = cves.machines || [];
+                if (!machines.length) {
+                    wrap.innerHTML = '<div class="empty-state">No machines configured for CVE scanning.</div>';
+                    return;
+                }
+                wrap.innerHTML = machines.map(m => {
+                    const mid = m.machine || "unknown";
+                    if (m.error) {
+                        return `<div class="cve-card">
+                            <div class="cve-card-head">
+                                <span class="cve-card-title">${escapeHtml(mid)}</span>
+                                <span class="cve-card-age">—</span>
+                            </div>
+                            <div class="cve-empty">${escapeHtml(m.error)}</div>
+                        </div>`;
+                    }
+                    const mt = m.totals || {CRITICAL:0,HIGH:0,MEDIUM:0};
+                    const anySev = mt.CRITICAL + mt.HIGH + mt.MEDIUM > 0;
+                    const sevChips = anySev ? `
+                        <span class="cve-sev critical">${mt.CRITICAL} critical</span>
+                        <span class="cve-sev high">${mt.HIGH} high</span>
+                        <span class="cve-sev medium">${mt.MEDIUM} medium</span>
+                    ` : `<span class="cve-sev none">no known CVEs</span>`;
+                    const age = m.timestamp ? timeAgo(m.timestamp) : "—";
+                    const top = (m.top || []).slice(0, 6);
+                    const rows = top.length
+                        ? top.map(f => {
+                            const sevKey = (f.severity || "").toLowerCase();
+                            const fixed = f.fixed
+                                ? `→ ${escapeHtml(f.fixed)}`
+                                : `no fix`;
+                            return `<div class="cve-row" title="${escapeHtml(f.title || f.id)}">
+                                <span class="cve-row-id ${sevKey}">${escapeHtml(f.id)}</span>
+                                <span class="cve-row-pkg">${escapeHtml(f.pkg)} ${escapeHtml(f.installed)}</span>
+                                <span class="cve-row-fix ${f.fixed ? "has-fix" : ""}">${fixed}</span>
+                            </div>`;
+                        }).join("")
+                        : `<div class="cve-empty">clean — nothing to patch</div>`;
+                    return `<div class="cve-card">
+                        <div class="cve-card-head">
+                            <span class="cve-card-title">${escapeHtml(mid)}</span>
+                            <span class="cve-card-age">scanned ${escapeHtml(age)}</span>
+                        </div>
+                        <div class="cve-severity-row">${sevChips}</div>
+                        <div class="cve-top">${rows}</div>
+                    </div>`;
+                }).join("");
+            }
+
             // ─── render: CrowdSec ─────────────────────────────────────────
             function renderCrowdsec(cs) {
                 const wrap = document.getElementById("decisionsWrap");
@@ -732,6 +897,15 @@
                         )
                     );
                     renderNetwork(networkData);
+
+                    // CVE summary — 5-min cache on server, OK to poll with page
+                    try {
+                        const cveResp = await fetch("/api/cves/summary");
+                        if (cveResp.ok) renderCves(await cveResp.json());
+                        else renderCves({error: `HTTP ${cveResp.status}`});
+                    } catch (e) {
+                        renderCves({error: e.message});
+                    }
 
                     document.getElementById("lastUpdated").textContent =
                         "updated " + new Date().toLocaleTimeString();
