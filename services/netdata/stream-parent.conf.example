@@ -1,0 +1,13 @@
+# Netdata parent receiver stream config - noc-tux
+# Installed to: /etc/netdata/stream.conf
+# Purpose: declare the API key that children authenticate with.
+# Generate a fresh UUID once with: uuidgen | tr a-z A-Z
+# Then reuse the same UUID in every child's stream-child.conf.
+
+[CHANGE_ME_PARENT_API_KEY]
+    enabled = yes
+    default_history = 3600
+    default_memory_mode = dbengine
+    health enabled by default = auto
+    # Tailscale 100.* + LAN 192.168.* only — never expose to WAN.
+    allow from = 100.* 192.168.*
