@@ -566,31 +566,54 @@ def get_glances_stats(host, port=61999, timeout=5):
         result['battery_percent'] = battery_percent
         result['temp_c'] = temp_c
 
-        # Network — sum rx/tx across physical interfaces (bits/sec)
-        # Skip loopback + virtual bridges so we show real on-wire traffic.
+        # Network — pick the primary interface's rx/tx (bits/sec).
+        # Glances v4 /network returns a LIST of interface dicts (older/variant
+        # versions have been seen returning a dict keyed by interface_name, so
+        # coerce both shapes).  We pick the non-skipped interface with the most
+        # cumulative bytes: summing every physical interface can double-count
+        # bridge ↔ veth pairs that carry the same packets and lets quiet
+        # virtual interfaces skew the reading.  Leave result as None (not 0)
+        # when nothing matched so the template hides the tile rather than
+        # showing a misleading "0b/s".
         try:
             net_resp = requests.get(f'{base}/network', timeout=timeout)
             if net_resp.status_code == 200:
                 net_data = net_resp.json()
-                if isinstance(net_data, list):
-                    rx_total = 0.0
-                    tx_total = 0.0
+                if isinstance(net_data, dict):
+                    net_data = list(net_data.values())
+                if isinstance(net_data, list) and net_data:
                     skip_prefixes = ('lo', 'docker', 'br-', 'veth', 'tailscale',
-                                     'utun', 'awdl', 'llw', 'anpi', 'ap', 'bridge')
+                                     'utun', 'awdl', 'llw', 'anpi', 'ap', 'bridge',
+                                     'virbr', 'vnet', 'pelican', 'cni', 'flannel',
+                                     'wg', 'zt', 'kube')
+                    primary = None
+                    primary_bytes = -1.0
                     for iface in net_data:
+                        if not isinstance(iface, dict):
+                            continue
                         name = iface.get('interface_name', '') or ''
                         if name.startswith(skip_prefixes):
                             continue
-                        # Glances v4 exposes bytes_{recv,sent}_rate_per_sec in bytes/sec
-                        rx = iface.get('bytes_recv_rate_per_sec') or 0
-                        tx = iface.get('bytes_sent_rate_per_sec') or 0
+                        total = iface.get('bytes_all')
+                        if total is None:
+                            total = (iface.get('bytes_recv') or 0) + (iface.get('bytes_sent') or 0)
                         try:
-                            rx_total += float(rx)
-                            tx_total += float(tx)
+                            total = float(total)
                         except (TypeError, ValueError):
                             continue
-                    result['net_rx_bps'] = int(rx_total * 8)  # bytes/s → bits/s
-                    result['net_tx_bps'] = int(tx_total * 8)
+                        if total > primary_bytes:
+                            primary = iface
+                            primary_bytes = total
+                    if primary is not None:
+                        rx = primary.get('bytes_recv_rate_per_sec')
+                        tx = primary.get('bytes_sent_rate_per_sec')
+                        try:
+                            if rx is not None:
+                                result['net_rx_bps'] = int(float(rx) * 8)  # bytes/s → bits/s
+                            if tx is not None:
+                                result['net_tx_bps'] = int(float(tx) * 8)
+                        except (TypeError, ValueError):
+                            pass
         except Exception:
             pass
 
