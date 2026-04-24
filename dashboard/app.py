@@ -1556,28 +1556,17 @@ OBSERVABILITY_TARGETS = [
         'link_url': 'http://noc-tux:3000/explore?orgId=1&left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bservice_name%3D%5C%22crowdsec%5C%22%7D%22%7D%5D%7D',
     },
     {
-        'id': 'netdata-noc-tux',
-        'name': 'Netdata (noc-tux parent)',
-        'role': 'Real-time metrics parent',
+        # Single tile for the whole Netdata fleet: the noc-tux parent
+        # aggregates noc-local + noc-claw via streaming, and its built-in
+        # node selector (top-left dropdown in the UI) switches between
+        # them.  Probing /api/v2/nodes lets us surface "N/3 reachable" in
+        # the role line so a broken child stream is visible at a glance.
+        'id': 'netdata',
+        'name': 'Netdata',
+        'role': 'Real-time metrics (parent + 2 streaming children)',
         'machine': 'noc-tux',
-        'probe_url': 'http://noc-tux:19999/api/v1/info',
+        'probe_url': 'http://noc-tux:19999/api/v2/nodes',
         'link_url': 'http://noc-tux:19999',
-    },
-    {
-        'id': 'netdata-noc-local',
-        'name': 'Netdata (noc-local)',
-        'role': 'Real-time metrics child',
-        'machine': 'noc-local',
-        'probe_url': 'http://noc-local:19999/api/v1/info',
-        'link_url': 'http://noc-local:19999',
-    },
-    {
-        'id': 'netdata-noc-claw',
-        'name': 'Netdata (noc-claw)',
-        'role': 'Real-time metrics child',
-        'machine': 'noc-claw',
-        'probe_url': 'http://noc-claw:19999/api/v1/info',
-        'link_url': 'http://noc-claw:19999',
     },
     {
         'id': 'log-triage',
@@ -1620,11 +1609,23 @@ def _probe_obs_target(target, timeout=3):
             resp = requests.get(target['probe_url'], timeout=timeout)
             elapsed_ms = int((time.time() - start) * 1000)
             if resp.status_code in ok_codes:
-                return {
+                result = {
                     'status': 'up',
                     'status_code': resp.status_code,
                     'latency_ms': elapsed_ms,
                 }
+                # Netdata parent's /api/v2/nodes returns the aggregated node
+                # list; surface "N/M reachable" in the role so a broken
+                # child stream is visible without opening Netdata.
+                if target.get('id') == 'netdata':
+                    try:
+                        nodes = resp.json().get('nodes', [])
+                        reachable = sum(1 for n in nodes if n.get('state') == 'reachable')
+                        total = len(nodes)
+                        result['role_override'] = f'Real-time metrics — {reachable}/{total} nodes reachable'
+                    except Exception:
+                        pass
+                return result
             last = {'status': 'degraded', 'status_code': resp.status_code, 'latency_ms': elapsed_ms}
         except requests.exceptions.Timeout:
             last = {'status': 'down', 'error': 'timeout', 'latency_ms': int(timeout * 1000)}
@@ -1648,7 +1649,10 @@ def get_obs_targets_cached():
                 probe = future.result()
             except Exception as e:
                 probe = {'status': 'down', 'error': str(e)[:100]}
-            results.append({**target, **probe})
+            merged = {**target, **probe}
+            if probe.get('role_override'):
+                merged['role'] = probe['role_override']
+            results.append(merged)
 
     # Preserve the registry order (parallel execution scrambles it)
     order = {t['id']: idx for idx, t in enumerate(OBSERVABILITY_TARGETS)}
