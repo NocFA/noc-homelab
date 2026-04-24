@@ -16,6 +16,26 @@ from alerts import AlertEngine
 
 app = Flask(__name__, template_folder='.')
 
+
+def _format_bitrate(bps):
+    """Render a bits/sec number as 'Xb/s', 'XKb/s', 'XMb/s', 'XGb/s'."""
+    if bps is None:
+        return '--'
+    try:
+        bps = float(bps)
+    except (TypeError, ValueError):
+        return '--'
+    if bps < 1000:
+        return f"{int(bps)}b/s"
+    if bps < 1_000_000:
+        return f"{bps / 1000:.1f}Kb/s"
+    if bps < 1_000_000_000:
+        return f"{bps / 1_000_000:.1f}Mb/s"
+    return f"{bps / 1_000_000_000:.2f}Gb/s"
+
+
+app.jinja_env.filters['bitrate'] = _format_bitrate
+
 # Cache for public IP
 _public_ip_cache = {'ip': None, 'timestamp': 0}
 _cache_duration = 300  # 5 minutes
@@ -496,7 +516,21 @@ def get_remote_uptime_secs(machine):
     return batch.get('uptime_secs')
 
 def get_glances_stats(host, port=61999, timeout=5):
-    """Fetch memory, battery, and temperature stats from Glances API v4"""
+    """Fetch memory, battery, temperature, network, and disk stats from Glances API v4.
+
+    Returns a dict with:
+      memory_percent, battery_percent, temp_c  (as before)
+      net_rx_bps, net_tx_bps    — aggregate bits/sec across physical interfaces
+      disk_percent              — highest used% across local filesystems (ignores special mounts)
+    """
+    result = {
+        'memory_percent': None,
+        'battery_percent': None,
+        'temp_c': None,
+        'net_rx_bps': None,
+        'net_tx_bps': None,
+        'disk_percent': None,
+    }
     try:
         base = f'http://{host}:{port}/api/4'
 
@@ -528,13 +562,77 @@ def get_glances_stats(host, port=61999, timeout=5):
             if temp_c is None and core_temps:
                 temp_c = max(core_temps)
 
-        return {
-            'memory_percent': mem_data.get('percent'),
-            'battery_percent': battery_percent,
-            'temp_c': temp_c
-        }
+        result['memory_percent'] = mem_data.get('percent')
+        result['battery_percent'] = battery_percent
+        result['temp_c'] = temp_c
+
+        # Network — sum rx/tx across physical interfaces (bits/sec)
+        # Skip loopback + virtual bridges so we show real on-wire traffic.
+        try:
+            net_resp = requests.get(f'{base}/network', timeout=timeout)
+            if net_resp.status_code == 200:
+                net_data = net_resp.json()
+                if isinstance(net_data, list):
+                    rx_total = 0.0
+                    tx_total = 0.0
+                    skip_prefixes = ('lo', 'docker', 'br-', 'veth', 'tailscale',
+                                     'utun', 'awdl', 'llw', 'anpi', 'ap', 'bridge')
+                    for iface in net_data:
+                        name = iface.get('interface_name', '') or ''
+                        if name.startswith(skip_prefixes):
+                            continue
+                        # Glances v4 exposes bytes_{recv,sent}_rate_per_sec in bytes/sec
+                        rx = iface.get('bytes_recv_rate_per_sec') or 0
+                        tx = iface.get('bytes_sent_rate_per_sec') or 0
+                        try:
+                            rx_total += float(rx)
+                            tx_total += float(tx)
+                        except (TypeError, ValueError):
+                            continue
+                    result['net_rx_bps'] = int(rx_total * 8)  # bytes/s → bits/s
+                    result['net_tx_bps'] = int(tx_total * 8)
+        except Exception:
+            pass
+
+        # Filesystem — max percent used across real mounts.
+        # Skip pseudo-filesystems but KEEP /System/Volumes/Data (that's the
+        # real macOS data volume — the read-only / is tiny and misleading).
+        try:
+            fs_resp = requests.get(f'{base}/fs', timeout=timeout)
+            if fs_resp.status_code == 200:
+                fs_data = fs_resp.json()
+                if isinstance(fs_data, list):
+                    pcts = []
+                    skip_mounts = {
+                        '/System/Volumes/Preboot', '/System/Volumes/VM',
+                        '/System/Volumes/Update', '/System/Volumes/xarts',
+                        '/System/Volumes/iSCPreboot', '/System/Volumes/Hardware',
+                        '/private/var/vm',
+                    }
+                    skip_fs_types = {'devfs', 'autofs', 'tmpfs', 'overlay',
+                                      'proc', 'sysfs', 'squashfs', 'nullfs'}
+                    for fs in fs_data:
+                        mnt = fs.get('mnt_point', '')
+                        fstype = fs.get('fs_type', '')
+                        if mnt in skip_mounts or fstype in skip_fs_types:
+                            continue
+                        # Also skip snap mounts on Linux
+                        if mnt.startswith('/snap/') or mnt.startswith('/var/lib/docker'):
+                            continue
+                        pct = fs.get('percent')
+                        if pct is not None:
+                            try:
+                                pcts.append(float(pct))
+                            except (TypeError, ValueError):
+                                pass
+                    if pcts:
+                        result['disk_percent'] = max(pcts)
+        except Exception:
+            pass
+
+        return result
     except Exception:
-        return {'memory_percent': None, 'battery_percent': None, 'temp_c': None}
+        return result
 
 def get_glances_stats_cached(host, port=61999):
     """Get Glances stats with caching (30s TTL)"""
@@ -786,7 +884,10 @@ def index():
             'services': services_list,
             'memory_percent': local_glances['memory_percent'],
             'battery_percent': local_glances['battery_percent'],
-            'temp_c': local_glances.get('temp_c')
+            'temp_c': local_glances.get('temp_c'),
+            'net_rx_bps': local_glances.get('net_rx_bps'),
+            'net_tx_bps': local_glances.get('net_tx_bps'),
+            'disk_percent': local_glances.get('disk_percent'),
         }
     ]
 
@@ -822,7 +923,10 @@ def index():
             'services': remote_services,
             'memory_percent': remote_glances['memory_percent'],
             'battery_percent': remote_glances['battery_percent'],
-            'temp_c': remote_glances.get('temp_c')
+            'temp_c': remote_glances.get('temp_c'),
+            'net_rx_bps': remote_glances.get('net_rx_bps'),
+            'net_tx_bps': remote_glances.get('net_tx_bps'),
+            'disk_percent': remote_glances.get('disk_percent'),
         })
 
     avg_uptime = status_data.get('_avg_uptime', '--')
@@ -1377,6 +1481,308 @@ def get_active_alerts():
     return jsonify({
         'count': alert_engine.get_active_count(),
     })
+
+# ─── Observability API ────────────────────────────────────────────────────
+#
+# Surfaces the homelab observability stack (Loki / Grafana / Prometheus /
+# CrowdSec / Netdata / log-triage / Gatus) in one pane so the dashboard stops
+# being a pure service-control panel.  Deployment details live in
+# `noc-homelab-beads/memory/observability_stack.md`.
+
+# Static registry of observability stack endpoints.  Health is probed live.
+# These aren't in machines.json because (a) they're agent-managed on noc-tux
+# and adding them would need an agent/config.yaml edit + restart there, and
+# (b) they're best surfaced as a stack rather than scattered across machines.
+OBSERVABILITY_TARGETS = [
+    {
+        'id': 'grafana',
+        'name': 'Grafana',
+        'role': 'Dashboards + alerting',
+        'machine': 'noc-tux',
+        'probe_url': 'http://noc-tux:3000/api/health',
+        'link_url': 'http://noc-tux:3000',
+    },
+    {
+        'id': 'loki',
+        'name': 'Loki',
+        'role': 'Log aggregation (14d retention)',
+        'machine': 'noc-tux',
+        'probe_url': 'http://noc-tux:3100/ready',
+        'link_url': 'http://noc-tux:3000/explore?orgId=1&left=%7B%22datasource%22%3A%22loki%22%7D',
+    },
+    {
+        'id': 'prometheus',
+        'name': 'Prometheus',
+        'role': 'Metrics scrape (30d retention)',
+        'machine': 'noc-tux',
+        'probe_url': 'http://noc-tux:9090/-/ready',
+        'link_url': 'http://noc-tux:9090',
+    },
+    {
+        'id': 'crowdsec',
+        'name': 'CrowdSec LAPI',
+        'role': 'IDS / behavioral detection',
+        'machine': 'noc-tux',
+        # LAPI returns 403 without auth — treat that as 'alive, denying us'
+        'probe_url': 'http://noc-tux:8150/v1/decisions',
+        'probe_ok_codes': [200, 401, 403],
+        'link_url': 'http://noc-tux:3000/explore?orgId=1&left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bservice_name%3D%5C%22crowdsec%5C%22%7D%22%7D%5D%7D',
+    },
+    {
+        'id': 'netdata-noc-tux',
+        'name': 'Netdata (noc-tux parent)',
+        'role': 'Real-time metrics parent',
+        'machine': 'noc-tux',
+        'probe_url': 'http://noc-tux:19999/api/v1/info',
+        'link_url': 'http://noc-tux:19999',
+    },
+    {
+        'id': 'netdata-noc-local',
+        'name': 'Netdata (noc-local)',
+        'role': 'Real-time metrics child',
+        'machine': 'noc-local',
+        'probe_url': 'http://noc-local:19999/api/v1/info',
+        'link_url': 'http://noc-local:19999',
+    },
+    {
+        'id': 'netdata-noc-claw',
+        'name': 'Netdata (noc-claw)',
+        'role': 'Real-time metrics child',
+        'machine': 'noc-claw',
+        'probe_url': 'http://noc-claw:19999/api/v1/info',
+        'link_url': 'http://noc-claw:19999',
+    },
+    {
+        'id': 'log-triage',
+        'name': 'log-triage',
+        'role': 'LLM-summarized CrowdSec alerts',
+        'machine': 'noc-claw',
+        'probe_url': 'http://noc-claw:8182/health',
+        'link_url': 'http://noc-claw:8182/health',
+    },
+    {
+        'id': 'gatus-noc-local',
+        'name': 'Gatus (noc-local)',
+        'role': 'Service health monitor',
+        'machine': 'noc-local',
+        'probe_url': 'http://noc-local:3001/health',
+        'probe_ok_codes': [200, 503],  # returns 503 if any endpoint failing
+        'link_url': 'http://noc-local:3001',
+    },
+]
+
+# Cache observability probes so we don't hammer endpoints on every page load
+_obs_target_cache = {'data': None, 'timestamp': 0}
+_obs_target_ttl = 20  # seconds
+_obs_summary_cache = {'data': None, 'timestamp': 0}
+_obs_summary_ttl = 30  # seconds
+
+
+def _probe_obs_target(target, timeout=3):
+    """Probe a single observability target. Returns dict with status + latency."""
+    start = time.time()
+    try:
+        resp = requests.get(target['probe_url'], timeout=timeout)
+        elapsed_ms = int((time.time() - start) * 1000)
+        ok_codes = target.get('probe_ok_codes', [200])
+        healthy = resp.status_code in ok_codes
+        return {
+            'status': 'up' if healthy else 'degraded',
+            'status_code': resp.status_code,
+            'latency_ms': elapsed_ms,
+        }
+    except requests.exceptions.Timeout:
+        return {'status': 'down', 'error': 'timeout', 'latency_ms': int(timeout * 1000)}
+    except Exception as e:
+        return {'status': 'down', 'error': str(e)[:100], 'latency_ms': int((time.time() - start) * 1000)}
+
+
+def get_obs_targets_cached():
+    """Probe all observability targets in parallel; 20s cache."""
+    now = time.time()
+    if _obs_target_cache['data'] and (now - _obs_target_cache['timestamp']) < _obs_target_ttl:
+        return _obs_target_cache['data']
+
+    results = []
+    with ThreadPoolExecutor(max_workers=len(OBSERVABILITY_TARGETS)) as executor:
+        futures = {executor.submit(_probe_obs_target, t): t for t in OBSERVABILITY_TARGETS}
+        for future in as_completed(futures, timeout=10):
+            target = futures[future]
+            try:
+                probe = future.result()
+            except Exception as e:
+                probe = {'status': 'down', 'error': str(e)[:100]}
+            results.append({**target, **probe})
+
+    # Preserve the registry order (parallel execution scrambles it)
+    order = {t['id']: idx for idx, t in enumerate(OBSERVABILITY_TARGETS)}
+    results.sort(key=lambda r: order.get(r['id'], 99))
+
+    _obs_target_cache['data'] = results
+    _obs_target_cache['timestamp'] = now
+    return results
+
+
+def get_crowdsec_summary():
+    """SSH to noc-tux and run cscli to get decisions + 24h alert count.
+
+    Returns: {decisions: [...], decisions_count, alerts_24h, error}
+    """
+    result = {'decisions': [], 'decisions_count': 0, 'alerts_24h': 0, 'error': None}
+    try:
+        # Decisions (active bans)
+        dec = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=3', '-o', 'BatchMode=yes',
+             'noc@noc-tux', 'sudo -n cscli decisions list -o json'],
+            capture_output=True, text=True, timeout=10)
+        if dec.returncode == 0 and dec.stdout.strip():
+            decisions_raw = json.loads(dec.stdout)
+            flat = []
+            for alert in (decisions_raw or []):
+                for d in alert.get('decisions', []):
+                    flat.append({
+                        'id': d.get('id'),
+                        'scenario': d.get('scenario', ''),
+                        'type': d.get('type', ''),
+                        'value': d.get('value', ''),
+                        'duration': d.get('duration', ''),
+                        'origin': d.get('origin', ''),
+                        'created_at': alert.get('created_at', ''),
+                    })
+            result['decisions'] = flat
+            result['decisions_count'] = len(flat)
+
+        # 24h alert count — cscli alerts list --since 24h
+        al = subprocess.run(
+            ['ssh', '-o', 'ConnectTimeout=3', '-o', 'BatchMode=yes',
+             'noc@noc-tux', 'sudo -n cscli alerts list --since 24h -o json'],
+            capture_output=True, text=True, timeout=10)
+        if al.returncode == 0 and al.stdout.strip():
+            alerts_raw = json.loads(al.stdout)
+            result['alerts_24h'] = len(alerts_raw or [])
+    except subprocess.TimeoutExpired:
+        result['error'] = 'ssh timeout'
+    except json.JSONDecodeError as e:
+        result['error'] = f'json parse: {e}'
+    except Exception as e:
+        result['error'] = str(e)[:200]
+
+    return result
+
+
+def get_gatus_summary(gatus_url='http://noc-local:3001'):
+    """Fetch Gatus endpoint statuses; summarize UP/DOWN/DEGRADED counts."""
+    result = {'url': gatus_url, 'endpoints': [], 'up': 0, 'down': 0, 'total': 0, 'error': None}
+    try:
+        resp = requests.get(f'{gatus_url}/api/v1/endpoints/statuses?page=1', timeout=5)
+        if resp.status_code != 200:
+            result['error'] = f'http {resp.status_code}'
+            return result
+        data = resp.json()
+        for ep in data:
+            results = ep.get('results', [])
+            latest = results[-1] if results else None
+            is_up = latest.get('success', False) if latest else False
+            if is_up:
+                result['up'] += 1
+            else:
+                result['down'] += 1
+            result['total'] += 1
+            # Compact per-endpoint row for the UI
+            conds = []
+            if latest:
+                for cr in latest.get('conditionResults', []):
+                    conds.append({
+                        'condition': cr.get('condition', ''),
+                        'success': cr.get('success', False),
+                    })
+            result['endpoints'].append({
+                'name': ep.get('name', ''),
+                'group': ep.get('group', ''),
+                'key': ep.get('key', ''),
+                'up': is_up,
+                'status_code': latest.get('status') if latest else None,
+                'latency_ms': (latest.get('duration', 0) / 1_000_000) if latest else None,  # ns → ms
+                'timestamp': latest.get('timestamp') if latest else None,
+                'conditions': conds,
+            })
+    except requests.exceptions.Timeout:
+        result['error'] = 'timeout'
+    except Exception as e:
+        result['error'] = str(e)[:200]
+    return result
+
+
+@app.route('/observability')
+def observability_page():
+    """Unified observability pane — Gatus, CrowdSec, obs stack health, links."""
+    return render_template('observability.html')
+
+
+@app.route('/api/observability/summary')
+def api_observability_summary():
+    """Aggregate summary for the observability page. 30s cache."""
+    now = time.time()
+    if _obs_summary_cache['data'] and (now - _obs_summary_cache['timestamp']) < _obs_summary_ttl:
+        return jsonify(_obs_summary_cache['data'])
+
+    # Fan out in parallel — Gatus is HTTP, CrowdSec is SSH, obs targets is parallel HTTP
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_gatus = executor.submit(get_gatus_summary)
+        f_crowdsec = executor.submit(get_crowdsec_summary)
+        f_targets = executor.submit(get_obs_targets_cached)
+
+        try:
+            gatus = f_gatus.result(timeout=8)
+        except Exception as e:
+            gatus = {'error': str(e)[:200], 'endpoints': [], 'up': 0, 'down': 0, 'total': 0}
+        try:
+            crowdsec = f_crowdsec.result(timeout=15)
+        except Exception as e:
+            crowdsec = {'error': str(e)[:200], 'decisions': [], 'decisions_count': 0, 'alerts_24h': 0}
+        try:
+            targets = f_targets.result(timeout=12)
+        except Exception as e:
+            targets = []
+
+    targets_up = sum(1 for t in targets if t.get('status') == 'up')
+    targets_total = len(targets)
+
+    payload = {
+        'timestamp': now,
+        'gatus': gatus,
+        'crowdsec': crowdsec,
+        'targets': targets,
+        'targets_up': targets_up,
+        'targets_total': targets_total,
+    }
+    _obs_summary_cache['data'] = payload
+    _obs_summary_cache['timestamp'] = now
+    return jsonify(payload)
+
+
+@app.route('/api/observability/targets')
+def api_observability_targets():
+    """Raw probe results for the observability stack endpoints."""
+    return jsonify({'targets': get_obs_targets_cached()})
+
+
+@app.route('/api/crowdsec/decisions')
+def api_crowdsec_decisions():
+    """Active CrowdSec decisions + 24h alert count (SSH to noc-tux)."""
+    return jsonify(get_crowdsec_summary())
+
+
+@app.route('/api/gatus/statuses')
+def api_gatus_statuses():
+    """Gatus endpoint statuses (default: noc-local:3001)."""
+    url = request.args.get('url', 'http://noc-local:3001')
+    # Only allow the two known Gatus hosts to avoid SSRF via user-controlled URL
+    allowed = {'http://noc-local:3001', 'http://noc-tux:3001', 'http://100.91.104.124:3001'}
+    if url not in allowed:
+        return jsonify({'error': 'url not in allowlist'}), 400
+    return jsonify(get_gatus_summary(url))
+
 
 # Settings Editor API Endpoints
 
