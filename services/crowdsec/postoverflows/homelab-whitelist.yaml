@@ -1,0 +1,29 @@
+# Homelab trusted-source whitelist.
+#
+# Drops any alert whose source IP is inside one of our own networks so the
+# firewall bouncer can never lock out Tailscale peers, LAN clients, our home
+# public IP, or the OVH rathole VPS. Installed at:
+#   /etc/crowdsec/postoverflows/s01-whitelist/homelab-whitelist.yaml
+#
+# CrowdSec loads postoverflows from `s01-whitelist/*.yaml` (see
+# `cscli postoverflows list`). This runs after the overflow chain so a
+# scenario alert on e.g. 100.64.x.x (Tailscale) is dropped before a decision
+# is emitted.
+#
+# Keep this list *tight*: adding 10.0.0.0/8 defensively is fine (not
+# routable), but do NOT whitelist large public ranges.
+
+name: homelab/trusted-sources-whitelist
+description: "Drop alerts from Tailscale mesh, LAN, home public IP, OVH VPS"
+whitelist:
+  reason: "homelab trusted source"
+  ip:
+    - "84.203.199.55"       # home public IP (noc-local WAN)
+    - "149.56.142.131"      # noc-baguette OVH VPS (rathole server)
+  cidr:
+    - "100.64.0.0/10"       # Tailscale CGNAT range
+    - "192.168.0.0/16"      # LAN (home)
+    - "10.0.0.0/8"          # RFC1918
+    - "172.16.0.0/12"       # RFC1918 / Docker default pool
+    - "127.0.0.0/8"         # IPv4 loopback
+    - "::1/128"             # IPv6 loopback
