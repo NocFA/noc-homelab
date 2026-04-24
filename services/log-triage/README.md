@@ -5,13 +5,16 @@ log context from Loki, asks the local MLX model on noc-claw for a one-paragraph
 human summary, and posts the result to Discord.
 
 ```
-CrowdSec (noc-tux, observation mode)
-       │  HTTP POST /alert
+CrowdSec (noc-tux, active firewall bouncer)
+       │  HTTP POST /alert  (notifier: http_triage → forwards events[])
        ▼
 log-triage  (noc-claw, :8182)
+       │  extract_http_events() ── http_verb/path/status/target_fqdn
        │  GET /loki/api/v1/query_range  → 20-40 context lines
        │  POST /v1/chat/completions     → one-paragraph summary
-       └──▶ Discord webhook embed
+       │   └── serialized via asyncio.Semaphore(1), one retry on
+       │       httpx.RemoteProtocolError (MLX SIGABRTs on concurrent GPU)
+       └──▶ Discord embed: Target, Paths probed, LLM summary
 ```
 
 Co-located with mlx-server on noc-claw: inference stays on the loopback, no

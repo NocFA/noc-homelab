@@ -13,8 +13,18 @@ type: http
 name: http_triage
 log_level: info
 
+# Same batch shape as http_discord — flush per alert (threshold=1) within
+# 5s. Log-triage returns 202 fast (fire-and-forget), so the notifier doesn't
+# block on MLX inference; keep the upstream timeout tight.
+group_wait: 5s
+group_threshold: 1
+max_retry: 3
+timeout: 5s
+
 # Pass the full CrowdSec Alert array. The service handles both single-object
-# and array payloads.
+# and array payloads. events[].meta is flattened from CrowdSec's native
+# [{Key,Value}] list into a plain {key: value} dict so the Python side can
+# access meta["http_path"] etc. directly.
 format: |
   [{{range $i, $a := .}}{{if $i}},{{end}}{
     "scenario":     {{$a.Scenario | toJson}},
@@ -25,6 +35,10 @@ format: |
       "scope": {{$a.Source.Scope | toJson}}
     },
     "decisions": [{{range $j, $d := $a.Decisions}}{{if $j}},{{end}}{"type": {{$d.Type | toJson}}, "duration": {{$d.Duration | toJson}}}{{end}}],
+    "events": [{{range $k, $e := $a.Events}}{{if $k}},{{end}}{
+      "timestamp": {{$e.Timestamp | toJson}},
+      "meta": { {{range $m, $kv := $e.Meta}}{{if $m}},{{end}}{{$kv.Key | toJson}}: {{$kv.Value | toJson}}{{end}} }
+    }{{end}}],
     "start_at": {{$a.StartAt | toJson}},
     "stop_at":  {{$a.StopAt | toJson}}
   }{{end}}]

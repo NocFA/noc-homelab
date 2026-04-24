@@ -93,27 +93,47 @@ sudo cscli decisions add --ip 1.2.3.4 --reason "manual test"
 sudo cscli decisions delete --ip 1.2.3.4
 ```
 
-## Going active later
+## Active enforcement (bouncer installed Apr 2026)
 
-Install one bouncer; start with firewall (iptables):
+The firewall bouncer is now installed on noc-tux and actively enforcing
+decisions. Install steps if rebuilding:
 
 ```bash
+# 1) Deploy trusted-source whitelist FIRST (prevents future scenarios from
+#    ever banning Tailscale / LAN / home IP / OVH VPS).
+sudo install -o root -g root -m 0644 \
+  /home/noc/noc-homelab/services/crowdsec/postoverflows/homelab-whitelist.yaml \
+  /etc/crowdsec/postoverflows/s01-whitelist/homelab-whitelist.yaml
+sudo systemctl reload crowdsec
+sudo cscli postoverflows list | grep homelab   # verify: enabled,local
+
+# 2) Sanity-check the decisions DB — anything unexpected in here will be
+#    blocked the moment the bouncer starts.
+sudo cscli decisions list
+
+# 3) Install the firewall bouncer (auto-registers with LAPI via post-install).
 sudo apt-get install -y crowdsec-firewall-bouncer-iptables
 
-# The bouncer reads /etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml.
-# BEFORE enabling, verify `cscli decisions list` doesn't contain any IPs you
-# actually want to reach (Tailscale peers, home LAN, CI runners, etc).
-# Add an allowlist:
-sudo cscli decisions list --ip 100.64.0.0/10  # Tailscale — should be empty
-
-sudo cscli postoverflows install crowdsecurity/whitelists
-# Then edit /etc/crowdsec/postoverflows/s01-whitelist/whitelists.yaml to keep
-# 100.64.0.0/10, 192.168.0.0/16, etc. from ever being banned.
-
-sudo systemctl enable --now crowdsec-firewall-bouncer
+# 4) Verify.
+sudo cscli bouncers list                                # expect cs-firewall-bouncer-* row
+sudo iptables -L CROWDSEC_CHAIN -n --line-numbers       # DROP rules matching the ipsets
+sudo ipset list crowdsec-blacklists-0 | head            # CAPI community blocklist (~22k IPs)
+sudo ipset list crowdsec-blacklists-1 | head            # local scenario bans
 ```
 
-**Warning**: once the bouncer is running, buggy scenario tuning can kick
-legit users. Always keep the whitelist up to date and prefer `captcha`-style
-bouncers at the proxy layer before going to iptables-level blocks on public
-services.
+Key files:
+- `postoverflows/homelab-whitelist.yaml` — our trusted ranges (committed)
+- `/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml` — bouncer config
+  (auto-generated at install, API key embedded, do not commit)
+- `iptables INPUT` chain now starts with `CROWDSEC_CHAIN` — runs BEFORE ufw,
+  libvirt, and tailscale chains
+
+**Observed behaviour**: at install time the bouncer consumed the existing
+`213.209.159.175` decision (a `.env`-scanner from earlier that evening) plus
+~22,680 IPs from the CrowdSec Community API blocklist. UFW and Tailscale
+continue to work unchanged.
+
+**Warning**: buggy scenario tuning can kick legit users. If something stops
+working after install, first check `ipset test crowdsec-blacklists-0 <ip>`
+then either extend `homelab-whitelist.yaml` or
+`sudo cscli decisions delete --ip <ip>`.
