@@ -519,15 +519,23 @@ def get_remote_uptime_secs(machine):
     batch = _refresh_remote_batch(machine)
     return batch.get('uptime_secs')
 
-def _netdata_latest_point(host, chart, timeout=3, port=19999):
-    """Fetch the latest (received, sent) rate from a Netdata chart.
+def _netdata_latest_point(host, chart, timeout=3, port=19999, window_secs=30):
+    """Fetch a window-averaged (received, sent) rate from a Netdata chart.
 
     Returns (rx_bps, tx_bps) as ints (bits/sec, always positive), or (None, None).
     Netdata reports rates in kilobits/sec and uses NEGATIVE values on the 'sent'
     dimension by convention — we abs() both and convert to bits/sec.
+
+    Why a window, not a 1s point: noc-tux network during RD streaming bursts
+    wildly (47 Mbps one second, 860 Mbps the next).  A single 1s sample
+    cached for 30s shows whichever instant we happened to hit, often a
+    trough that contradicts what the user sees in Netdata's own chart.
+    Asking Netdata for `points=1&after=-N` returns one point averaged over
+    N seconds (default group=average), which matches the cache TTL and
+    looks like a stable "current bandwidth" value.
     """
     try:
-        url = f'http://{host}:{port}/api/v1/data?chart={chart}&points=1&after=-2'
+        url = f'http://{host}:{port}/api/v1/data?chart={chart}&points=1&after=-{window_secs}'
         r = requests.get(url, timeout=timeout)
         if r.status_code != 200:
             return (None, None)
