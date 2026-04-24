@@ -335,6 +335,54 @@
                 font-size: 0.75rem;
                 margin-bottom: 0.75rem;
             }
+
+            /* ─── Network breakdown ─── */
+            .network-machines {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+            .network-card {
+                background: var(--bg-elevated);
+                border: 1px solid var(--border);
+                border-radius: 4px;
+                padding: 0.75rem 1rem;
+                font-family: var(--font-mono);
+                font-size: 0.75rem;
+            }
+            .network-card-title {
+                font-size: 0.7rem;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                margin-bottom: 0.5rem;
+                font-weight: 600;
+            }
+            .network-process {
+                display: grid;
+                grid-template-columns: 1fr auto auto;
+                gap: 0.5rem;
+                padding: 0.35rem 0;
+                border-bottom: 1px solid var(--border);
+                align-items: center;
+            }
+            .network-process:last-child { border-bottom: none; }
+            .network-proc-name {
+                color: var(--text-primary);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .network-proc-rx {
+                color: var(--text-secondary);
+                text-align: right;
+            }
+            .network-proc-tx {
+                color: var(--text-secondary);
+                text-align: right;
+                min-width: 70px;
+            }
         </style>
     </head>
     <body>
@@ -434,6 +482,18 @@
                 </div>
                 <div id="crowdsecError"></div>
                 <div id="decisionsWrap">
+                    <div class="empty-state">Loading…</div>
+                </div>
+            </div>
+
+            <!-- ─── Per-app network breakdown ─── -->
+            <div class="section" id="network">
+                <div class="section-title">
+                    Top applications by network usage
+                    <span class="section-title-sub">Processes consuming the most bandwidth</span>
+                </div>
+                <div id="networkError"></div>
+                <div class="network-machines" id="networkMachines">
                     <div class="empty-state">Loading…</div>
                 </div>
             </div>
@@ -545,6 +605,39 @@
                     .join("");
             }
 
+            // ─── render: Network breakdown ────────────────────────────────
+            function renderNetwork(machines) {
+                const wrap = document.getElementById("networkMachines");
+                const err = document.getElementById("networkError");
+                err.innerHTML = "";
+                if (!machines || !machines.length) {
+                    wrap.innerHTML = '<div class="empty-state">No network data available.</div>';
+                    return;
+                }
+                wrap.innerHTML = machines
+                    .map(m => {
+                        if (m.error) {
+                            return `<div class="network-card">
+                                <div class="network-card-title">${escapeHtml(m.machine || "unknown")}</div>
+                                <div style="color: var(--error); font-size: 0.7rem;">${escapeHtml(m.error)}</div>
+                            </div>`;
+                        }
+                        const rows = (m.processes || [])
+                            .map(p => `
+                                <div class="network-process">
+                                    <span class="network-proc-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
+                                    <span class="network-proc-rx">↓${(p.recv_bps / 1024 / 1024).toFixed(1)}M</span>
+                                    <span class="network-proc-tx">↑${(p.sent_bps / 1024 / 1024).toFixed(1)}M</span>
+                                </div>`)
+                            .join("");
+                        return `<div class="network-card">
+                            <div class="network-card-title">${escapeHtml(m.machine || "unknown")}</div>
+                            ${rows || '<div style="color: var(--text-muted);">no processes</div>'}
+                        </div>`;
+                    })
+                    .join("");
+            }
+
             // ─── render: CrowdSec ─────────────────────────────────────────
             function renderCrowdsec(cs) {
                 const wrap = document.getElementById("decisionsWrap");
@@ -630,6 +723,16 @@
                     renderTargets(data.targets);
                     renderGatus(data.gatus);
                     renderCrowdsec(data.crowdsec);
+
+                    // Fetch network stats for all machines in parallel
+                    const machines = ["noc-local", "noc-tux", "noc-claw"];
+                    const networkData = await Promise.all(
+                        machines.map(m =>
+                            fetch(`/api/network/top?machine=${m}`).then(r => r.json()).catch(e => ({machine: m, error: e.message}))
+                        )
+                    );
+                    renderNetwork(networkData);
+
                     document.getElementById("lastUpdated").textContent =
                         "updated " + new Date().toLocaleTimeString();
                 } catch (e) {

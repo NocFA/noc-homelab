@@ -258,6 +258,7 @@
       "ssh_user": "noc",
       "agent_port": 8080,
       "glances_port": 61999,
+      "primary_iface": "wlo1",
       "services": {}
     }
   ]

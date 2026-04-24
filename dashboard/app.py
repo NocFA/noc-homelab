@@ -1807,6 +1807,278 @@ def api_gatus_statuses():
     return jsonify(get_gatus_summary(url))
 
 
+# ─── Per-app/container Network Top Talkers ────────────────────────────────
+#
+# Gap that triggered this feature (Apr 2026): netdata only exposes interface-
+# level bandwidth (`system.net`) across machines — when zurg was hitting
+# 500+ Mbps on noc-tux we had to ssh + sudo nethogs to find out which process
+# was responsible.  This endpoint bridges that by running nethogs (Linux) or
+# nettop (macOS) on each machine and parsing the top talkers.
+#
+# Tools: nethogs (Linux, passwordless sudo) + nettop (macOS, no sudo needed).
+# Both commands sample over ~1s so expect ~2s per-machine latency; we fan out
+# in parallel and cache for 30s.
+
+_network_top_cache = {'data': None, 'timestamp': 0}
+_network_top_ttl = 30  # seconds — bandwidth changes fast but this is a dashboard
+# Per-machine cache lets /api/network/top?machine=X and the aggregate call share samples
+_network_top_per_machine_cache = {}
+
+
+def _parse_nethogs_output(output):
+    """Parse `nethogs -t` output. Returns list sorted by total_bps desc.
+
+    Output format (tab-separated):
+        <command-path>/<pid>/<uid>\t<sent_KB/s>\t<recv_KB/s>
+
+    Multiple "Refreshing:" blocks appear — we take the LAST one (most recent rates).
+    The first block is the warmup sample and is usually all zeros.
+    """
+    talkers = []
+    if not output:
+        return talkers
+    blocks = output.split('Refreshing:')
+    if len(blocks) < 2:
+        return talkers
+    last_block = blocks[-1].strip()
+    for line in last_block.split('\n'):
+        line = line.strip()
+        if not line or line.startswith('Unknown connection'):
+            continue
+        parts = line.split('\t')
+        if len(parts) < 3:
+            continue
+        try:
+            sent_kbs = float(parts[1])
+            recv_kbs = float(parts[2])
+        except ValueError:
+            continue
+        # Rightmost two '/'-separated fields are pid/uid
+        name_pid_uid = parts[0]
+        pieces = name_pid_uid.rsplit('/', 2)
+        if len(pieces) == 3:
+            cmd_path, pid, _uid = pieces
+            if cmd_path and not cmd_path.startswith('unknown'):
+                name = os.path.basename(cmd_path)
+            else:
+                name = cmd_path or 'unknown'
+        else:
+            name = name_pid_uid
+            pid = ''
+        sent_bps = sent_kbs * 1024 * 8
+        recv_bps = recv_kbs * 1024 * 8
+        total_bps = sent_bps + recv_bps
+        if total_bps <= 0:
+            continue
+        talkers.append({
+            'name': name,
+            'pid': pid,
+            'sent_bps': sent_bps,
+            'recv_bps': recv_bps,
+            'total_bps': total_bps,
+        })
+    talkers.sort(key=lambda t: t['total_bps'], reverse=True)
+    return talkers
+
+
+def _parse_nettop_output(output):
+    """Parse `nettop -L 2 -d -P -J bytes_in,bytes_out -x -s 1` output.
+
+    nettop in delta mode (`-d`) emits 2 CSV blocks separated by the header line
+    `,bytes_in,bytes_out,`.  The second block contains per-process deltas over
+    the 1-second sample window, so values are effectively bytes/sec.
+    """
+    talkers = []
+    if not output:
+        return talkers
+    blocks = []
+    current = []
+    for line in output.split('\n'):
+        line = line.rstrip('\r')
+        if line.startswith(',bytes_in,bytes_out,'):
+            if current:
+                blocks.append(current)
+            current = []
+        elif line.strip():
+            current.append(line)
+    if current:
+        blocks.append(current)
+    if len(blocks) < 2:
+        return talkers
+    for line in blocks[1]:
+        parts = line.split(',')
+        if len(parts) < 3:
+            continue
+        try:
+            bytes_in = int(parts[1])
+            bytes_out = int(parts[2])
+        except ValueError:
+            continue
+        name_pid = parts[0]
+        # Format is <name>.<pid> but name may contain dots (e.g. io.tailscale.ip.46523)
+        last_dot = name_pid.rfind('.')
+        if last_dot > 0 and name_pid[last_dot + 1:].isdigit():
+            name = name_pid[:last_dot]
+            pid = name_pid[last_dot + 1:]
+        else:
+            name = name_pid
+            pid = ''
+        recv_bps = bytes_in * 8  # 1-sec delta → bytes/s → bits/s
+        sent_bps = bytes_out * 8
+        total_bps = recv_bps + sent_bps
+        if total_bps <= 0:
+            continue
+        talkers.append({
+            'name': name,
+            'pid': pid,
+            'sent_bps': sent_bps,
+            'recv_bps': recv_bps,
+            'total_bps': total_bps,
+        })
+    talkers.sort(key=lambda t: t['total_bps'], reverse=True)
+    return talkers
+
+
+def _run_network_top_for_machine(machine, top_n=5, timeout=8):
+    """Sample per-process bandwidth on one machine.
+
+    Returns {machine, platform, processes, error, method}.
+    """
+    mid = machine.get('id')
+    platform = machine.get('platform', 'linux')
+    ssh_host = machine.get('ssh_host') or machine.get('hostname') or mid
+    ssh_user = machine.get('ssh_user', 'noc')
+    result = {
+        'machine': mid,
+        'platform': platform,
+        'processes': [],
+        'error': None,
+        'method': None,
+    }
+    try:
+        if platform == 'darwin':
+            nettop_cmd = ['nettop', '-L', '2', '-d', '-P', '-J', 'bytes_in,bytes_out', '-x', '-s', '1']
+            if mid == SELF_MACHINE_ID:
+                proc = subprocess.run(nettop_cmd, capture_output=True, text=True, timeout=timeout)
+            else:
+                proc = subprocess.run(
+                    ['ssh', '-o', 'ConnectTimeout=3', '-o', 'BatchMode=yes',
+                     f'{ssh_user}@{ssh_host}'] + nettop_cmd,
+                    capture_output=True, text=True, timeout=timeout)
+            result['method'] = 'nettop'
+            if proc.returncode != 0 and not proc.stdout:
+                result['error'] = (proc.stderr or 'nettop failed').strip()[:200]
+                return result
+            result['processes'] = _parse_nettop_output(proc.stdout)[:top_n]
+        else:
+            iface = machine.get('primary_iface', 'eth0')
+            # -t trace mode, -c 2 exit after 2 refreshes, -d 1 = 1s per refresh
+            remote_cmd = f'sudo -n nethogs -t -c 2 -d 1 {iface}'
+            proc = subprocess.run(
+                ['ssh', '-o', 'ConnectTimeout=3', '-o', 'BatchMode=yes',
+                 f'{ssh_user}@{ssh_host}', remote_cmd],
+                capture_output=True, text=True, timeout=timeout)
+            result['method'] = 'nethogs'
+            # nethogs often exits non-zero after -c, but its stdout still has data.
+            result['processes'] = _parse_nethogs_output(proc.stdout)[:top_n]
+            if not result['processes'] and proc.stderr:
+                err_tail = proc.stderr.strip().splitlines()
+                result['error'] = (err_tail[-1][:200] if err_tail else 'no data')
+    except subprocess.TimeoutExpired:
+        result['error'] = 'timeout'
+    except Exception as e:
+        result['error'] = str(e)[:200]
+    return result
+
+
+def _get_single_machine_network_top(machine_id, top_n=5):
+    """Return cached or fresh top-N for a single machine."""
+    now = time.time()
+    entry = _network_top_per_machine_cache.get(machine_id)
+    if entry and (now - entry['timestamp']) < _network_top_ttl:
+        return entry['data']
+
+    machine = next((m for m in _ALL_MACHINES if m.get('id') == machine_id), None)
+    if not machine:
+        return {
+            'machine': machine_id,
+            'processes': [],
+            'error': 'unknown machine',
+            'method': None,
+        }
+    data = _run_network_top_for_machine(machine, top_n)
+    _network_top_per_machine_cache[machine_id] = {'data': data, 'timestamp': now}
+    return data
+
+
+def get_network_top_cached(top_n=5):
+    """Top-N bandwidth talkers per machine. 30s cache, parallel fan-out.
+
+    Returns a list of {machine, platform, processes, error, method} dicts in
+    machines.json order.  Only probes the machines we know how to sample
+    (noc-local, noc-tux, noc-claw; skips noc-baguette / remote VPSes).
+    """
+    now = time.time()
+    if _network_top_cache['data'] and (now - _network_top_cache['timestamp']) < _network_top_ttl:
+        return _network_top_cache['data']
+
+    wanted_ids = {'noc-local', 'noc-tux', 'noc-claw'}
+    targets = [m for m in _ALL_MACHINES if m.get('id') in wanted_ids]
+
+    results = []
+    if targets:
+        with ThreadPoolExecutor(max_workers=len(targets)) as executor:
+            futures = {executor.submit(_run_network_top_for_machine, m, top_n): m for m in targets}
+            for future in as_completed(futures, timeout=20):
+                mach = futures[future]
+                try:
+                    data = future.result()
+                except Exception as e:
+                    data = {
+                        'machine': mach.get('id'),
+                        'platform': mach.get('platform'),
+                        'processes': [],
+                        'error': str(e)[:200],
+                        'method': None,
+                    }
+                results.append(data)
+                # Populate per-machine cache so ?machine=X calls reuse this sample
+                _network_top_per_machine_cache[mach.get('id')] = {
+                    'data': data, 'timestamp': now,
+                }
+
+    order = {m['id']: idx for idx, m in enumerate(targets)}
+    results.sort(key=lambda r: order.get(r.get('machine'), 99))
+
+    _network_top_cache['data'] = results
+    _network_top_cache['timestamp'] = now
+    return results
+
+
+@app.route('/api/network/top')
+def api_network_top():
+    """Top-N bandwidth talkers per machine. 30s cache.
+
+    Query params:
+      n — max processes per machine (1-20, default 5)
+      machine — if set, return only that machine's data as a flat dict
+    """
+    try:
+        top_n = int(request.args.get('n', 5))
+    except (TypeError, ValueError):
+        top_n = 5
+    top_n = max(1, min(top_n, 20))
+
+    machine_id = request.args.get('machine')
+    if machine_id:
+        return jsonify(_get_single_machine_network_top(machine_id, top_n))
+
+    return jsonify({
+        'timestamp': time.time(),
+        'machines': get_network_top_cached(top_n),
+    })
+
+
 # Settings Editor API Endpoints
 
 @app.route('/settings')
