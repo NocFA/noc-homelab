@@ -1,0 +1,15 @@
+# Netdata child sender stream config - noc-local, noc-claw
+# Installed to: /opt/homebrew/etc/netdata/stream.conf  (Homebrew macOS)
+# Replace CHANGE_ME_PARENT_API_KEY with the UUID declared in the parent's stream.conf.
+# After editing, restart: brew services restart netdata
+
+[stream]
+    enabled = yes
+    destination = noc-tux:19999
+    api key = CHANGE_ME_PARENT_API_KEY
+    timeout seconds = 60
+    default port = 19999
+    buffer size bytes = 1048576
+    reconnect delay seconds = 5
+    initial clock resync iterations = 60
+    enable compression = yes
