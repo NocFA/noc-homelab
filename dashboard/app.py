@@ -54,7 +54,11 @@ _api_status_ttl = 5  # seconds
 
 # Glances stats cache (longer TTL, refreshed in background)
 _glances_cache = {}
-_glances_ttl = 30  # seconds
+# 30s was too long — network rates change fast and this cache fronts the NET
+# tile.  10s matches the status background thread's refresh cadence: every
+# tick picks up a fresh sample, so the NET/DISK/MEM/TEMP tiles stay aligned
+# with what Netdata's live view is showing instead of drifting up to 30s.
+_glances_ttl = 10  # seconds
 
 # Validation functions for settings editor
 def validate_port(port):
@@ -515,6 +519,75 @@ def get_remote_uptime_secs(machine):
     batch = _refresh_remote_batch(machine)
     return batch.get('uptime_secs')
 
+def _netdata_latest_point(host, chart, timeout=3, port=19999):
+    """Fetch the latest (received, sent) rate from a Netdata chart.
+
+    Returns (rx_bps, tx_bps) as ints (bits/sec, always positive), or (None, None).
+    Netdata reports rates in kilobits/sec and uses NEGATIVE values on the 'sent'
+    dimension by convention — we abs() both and convert to bits/sec.
+    """
+    try:
+        url = f'http://{host}:{port}/api/v1/data?chart={chart}&points=1&after=-2'
+        r = requests.get(url, timeout=timeout)
+        if r.status_code != 200:
+            return (None, None)
+        d = r.json()
+        if not d.get('data'):
+            return (None, None)
+        labels = d.get('labels', [])
+        row = d['data'][0]
+        pairs = dict(zip(labels[1:], row[1:]))
+        # Netdata kbps → bps, take abs since 'sent' comes through negative
+        rx_kbps = pairs.get('received')
+        tx_kbps = pairs.get('sent')
+        rx_bps = int(abs(float(rx_kbps)) * 1000) if rx_kbps is not None else None
+        tx_bps = int(abs(float(tx_kbps)) * 1000) if tx_kbps is not None else None
+        return (rx_bps, tx_bps)
+    except Exception:
+        return (None, None)
+
+
+def get_netdata_net_bps(host, timeout=3):
+    """Return (rx_bps, tx_bps) from the host's own Netdata, or (None, None).
+
+    Linux exposes the aggregate system.net chart; macOS only publishes
+    per-interface net.<iface> charts, so we scan them and pick the dominant
+    interface (highest total bps).  Netdata samples every 1s and matches
+    kernel counters; Glances undercounts by ~40% at high throughput because
+    it averages over its 3s refresh window.
+    """
+    # Linux: fast path — system.net is the kernel aggregate
+    rx, tx = _netdata_latest_point(host, 'system.net', timeout=timeout)
+    if rx is not None and tx is not None:
+        return (rx, tx)
+
+    # macOS: scan net.* charts, keep the biggest
+    try:
+        url = f'http://{host}:19999/api/v1/charts'
+        r = requests.get(url, timeout=timeout)
+        if r.status_code != 200:
+            return (None, None)
+        charts = (r.json() or {}).get('charts', {})
+        # Skip virtual / tunnel / transient interfaces; keep real en*
+        skip = ('net.lo', 'net.utun', 'net.stf', 'net.awdl', 'net.llw',
+                'net.anpi', 'net.ap', 'net.bridge', 'net.vmenet',
+                'net.gif', 'net.tailscale', 'net.wg', 'net.zt')
+        candidates = [c for c in charts if c.startswith('net.') and not c.startswith(skip)]
+        best = (None, None)
+        best_total = -1
+        for c in candidates:
+            rx, tx = _netdata_latest_point(host, c, timeout=timeout)
+            if rx is None or tx is None:
+                continue
+            total = rx + tx
+            if total > best_total:
+                best = (rx, tx)
+                best_total = total
+        return best
+    except Exception:
+        return (None, None)
+
+
 def get_glances_stats(host, port=61999, timeout=5):
     """Fetch memory, battery, temperature, network, and disk stats from Glances API v4.
 
@@ -566,56 +639,65 @@ def get_glances_stats(host, port=61999, timeout=5):
         result['battery_percent'] = battery_percent
         result['temp_c'] = temp_c
 
-        # Network — pick the primary interface's rx/tx (bits/sec).
-        # Glances v4 /network returns a LIST of interface dicts (older/variant
-        # versions have been seen returning a dict keyed by interface_name, so
-        # coerce both shapes).  We pick the non-skipped interface with the most
-        # cumulative bytes: summing every physical interface can double-count
-        # bridge ↔ veth pairs that carry the same packets and lets quiet
-        # virtual interfaces skew the reading.  Leave result as None (not 0)
-        # when nothing matched so the template hides the tile rather than
-        # showing a misleading "0b/s".
-        try:
-            net_resp = requests.get(f'{base}/network', timeout=timeout)
-            if net_resp.status_code == 200:
-                net_data = net_resp.json()
-                if isinstance(net_data, dict):
-                    net_data = list(net_data.values())
-                if isinstance(net_data, list) and net_data:
-                    skip_prefixes = ('lo', 'docker', 'br-', 'veth', 'tailscale',
-                                     'utun', 'awdl', 'llw', 'anpi', 'ap', 'bridge',
-                                     'virbr', 'vnet', 'pelican', 'cni', 'flannel',
-                                     'wg', 'zt', 'kube')
-                    primary = None
-                    primary_bytes = -1.0
-                    for iface in net_data:
-                        if not isinstance(iface, dict):
-                            continue
-                        name = iface.get('interface_name', '') or ''
-                        if name.startswith(skip_prefixes):
-                            continue
-                        total = iface.get('bytes_all')
-                        if total is None:
-                            total = (iface.get('bytes_recv') or 0) + (iface.get('bytes_sent') or 0)
-                        try:
-                            total = float(total)
-                        except (TypeError, ValueError):
-                            continue
-                        if total > primary_bytes:
-                            primary = iface
-                            primary_bytes = total
-                    if primary is not None:
-                        rx = primary.get('bytes_recv_rate_per_sec')
-                        tx = primary.get('bytes_sent_rate_per_sec')
-                        try:
-                            if rx is not None:
-                                result['net_rx_bps'] = int(float(rx) * 8)  # bytes/s → bits/s
-                            if tx is not None:
-                                result['net_tx_bps'] = int(float(tx) * 8)
-                        except (TypeError, ValueError):
-                            pass
-        except Exception:
-            pass
+        # Network — prefer Netdata over Glances.
+        #
+        # Glances' bytes_*_rate_per_sec is a derivative over its ~3s refresh
+        # window; at high throughput it can undercount by ~40% vs kernel
+        # counters.  Combined with our 30s cache on this whole function, the
+        # dashboard NET tile could sit on a stale 39 Mb/s sample while
+        # Netdata's live view shows 600 Mb/s, making the two panes visibly
+        # disagree.  Netdata samples every 1s and matches /proc/net/dev, so
+        # we source the NET tile from there instead and keep Glances only as
+        # a fallback when Netdata is unreachable.
+        rx_bps, tx_bps = get_netdata_net_bps(host, timeout=3)
+        if rx_bps is not None and tx_bps is not None:
+            result['net_rx_bps'] = rx_bps
+            result['net_tx_bps'] = tx_bps
+        else:
+            # Fallback: same primary-interface logic we used to use against
+            # Glances /network.  Only hit on the rare path where Netdata is
+            # unreachable on the host (brief restart, firewall).
+            try:
+                net_resp = requests.get(f'{base}/network', timeout=timeout)
+                if net_resp.status_code == 200:
+                    net_data = net_resp.json()
+                    if isinstance(net_data, dict):
+                        net_data = list(net_data.values())
+                    if isinstance(net_data, list) and net_data:
+                        skip_prefixes = ('lo', 'docker', 'br-', 'veth', 'tailscale',
+                                         'utun', 'awdl', 'llw', 'anpi', 'ap', 'bridge',
+                                         'virbr', 'vnet', 'pelican', 'cni', 'flannel',
+                                         'wg', 'zt', 'kube')
+                        primary = None
+                        primary_bytes = -1.0
+                        for iface in net_data:
+                            if not isinstance(iface, dict):
+                                continue
+                            name = iface.get('interface_name', '') or ''
+                            if name.startswith(skip_prefixes):
+                                continue
+                            total = iface.get('bytes_all')
+                            if total is None:
+                                total = (iface.get('bytes_recv') or 0) + (iface.get('bytes_sent') or 0)
+                            try:
+                                total = float(total)
+                            except (TypeError, ValueError):
+                                continue
+                            if total > primary_bytes:
+                                primary = iface
+                                primary_bytes = total
+                        if primary is not None:
+                            rx = primary.get('bytes_recv_rate_per_sec')
+                            tx = primary.get('bytes_sent_rate_per_sec')
+                            try:
+                                if rx is not None:
+                                    result['net_rx_bps'] = int(float(rx) * 8)
+                                if tx is not None:
+                                    result['net_tx_bps'] = int(float(tx) * 8)
+                            except (TypeError, ValueError):
+                                pass
+            except Exception:
+                pass
 
         # Filesystem — max percent used across real mounts.
         # Skip pseudo-filesystems but KEEP /System/Volumes/Data (that's the
