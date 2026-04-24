@@ -912,7 +912,7 @@ def index():
             })
 
         remote_uptime = machine_data.get('_uptime', '--')
-        remote_glances = get_glances_stats_cached(machine['hostname']) if reachable and machine.get('glances_port') else {'memory_percent': None, 'battery_percent': None, 'temp_c': None}
+        remote_glances = get_glances_stats_cached(machine['hostname']) if reachable and machine.get('glances_port') else {'memory_percent': None, 'battery_percent': None, 'temp_c': None, 'net_rx_bps': None, 'net_tx_bps': None, 'disk_percent': None}
 
         machine_groups.append({
             'id': machine['id'],
