@@ -86,6 +86,15 @@ discovery.docker "containers" {
 discovery.relabel "containers" {
   targets = discovery.docker.containers.targets
 
+  // Drop matrix-* containers entirely. They have --log-driver=none so Alloy
+  // cannot read them; dropping them prevents ~780 errors/min. Matrix logs are
+  // shipped via dedicated loki.source.file blocks below. See noc-homelab-162.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/matrix-.*"
+    action        = "drop"
+  }
+
   rule {
     source_labels = ["__meta_docker_container_name"]
     regex         = "/(.*)"
@@ -94,16 +103,6 @@ discovery.relabel "containers" {
   rule {
     source_labels = ["__meta_docker_container_log_stream"]
     target_label  = "stream"
-  }
-  // matrix-traefik and matrix-synapse are handled by dedicated
-  // loki.source.file blocks below — the matrix playbook sets
-  // `--log-driver=none` on those containers so docker discovery never
-  // sees any log lines. See noc-homelab-5ej.
-  rule {
-    source_labels = ["__meta_docker_container_name"]
-    regex         = "/matrix-.*"
-    target_label  = "job"
-    replacement   = "matrix"
   }
 }
 
