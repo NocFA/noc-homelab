@@ -1,0 +1,13 @@
+[Unit]
+Description=Run AIDE FIM weekly integrity check (Sunday 03:00)
+
+[Timer]
+# Sunday 03:00 local time — quiet hours, no media-stack contention.
+OnCalendar=Sun *-*-* 03:00:00
+# If the box was off at the scheduled time, run on next boot.
+Persistent=true
+RandomizedDelaySec=300
+Unit=aide-check.service
+
+[Install]
+WantedBy=timers.target
