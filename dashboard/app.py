@@ -12,7 +12,7 @@ import shutil
 import threading
 import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from alerts import AlertEngine
+from alerts import AlertEngine, SecurityHealthMonitor
 
 app = Flask(__name__, template_folder='.')
 
@@ -227,6 +227,7 @@ alert_engine = AlertEngine(
     discord_webhook_url=_discord_webhook,
     glances_hosts=_alert_glances_hosts,
 )
+security_monitor = SecurityHealthMonitor(alert_engine)
 
 def check_remote_port(hostname, port, timeout=0.5):
     """Check if a port is listening on a remote host (LAN/Tailscale)"""
@@ -1138,6 +1139,10 @@ def _bg_status_loop():
             alert_engine.check_all()
         except Exception as e:
             app.logger.error(f"Alert check failed: {e}")
+        try:
+            security_monitor.maybe_check()
+        except Exception as e:
+            app.logger.error(f"Security monitor check failed: {e}")
         time.sleep(10)
 
 def _build_status():
