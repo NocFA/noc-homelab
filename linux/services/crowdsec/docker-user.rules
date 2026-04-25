@@ -1,0 +1,80 @@
+*raw
+:PREROUTING ACCEPT [1449987251:13416367450797]
+:OUTPUT ACCEPT [0:0]
+COMMIT
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+:DOCKER - [0:0]
+:DOCKER-BRIDGE - [0:0]
+:DOCKER-CT - [0:0]
+:DOCKER-FORWARD - [0:0]
+:DOCKER-INTERNAL - [0:0]
+:DOCKER-USER - [0:0]
+:ts-forward - [0:0]
+:ts-input - [0:0]
+:ufw-after-forward - [0:0]
+:ufw-after-input - [0:0]
+:ufw-after-logging-forward - [0:0]
+:ufw-after-logging-input - [0:0]
+:ufw-after-logging-output - [0:0]
+:ufw-after-output - [0:0]
+:ufw-before-forward - [0:0]
+:ufw-before-input - [0:0]
+:ufw-before-logging-forward - [0:0]
+:ufw-before-logging-input - [0:0]
+:ufw-before-logging-output - [0:0]
+:ufw-before-output - [0:0]
+:ufw-logging-allow - [0:0]
+:ufw-logging-deny - [0:0]
+:ufw-not-local - [0:0]
+:ufw-reject-forward - [0:0]
+:ufw-reject-input - [0:0]
+:ufw-reject-output - [0:0]
+:ufw-skip-to-policy-forward - [0:0]
+:ufw-skip-to-policy-input - [0:0]
+:ufw-skip-to-policy-output - [0:0]
+:ufw-track-forward - [0:0]
+:ufw-track-input - [0:0]
+:ufw-track-output - [0:0]
+:ufw-user-forward - [0:0]
+:ufw-user-input - [0:0]
+:ufw-user-limit - [0:0]
+:ufw-user-limit-accept - [0:0]
+:ufw-user-logging-forward - [0:0]
+:ufw-user-logging-input - [0:0]
+:ufw-user-logging-output - [0:0]
+:ufw-user-output - [0:0]
+-A FORWARD -j DOCKER-USER
+-A DOCKER-USER -m conntrack --ctstate RELATED,ESTABLISHED -j RETURN
+-A DOCKER-USER -s 192.168.1.0/24 -j RETURN
+-A DOCKER-USER -s 100.64.0.0/10 -j RETURN
+-A DOCKER-USER -i tailscale0 -j RETURN
+-A DOCKER-USER -i lo -j RETURN
+-A DOCKER-USER -i br-+ -j RETURN
+-A DOCKER-USER -i docker0 -j RETURN
+-A DOCKER-USER -i wlo1 -p tcp -m tcp --dport 8443 -j RETURN
+-A DOCKER-USER -i wlo1 -p udp -m udp --dport 8443 -j RETURN
+-A DOCKER-USER -i wlo1 -p tcp -m tcp --dport 8448 -j RETURN
+-A DOCKER-USER -i wlo1 -p udp -m udp --dport 8448 -j RETURN
+-A DOCKER-USER -i wlo1 -p tcp -m tcp --dport 3478 -j RETURN
+-A DOCKER-USER -i wlo1 -p udp -m udp --dport 3478 -j RETURN
+-A DOCKER-USER -i wlo1 -p tcp -m tcp --dport 5349 -j RETURN
+-A DOCKER-USER -i wlo1 -p udp -m udp --dport 5349 -j RETURN
+-A DOCKER-USER -i wlo1 -p udp -m udp --dport 49152:49172 -j RETURN
+-A DOCKER-USER -i wlo1 -p tcp -m tcp --dport 7891 -j RETURN
+-A DOCKER-USER -i wlo1 -p udp -m udp --dport 7892 -j RETURN
+-A DOCKER-USER -i wlo1 -p tcp -m tcp --dport 5350 -j RETURN
+-A DOCKER-USER -i wlo1 -p udp -m udp --dport 3479 -j RETURN
+-A DOCKER-USER -i wlo1 -j DROP
+-A DOCKER-USER -j RETURN
+COMMIT
+*nat
+:PREROUTING ACCEPT [656745:196778427]
+:INPUT ACCEPT [0:0]
+:OUTPUT ACCEPT [2234854:159873303]
+:POSTROUTING ACCEPT [2430728:170765849]
+:DOCKER - [0:0]
+:ts-postrouting - [0:0]
+COMMIT

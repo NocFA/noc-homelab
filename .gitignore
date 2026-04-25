@@ -119,6 +119,9 @@ services/matrix/inventory/**
 beads/
 beads_mdsf-crew/
 config.yaml
+# Exception: crowdsec firewall-bouncer config — sensitive (api_key) but
+# tracked in repo (SOPS-encrypted on commit by pre-commit hook).
+!linux/services/crowdsec/config.yaml
 
 # TeamSpeak server-generated backup files
 configs/teamspeak/backups/

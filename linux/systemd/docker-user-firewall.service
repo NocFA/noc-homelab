@@ -1,0 +1,19 @@
+[Unit]
+Description=Restore DOCKER-USER iptables rules
+After=docker.service crowdsec-firewall-bouncer.service
+Wants=crowdsec-firewall-bouncer.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'iptables -F DOCKER-USER; grep -E "^-A DOCKER-USER" /etc/iptables/docker-user.rules | while read line; do iptables $line; done'
+# After we flush + restore DOCKER-USER, the bouncer's CROWDSEC_CHAIN jump
+# inserted at the top of DOCKER-USER is gone. Bouncer's 10s polling will
+# re-add it, but until then banned IPs can hit container traffic.
+# Restart the bouncer here so its rules are immediately re-established.
+# (noc-homelab-4td)
+ExecStartPost=/bin/systemctl restart crowdsec-firewall-bouncer.service
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
