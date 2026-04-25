@@ -46,7 +46,7 @@ notify() {
     local body="$2"
     local color="${3:-15158332}"  # red
 
-    if [[ -z "${DISCORD_WEBHOOK_HOMELAB:-}" ]]; then
+    if [[ -z "${DISCORD_WEBHOOK_LOCKDOWN:-}" ]]; then
         log "no Discord webhook configured — skipping notification"
         return
     fi
@@ -66,7 +66,7 @@ notify() {
         '{embeds:[{title:$title, description:$desc, color:$color, footer:{text:$footer}}]}')
 
     if curl -sf -X POST -H 'Content-Type: application/json' \
-        --data "$payload" "$DISCORD_WEBHOOK_HOMELAB" -o /dev/null; then
+        --data "$payload" "$DISCORD_WEBHOOK_LOCKDOWN" -o /dev/null; then
         log "notification sent to Discord"
     else
         log "WARN: Discord notification failed"
