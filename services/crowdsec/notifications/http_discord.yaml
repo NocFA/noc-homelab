@@ -11,22 +11,54 @@ type: http
 name: http_discord
 log_level: info
 
+# Batch tuning. Without these, the plugin buffers indefinitely waiting for a
+# burst that may never come. group_threshold=1 means every alert flushes
+# immediately (no batching) which is what we want for a 3-machine homelab —
+# alert volume is tiny so grouping saves nothing. group_wait is the upper bound
+# from the first alert to the flush, kept short so bursty scenarios still flush
+# promptly. max_retry + timeout are for the HTTP POST itself.
+group_wait: 5s
+group_threshold: 1
+max_retry: 3
+timeout: 5s
+
 # One embed per alert, joined into a Discord payload.
+#
+# Surfaces:
+#   - Title:       the scenario (e.g. crowdsecurity/http-cve-probing)
+#   - Description: source IP + country + ASN + ban duration
+#   - Fields:      enriched context (cve, method, target_uri, status) from
+#                  Alert.Meta, plus per-event meta (target_fqdn, http_path)
+#                  from the first event. Falls back gracefully if context
+#                  isn't configured for the scenario.
+#   - Footer:      indicates the bouncer is enforcing on INPUT + DOCKER-USER
+#                  (4td: 2026-04-25 — was previously "observation only").
 format: |
   {
     "username": "CrowdSec / noc-tux",
     "embeds":
       [{{range $i, $a := .}}{{if $i}},{{end}}{
-        "title": "{{$a.Source.Scope}}: {{$a.Source.IP}}{{if $a.Source.Cn}} ({{$a.Source.Cn}}){{end}}",
-        "description": "Scenario `{{$a.Scenario}}` triggered {{len $a.Decisions}} decision(s). Events: {{$a.EventsCount}}.",
+        "title": "{{$a.Scenario}}",
+        "description": "**`{{$a.Source.IP}}`**{{if $a.Source.Cn}} :flag_{{$a.Source.Cn | lower}}: {{$a.Source.Cn}}{{end}}{{if $a.Source.AsNumber}} · AS{{$a.Source.AsNumber}}{{if $a.Source.AsName}} *{{$a.Source.AsName}}*{{end}}{{end}}\n{{(index $a.Decisions 0).Type | upper}} for **{{(index $a.Decisions 0).Duration}}** · {{$a.EventsCount}} event(s)",
         "color": 15158332,
         "fields": [
-          {"name": "Source",      "value": "`{{$a.Source.IP}}`",                     "inline": true},
-          {"name": "Scenario",    "value": "`{{$a.Scenario}}`",                      "inline": true},
-          {"name": "Duration",    "value": "{{(index $a.Decisions 0).Duration}}",     "inline": true},
-          {"name": "Remediation", "value": "{{(index $a.Decisions 0).Type}} (observation mode)", "inline": false}
+          {{- $first := true -}}
+          {{- range $a.Meta -}}
+            {{- if not $first}},{{end -}}
+            {"name": "{{.Key}}", "value": "`{{.Value}}`", "inline": true}
+            {{- $first = false -}}
+          {{- end -}}
+          {{- if gt (len $a.Events) 0 -}}
+            {{- range (index $a.Events 0).Meta -}}
+              {{- if or (eq .Key "target_fqdn") (eq .Key "http_path") (eq .Key "http_verb") (eq .Key "service") -}}
+                {{- if not $first}},{{end -}}
+                {"name": "{{.Key}}", "value": "`{{.Value}}`", "inline": true}
+                {{- $first = false -}}
+              {{- end -}}
+            {{- end -}}
+          {{- end -}}
         ],
-        "footer": {"text": "noc-tux crowdsec · bouncer not attached · informational only"}
+        "footer": {"text": "noc-tux crowdsec · enforced via firewall-bouncer (INPUT + DOCKER-USER)"}
       }{{end}}]
   }
 

@@ -81,3 +81,16 @@
 # === AIDE's own working files ===
 !/var/lib/aide/aide\.db\.new$ 0
 !/var/log/aide$ 0
+
+# === Runtime telemetry / log files that change between every weekly run ===
+# These produced 15+ "modified during scan" warnings during the first baseline
+# (2026-04-25). They're not security-relevant — exclude to keep weekly diffs
+# focused on real changes (binaries, configs, sshd_config, sudoers, etc).
+!/tmp/glances-root\.log.*$ 0
+!/usr/NX/var$ 0
+!/var/cache/netdata$ 0
+!/var/lib/alloy$ 0
+!/var/lib/tailscale$ 0
+!/var/lib/upower$ 0
+# Static cache content can churn (apt downloads, package metadata)
+!/var/cache/apt/archives$ 0
