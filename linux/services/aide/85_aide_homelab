@@ -1,0 +1,83 @@
+# Homelab-specific AIDE exclusions
+#
+# Drop into /etc/aide/aide.conf.d/ before the catch-all 99_aide_root.
+# Numeric prefix 85_ keeps it after package-default rules (31_*, 70_*) but
+# before the catch-all (99_aide_root).
+#
+# AIDE rules: lines beginning with `!` exclude. The `$` anchor means aide
+# matches the directory entry itself and stops descending into it (same
+# pattern used by 70_aide_proc_sys).
+
+# === Container runtimes (overlayfs is volatile, layers churn constantly) ===
+!/var/lib/docker$ 0
+!/var/lib/containerd$ 0
+
+# === Real-Debrid FUSE mount (effectively infinite, errors on partial reads) ===
+!/mnt/zurg$ 0
+!/home/noc/noc-homelab/linux/cache/vfs$ 0
+!/home/noc/noc-homelab/linux/cache/vfsMeta$ 0
+!/home/noc/noc-homelab/media$ 0
+
+# === Matrix stack (postgres WAL + synapse media uploads + traefik certs) ===
+!/matrix/postgres$ 0
+!/matrix/postgres-backup$ 0
+!/matrix/synapse/storage$ 0
+!/matrix/synapse/logs$ 0
+!/matrix/traefik$ 0
+!/matrix/traefik-certs-dumper$ 0
+!/matrix/coturn$ 0
+
+# === Game server (Pelican + Wings — large volumes, frequent writes) ===
+!/var/lib/pelican$ 0
+!/var/lib/pterodactyl$ 0
+
+# === Media server data (metadata, thumbnails, transcodes — high churn) ===
+!/var/lib/plexmediaserver$ 0
+!/var/lib/jellyfin$ 0
+!/var/lib/emby$ 0
+
+# === Snap/flatpak/libvirt (immutable images + runtime data) ===
+!/var/lib/snapd$ 0
+!/var/lib/flatpak$ 0
+!/var/lib/libvirt$ 0
+!/snap$ 0
+
+# === Crowdsec runtime DB (decisions/alerts written constantly) ===
+!/var/lib/crowdsec$ 0
+
+# === User home: keep .ssh, .bashrc, dotfiles; skip caches and bulk data ===
+# AIDE will descend into /home/noc but skip these subtrees.
+!/home/noc/Downloads$ 0
+!/home/noc/Music$ 0
+!/home/noc/Videos$ 0
+!/home/noc/Pictures$ 0
+!/home/noc/Documents$ 0
+!/home/noc/Templates$ 0
+!/home/noc/Public$ 0
+!/home/noc/Desktop$ 0
+!/home/noc/snap$ 0
+!/home/noc/\.cache$ 0
+!/home/noc/\.local/share$ 0
+!/home/noc/\.local/state$ 0
+!/home/noc/\.mozilla$ 0
+!/home/noc/\.config/google-chrome$ 0
+!/home/noc/\.config/Code$ 0
+!/home/noc/\.npm$ 0
+!/home/noc/go/pkg$ 0
+!/home/noc/dev$ 0
+!/home/noc/services$ 0
+!/home/noc/data-alloy$ 0
+!/home/noc/forgejo-runner$ 0
+!/home/noc/animated-album-covers$ 0
+!/home/noc/mdsf-crew-db$ 0
+!/home/noc/websites$ 0
+!/home/noc/backups$ 0
+!/home/noc/matrix-docker-ansible-deploy$ 0
+# Homelab repo: skip beads runtime DB + caches + logs (code is in git anyway)
+!/home/noc/noc-homelab/\.beads$ 0
+!/home/noc/noc-homelab/noc-homelab-beads$ 0
+!/home/noc/noc-homelab/linux/logs$ 0
+
+# === AIDE's own working files ===
+!/var/lib/aide/aide\.db\.new$ 0
+!/var/log/aide$ 0

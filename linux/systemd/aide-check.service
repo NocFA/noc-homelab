@@ -1,0 +1,17 @@
+[Unit]
+Description=AIDE FIM weekly integrity check
+Documentation=man:aide(1)
+After=network.target
+
+[Service]
+Type=oneshot
+# Run as root — aide needs to read every file aide.conf points at.
+ExecStart=/home/noc/noc-homelab/linux/scripts/aide-check.sh
+# Be a polite citizen: low CPU + IO priority so it doesn't disrupt
+# media streaming or matrix during the run.
+Nice=15
+IOSchedulingClass=idle
+# 90 minutes is plenty even on a slow run; aborts hung runs.
+TimeoutStartSec=5400
+StandardOutput=journal
+StandardError=journal
