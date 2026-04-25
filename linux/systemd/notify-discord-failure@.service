@@ -1,0 +1,13 @@
+[Unit]
+Description=Send Discord alert for failed unit %i
+# Don't trigger ourselves if we fail
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+ExecStart=/home/noc/noc-homelab/linux/scripts/notify-systemd-failure.sh %i
+# Don't loop on failure
+Restart=no
+TimeoutStartSec=30
+# Prevent this oneshot from itself triggering OnFailure cascades
+SuccessExitStatus=0 1

@@ -1,9 +1,13 @@
 """
 Smart alerting engine for homelab dashboard.
 Checks Glances metrics against thresholds, fires Discord webhooks with deduplication.
+Also includes SecurityHealthMonitor for proactive checks on critical security
+services (CrowdSec, firewall-bouncer) that systemd OnFailure can't catch:
+panic-restart loops, stale LAPI pulls, ipset drift.
 """
 
 import os
+import subprocess
 import time
 import json
 import threading
@@ -318,3 +322,211 @@ class AlertEngine:
                         self.history.append(item)
         except Exception:
             pass
+
+
+class SecurityHealthMonitor:
+    """Proactive health checks for critical security services.
+
+    Catches silent failures that systemd OnFailure can't detect:
+      * Panic-restart loops (Restart=always keeps unit "active" so OnFailure
+        never fires, but the bouncer crashes every N minutes)
+      * Stale LAPI pulls (bouncer running but auth broken / network down)
+      * ipset drift (decisions exist in DB but missing from firewall ipset)
+      * crowdsec.service quietly failed mid-Restart cycle
+
+    Runs SSH probes against each watched host every CHECK_INTERVAL seconds and
+    fires Discord alerts via the parent AlertEngine's webhook.
+    """
+
+    CHECK_INTERVAL = 60       # seconds between probes
+    SUSTAINED_CHECKS = 2      # consecutive bad probes before alerting (~2 min)
+    COOLDOWN_SECS = 1800      # 30 min between repeats for same issue
+    PANIC_LOOKBACK = "10 min ago"
+    LAST_PULL_MAX_AGE = 300   # bouncer pulls every 10s; >5 min = broken
+    IPSET_DRIFT_TOLERANCE = 5 # tolerate small race between db & firewall
+
+    # (machine_id, ssh_user, ssh_host)
+    HOSTS = [
+        ('noc-tux', 'noc', 'noc-tux'),
+    ]
+
+    def __init__(self, alert_engine):
+        self._engine = alert_engine
+        self._last_check = 0.0
+        self._lock = threading.Lock()
+        # {(machine, check_name): consecutive_breach_count}
+        self._breach_counts = {}
+        # {(machine, check_name): timestamp_fired}
+        self._active_alerts = {}
+
+    def maybe_check(self):
+        """Throttled entry point. Call from background loop every iteration."""
+        now = time.time()
+        if now - self._last_check < self.CHECK_INTERVAL:
+            return
+        self._last_check = now
+        for machine_id, ssh_user, ssh_host in self.HOSTS:
+            try:
+                self._check_host(machine_id, ssh_user, ssh_host)
+            except Exception:
+                # Never let monitor exceptions kill the loop
+                pass
+
+    def _check_host(self, machine_id, ssh_user, ssh_host):
+        """Run a single combined SSH probe and evaluate each check."""
+        probe = self._run_probe(ssh_user, ssh_host)
+        if probe is None:
+            return  # SSH itself failed; don't alert (could be transient network)
+
+        now = time.time()
+
+        # Check 1: crowdsec.service active
+        self._eval_binary(
+            machine_id, 'crowdsec_service',
+            ok=(probe.get('crowdsec_active') == 'active'),
+            failure_msg=f"crowdsec.service is {probe.get('crowdsec_active')}",
+            now=now,
+        )
+
+        # Check 2: crowdsec-firewall-bouncer.service active
+        self._eval_binary(
+            machine_id, 'bouncer_service',
+            ok=(probe.get('bouncer_active') == 'active'),
+            failure_msg=f"crowdsec-firewall-bouncer.service is {probe.get('bouncer_active')}",
+            now=now,
+        )
+
+        # Check 3: panic-restart loop detection
+        panics = probe.get('panics', 0)
+        self._eval_binary(
+            machine_id, 'bouncer_panics',
+            ok=(panics == 0),
+            failure_msg=f"{panics} panic(s) in bouncer log over last 10 min (silent restart loop)",
+            now=now,
+        )
+
+        # Check 4: bouncer LAPI pull recency
+        last_pull_age = probe.get('last_pull_age')
+        if last_pull_age is not None:
+            self._eval_binary(
+                machine_id, 'bouncer_stale_pull',
+                ok=(last_pull_age <= self.LAST_PULL_MAX_AGE),
+                failure_msg=f"bouncer hasn't pulled LAPI in {last_pull_age}s (auth/network broken)",
+                now=now,
+            )
+
+        # Check 5: ipset drift (decisions in DB but missing from firewall)
+        decisions_count = probe.get('decisions_count')
+        ipset_count = probe.get('ipset_count')
+        if decisions_count is not None and ipset_count is not None:
+            drift = decisions_count - ipset_count
+            self._eval_binary(
+                machine_id, 'ipset_drift',
+                ok=(drift <= self.IPSET_DRIFT_TOLERANCE),
+                failure_msg=(
+                    f"firewall ipset missing {drift} bans "
+                    f"(decisions={decisions_count}, ipset={ipset_count})"
+                ),
+                now=now,
+            )
+
+    # Path to probe script on the remote host (in the homelab repo)
+    REMOTE_PROBE_PATH = "/home/noc/noc-homelab/linux/scripts/security-health-probe.py"
+
+    def _run_probe(self, ssh_user, ssh_host):
+        """SSH-invoke the remote probe script, return parsed JSON dict or None.
+
+        Returns None on any SSH/parse failure -- we never alert on probe
+        failure itself, only on bad findings, to avoid noise from transient
+        network blips.
+        """
+        try:
+            result = subprocess.run(
+                ['ssh', '-o', 'ConnectTimeout=5', '-o', 'StrictHostKeyChecking=no',
+                 f'{ssh_user}@{ssh_host}', 'python3', self.REMOTE_PROBE_PATH],
+                capture_output=True, text=True, timeout=20,
+            )
+            if result.returncode != 0:
+                return None
+            # Pick the last line that looks like JSON (script may emit
+            # deprecation warnings to stderr; stdout should be one JSON line)
+            for line in reversed(result.stdout.strip().splitlines()):
+                line = line.strip()
+                if line.startswith('{'):
+                    return json.loads(line)
+            return None
+        except Exception:
+            return None
+
+    def _eval_binary(self, machine_id, check_name, ok, failure_msg, now):
+        """Evaluate a binary (ok/not-ok) check, manage breach counts, fire alert."""
+        key = (machine_id, check_name)
+        if ok:
+            with self._lock:
+                self._breach_counts.pop(key, None)
+                fired_at = self._active_alerts.pop(key, None)
+            if fired_at is not None:
+                self._send_security_alert(
+                    machine_id, check_name,
+                    f"Resolved after {int(now - fired_at)}s",
+                    now, resolved=True,
+                )
+            return
+
+        # Currently breaching
+        with self._lock:
+            self._breach_counts[key] = self._breach_counts.get(key, 0) + 1
+            count = self._breach_counts[key]
+
+        if count < self.SUSTAINED_CHECKS:
+            return  # not sustained yet
+
+        with self._lock:
+            last_fired = self._active_alerts.get(key, 0)
+            if (now - last_fired) < self.COOLDOWN_SECS and key in self._active_alerts:
+                return  # in cooldown
+            self._active_alerts[key] = now
+
+        self._send_security_alert(machine_id, check_name, failure_msg, now)
+
+    def _send_security_alert(self, machine_id, check_name, failure_msg, now, resolved=False):
+        """Send a security-themed Discord embed via the parent engine's webhook."""
+        webhook = getattr(self._engine, 'webhook_url', None)
+        if not webhook:
+            return
+
+        labels = {
+            'crowdsec_service':   'CrowdSec Agent Down',
+            'bouncer_service':    'Firewall Bouncer Down',
+            'bouncer_panics':     'Bouncer Panic Loop',
+            'bouncer_stale_pull': 'Bouncer LAPI Stale',
+            'ipset_drift':        'Firewall ipset Drift',
+        }
+        label = labels.get(check_name, check_name)
+        if resolved:
+            title = f"{machine_id} -- {label} Resolved"
+            color = 0x34d399  # green
+            content = ''
+        else:
+            title = f"{machine_id} -- {label}"
+            color = 0xef4444  # red
+            content = f'<@{DISCORD_USER_ID}>'
+
+        embed = {
+            'title': title,
+            'description': (
+                f"**{failure_msg}**\n\n"
+                f"**Check:** `{check_name}`"
+            ),
+            'color': color,
+            'timestamp': datetime.utcfromtimestamp(now).isoformat(),
+            'footer': {'text': 'SecurityHealthMonitor -- noc-homelab'},
+        }
+        payload = {'content': content, 'embeds': [embed]}
+
+        def _post():
+            try:
+                http_requests.post(webhook, json=payload, timeout=10)
+            except Exception:
+                pass
+        threading.Thread(target=_post, daemon=True).start()
