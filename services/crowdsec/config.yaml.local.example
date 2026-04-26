@@ -1,0 +1,23 @@
+# Overlay for /etc/crowdsec/config.yaml.
+# Managed via noc-homelab/services/crowdsec/.
+#
+# (1) LAPI exposed on all interfaces so Tailscale peers (noc-local,
+#     noc-claw) can forward alerts. UFW restricts inbound to
+#     100.64.0.0/10 — see /etc/ufw/before.rules and CLAUDE.md.
+#
+# (2) DB retention extended to 60 days so GetDecisionsCount() in
+#     profiles.yaml reflects a meaningful repeat-offender history.
+#     Default is 7 days; that's too short to catch IPs that come
+#     back weekly. max_items keeps the DB bounded if a botnet floods
+#     us — oldest decisions are pruned first beyond that ceiling.
+api:
+  server:
+    listen_uri: 0.0.0.0:8150
+    trusted_ips:
+      - 127.0.0.1
+      - ::1
+      - 100.64.0.0/10
+db_config:
+  flush:
+    max_items: 50000
+    max_age: 60d

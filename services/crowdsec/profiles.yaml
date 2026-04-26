@@ -1,35 +1,87 @@
 # CrowdSec decision profiles.
 #
-# A profile matches alerts and emits decisions + notifications. By default,
-# CrowdSec ships a profile that bans IPs for 4h and emails admin. We override
-# it to:
-#   (a) keep the 4h ban decision (recorded, but no active bouncer applies it)
-#   (b) fire a Discord webhook on every ban
+# Profiles are evaluated TOP-TO-BOTTOM; first match wins (because of
+# `on_success: break`). Order matters — put the most specific (highest
+# escalation tier) FIRST, fallthrough default LAST.
 #
-# Because no bouncer is installed (observation-only), decisions are stored in
-# the local SQLite DB but NOT enforced. To go active later: install firewall
-# bouncer, pf bouncer, etc.
+# We use GetDecisionsCount(value), which counts all decisions (active +
+# expired) currently retained in the SQLite DB for the given IP. The DB
+# keeps decisions for 60 days (see config.yaml.local.example —
+# `db_config.flush.max_age`), so this acts as a 60-day rolling
+# repeat-offender history.
+#
+# Tiers:
+#   0 prior decisions  → 24h ban (first offender, fresh IP)
+#   1+ prior decisions → 72h ban (3 days, returning offender)
+#   4+ prior decisions → 168h ban (7 days, repeat offender)
+#   10+ prior decisions → 336h ban (14 days, persistent offender)
+#
+# Note: a single multi-scenario scan triggers several alerts in the same
+# second. The first sees count=0 (default), the second sees count=1
+# (returning), etc. This is intentional — multi-scenario hits indicate a
+# more determined attacker, so escalation is reasonable. The bouncer
+# consolidates per-IP iptables rules so the longest active duration wins.
 
-name: default_ip_remediation
-#debug: true
+---
+# Tier 4: persistent offender — 14-day ban
+name: persistent_offender_ip
 filters:
- - Alert.Remediation == true && Alert.GetScope() == "Ip"
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetDecisionsCount(Alert.GetValue()) >= 10
 decisions:
  - type: ban
-   duration: 4h
-#duration_expr: Sprintf('%dh', (GetDecisionsCount(Alert.GetValue()) + 1) * 4)
+   duration: 336h
 on_success: break
 notifications:
   - http_discord
   - http_triage
 
 ---
+# Tier 3: repeat offender — 7-day ban
+name: repeat_offender_ip
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetDecisionsCount(Alert.GetValue()) >= 4
+decisions:
+ - type: ban
+   duration: 168h
+on_success: break
+notifications:
+  - http_discord
+  - http_triage
+
+---
+# Tier 2: returning offender — 3-day ban
+name: returning_offender_ip
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetDecisionsCount(Alert.GetValue()) >= 1
+decisions:
+ - type: ban
+   duration: 72h
+on_success: break
+notifications:
+  - http_discord
+  - http_triage
+
+---
+# Tier 1: first offender — 24h ban (fallthrough default)
+name: default_ip_remediation
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip"
+decisions:
+ - type: ban
+   duration: 24h
+on_success: break
+notifications:
+  - http_discord
+  - http_triage
+
+---
+# Range bans (e.g. /24 from a noisy ASN) — 24h flat for now.
 name: default_range_remediation
 filters:
  - Alert.Remediation == true && Alert.GetScope() == "Range"
 decisions:
  - type: ban
-   duration: 4h
+   duration: 24h
 on_success: break
 notifications:
   - http_discord
