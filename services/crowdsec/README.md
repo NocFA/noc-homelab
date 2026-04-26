@@ -1,15 +1,29 @@
 # CrowdSec — intrusion detection (noc-tux)
 
 Parses logs, matches attack scenarios (SSH brute force, HTTP path probes,
-Traefik 4xx bursts, auth abuse) and records decisions in a local SQLite DB.
+Traefik 4xx bursts, auth abuse) and pushes decisions into the local SQLite
+DB. The `crowdsec-firewall-bouncer-iptables` reads those decisions and
+enforces them via `iptables` + `ipset` — see "Active enforcement" below.
 
-**Mode: observation-only by default.** No bouncer is attached, so no traffic
-is actually blocked. Every hit produces a Discord alert instead, letting you
-review scenario accuracy before switching to active blocking.
+CAPI (community IP blocklist subscription) is enabled too; ~22k bad-actor
+IPs land in `crowdsec-blacklists-0` automatically.
 
-CAPI (community IP blocklist subscription) is enabled so the agent pulls
-crowd-sourced bad-actor lists; those decisions still sit dormant without a
-bouncer.
+## Graduated ban tiers
+
+`profiles.yaml` escalates ban duration based on `GetDecisionsCount(ip)` —
+every prior decision still in the DB counts toward the next tier:
+
+| Prior decisions | Ban duration |
+| --- | --- |
+| 0 (first offender) | 24h |
+| 1+ (returning) | 72h (3 days) |
+| 4+ (repeat) | 168h (7 days) |
+| 10+ (persistent) | 336h (14 days) |
+
+DB retention is set to 60 days (`config.yaml.local` →
+`db_config.flush.max_age: 60d`) so an IP that comes back weeks later still
+counts as a repeat offender. Profile order in `profiles.yaml` matters —
+most-specific tier first, default last, with `on_success: break` between.
 
 ## Install (noc-tux)
 
@@ -29,8 +43,12 @@ sudo cscli collections install \
   crowdsecurity/http-cve
 
 # Copy repo configs into /etc/crowdsec
-sudo cp /home/noc/noc-homelab/services/crowdsec/acquis.yaml /etc/crowdsec/acquis.yaml
-sudo cp /home/noc/noc-homelab/services/crowdsec/profiles.yaml /etc/crowdsec/profiles.yaml
+sudo install -o root -g root -m 0644 \
+  /home/noc/noc-homelab/services/crowdsec/acquis.yaml /etc/crowdsec/acquis.yaml
+sudo install -o root -g root -m 0644 \
+  /home/noc/noc-homelab/services/crowdsec/profiles.yaml /etc/crowdsec/profiles.yaml
+sudo install -o root -g root -m 0600 \
+  /home/noc/noc-homelab/services/crowdsec/config.yaml.local.example /etc/crowdsec/config.yaml.local
 sudo mkdir -p /etc/crowdsec/notifications
 sudo cp /home/noc/noc-homelab/services/crowdsec/notifications/http_discord.yaml \
         /etc/crowdsec/notifications/http_discord.yaml
@@ -46,26 +64,11 @@ sudo systemctl restart crowdsec
 
 ## Exposing LAPI to Tailscale peers (for remote agents)
 
-By default LAPI listens on `127.0.0.1:8150`. To let agents on noc-local /
-noc-claw forward alerts, expose it on all interfaces (UFW already allows
-`100.64.0.0/10` inbound to anything). Use the supported `.local` overlay
-so package upgrades don't clobber it:
+LAPI listens on `0.0.0.0:8150` (configured in `config.yaml.local`, copied
+from `config.yaml.local.example` at install time — see step above). UFW
+restricts inbound to `100.64.0.0/10` so only Tailscale peers can connect.
 
-```bash
-sudo tee /etc/crowdsec/config.yaml.local > /dev/null <<'EOF'
-api:
-  server:
-    listen_uri: 0.0.0.0:8150
-    trusted_ips:
-      - 127.0.0.1
-      - ::1
-      - 100.64.0.0/10
-EOF
-sudo chmod 0600 /etc/crowdsec/config.yaml.local
-sudo systemctl restart crowdsec
-```
-
-Then issue per-machine credentials (run once per remote agent):
+After install, issue per-machine credentials (run once per remote agent):
 
 ```bash
 sudo cscli machines add noc-local-mac --auto -f -
