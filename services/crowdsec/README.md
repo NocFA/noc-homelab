@@ -50,17 +50,21 @@ sudo install -o root -g root -m 0644 \
 sudo install -o root -g root -m 0600 \
   /home/noc/noc-homelab/services/crowdsec/config.yaml.local.example /etc/crowdsec/config.yaml.local
 sudo mkdir -p /etc/crowdsec/notifications
-sudo cp /home/noc/noc-homelab/services/crowdsec/notifications/http_discord.yaml \
-        /etc/crowdsec/notifications/http_discord.yaml
 
-# Install Discord webhook URL from .env
-set -a; . /home/noc/noc-homelab/services/crowdsec/.env; set +a
-sudo sed -i "s|\${CROWDSEC_DISCORD_WEBHOOK}|${CROWDSEC_DISCORD_WEBHOOK}|g" \
-  /etc/crowdsec/notifications/http_discord.yaml
+# Render notification YAMLs (substitutes ${CROWDSEC_DISCORD_WEBHOOK},
+# ${LOG_TRIAGE_URL}, ${LOG_TRIAGE_TOKEN} from services/crowdsec/.env into
+# /etc/crowdsec/notifications/). Idempotent — safe to re-run after
+# editing templates or rotating webhook URL / triage token.
+sudo /home/noc/noc-homelab/linux/scripts/deploy-crowdsec-notifications.sh
 
 sudo systemctl enable --now crowdsec
 sudo systemctl restart crowdsec
 ```
+
+**Re-running after template edits**: just run
+`sudo deploy-crowdsec-notifications.sh` again. It diff-checks each rendered
+file against the deployed copy, only updates what changed, and reloads
+crowdsec only when something actually moved (no-op otherwise).
 
 ## Exposing LAPI to Tailscale peers (for remote agents)
 
