@@ -42,12 +42,16 @@ format: |
         "description": "**`{{$a.Source.IP}}`**{{if $a.Source.Cn}} :flag_{{$a.Source.Cn | lower}}: {{$a.Source.Cn}}{{end}}{{if $a.Source.AsNumber}} · AS{{$a.Source.AsNumber}}{{if $a.Source.AsName}} *{{$a.Source.AsName}}*{{end}}{{end}}\n{{(index $a.Decisions 0).Type | upper}} for **{{(index $a.Decisions 0).Duration}}** · {{$a.EventsCount}} event(s)",
         "color": 15158332,
         "fields": [
+          {{- /* Alert.Meta values are JSON-array-encoded strings (CrowdSec aggregates
+                 context across events). Unwrap with mustFromJson | join. Without
+                 this the inner unescaped quotes break JSON and Discord 400s. */ -}}
           {{- $first := true -}}
           {{- range $a.Meta -}}
             {{- if not $first}},{{end -}}
-            {"name": "{{.Key}}", "value": "`{{.Value}}`", "inline": true}
+            {"name": "{{.Key}}", "value": "`{{.Value | mustFromJson | join ", "}}`", "inline": true}
             {{- $first = false -}}
           {{- end -}}
+          {{- /* Events[0].Meta values are plain scalar strings, no unwrap needed. */ -}}
           {{- if gt (len $a.Events) 0 -}}
             {{- range (index $a.Events 0).Meta -}}
               {{- if or (eq .Key "target_fqdn") (eq .Key "http_path") (eq .Key "http_verb") (eq .Key "service") -}}
