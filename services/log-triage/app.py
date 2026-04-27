@@ -203,40 +203,224 @@ def format_events_for_llm(events: list[dict[str, str]], limit: int = 25) -> str:
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Scenario → Loki job allowlist
+# ---------------------------------------------------------------------------
+#
+# Loki has the following `job` labels (from alloy configs on noc-tux):
+#   auth      — sshd / sudo / pam events (auth.log via journal pipeline)
+#   caddy     — caddy-websites access logs
+#   docker    — container stdout/stderr (matrix excluded)
+#   homelab   — homelab-agent + dashboard journal (OUR OWN AUTOMATION)
+#   journal   — generic systemd journal
+#   synapse   — Matrix Synapse server log
+#   system    — syslog
+#   traefik   — Traefik access log (Matrix proxy)
+#
+# Different CrowdSec scenarios trigger on completely different log sources, so
+# pulling everything that mentions the attacker IP drowns the prompt in
+# unrelated noise (and is the root cause of the LLM weaving false narratives
+# in noc-homelab-1fq). For each scenario family we pin to the jobs that could
+# plausibly have produced the trigger.
+#
+# `job=homelab` is ALWAYS dropped — it's our dashboard polling agents over
+# Tailscale, never the attacker.
+
+_HTTP_JOBS    = ("traefik", "caddy", "synapse", "docker")
+_SSH_JOBS     = ("auth",)
+_GENERIC_JOBS = ("traefik", "caddy", "auth", "journal", "synapse", "docker", "system")
+
+
+def jobs_for_scenario(scenario: str) -> tuple[str, ...]:
+    """Return the Loki job allowlist appropriate for this CrowdSec scenario."""
+    s = (scenario or "").lower()
+    # Anything web-shaped: HTTP CVEs, web crawlers, LFI/RFI, sensitive files
+    if any(tok in s for tok in ("http", "wp-", "f5-", "cve", "nuclei",
+                                  "wordpress", "phpmyadmin", "joomla", "lfi",
+                                  "rfi", "shellshock", "log4j", "spring",
+                                  "exchange", "fortinet", "vsphere")):
+        return _HTTP_JOBS
+    if any(tok in s for tok in ("ssh", "auth-bf", "credential", "pam")):
+        return _SSH_JOBS
+    return _GENERIC_JOBS
+
+
+# Lines we never want to feed the LLM, even when they match the IP.
+# Each tuple: (substring, reason). Substring match is case-sensitive on the
+# raw log line.
+_LINE_DROP_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("Accepted publickey",      "successful pubkey auth (legit automation)"),
+    ("Accepted password for noc", "interactive shell from operator (rare)"),
+    ("session opened for user noc", "operator session"),
+    ("homelab-agent",           "dashboard polling our own agent"),
+    ("/api/agent/",             "dashboard polling agent endpoints"),
+    ("/api/observability/",     "dashboard polling observability"),
+    ("/api/status",             "dashboard polling status"),
+)
+
+
+def filter_loki_lines(streams: list[dict[str, Any]],
+                       allowed_jobs: tuple[str, ...],
+                       limit: int) -> list[str]:
+    """Apply scenario-aware job allowlist + per-line drop list.
+
+    Returns formatted prompt-ready lines, newest last. Always drops
+    `job=homelab` (our own automation noise) regardless of allowlist.
+    """
+    rows: list[tuple[int, str, dict[str, Any]]] = []
+    for stream in streams:
+        labels = stream.get("stream", {}) or {}
+        job = str(labels.get("job", ""))
+        if job == "homelab":
+            continue  # never useful — that's our agent + dashboard
+        if allowed_jobs and job and job not in allowed_jobs:
+            continue
+        for ts, line in stream.get("values", []) or []:
+            text = str(line or "")
+            if any(pat in text for pat, _ in _LINE_DROP_PATTERNS):
+                continue
+            try:
+                rows.append((int(ts), text, labels))
+            except (TypeError, ValueError):
+                continue
+    rows.sort(key=lambda x: x[0])
+    return [
+        f"[{labels.get('machine','?')}:{labels.get('job','?')}] {text.strip()[:280]}"
+        for _, text, labels in rows[-limit:]
+    ]
+
+
 async def fetch_loki_context(client: httpx.AsyncClient,
                              source_ip: str,
+                             scenario: str = "",
                              start_ts: int | None = None,
                              window_seconds: int = 600,
                              limit: int = 40) -> list[str]:
-    """Pull recent log lines mentioning the attacker IP for LLM context."""
+    """Pull recent log lines mentioning the attacker IP, filtered by scenario.
+
+    The legacy behaviour (no scenario filter) is preserved if scenario is
+    empty — useful for ad-hoc probes.
+    """
     if start_ts is None:
         start_ts = int(time.time()) - window_seconds
     end_ts = start_ts + window_seconds * 2  # +/- window around the event
+    allowed_jobs = jobs_for_scenario(scenario) if scenario else ()
+
+    # Push the job filter into the LogQL query when we have one — avoids
+    # transferring streams we'd just drop client-side. The matcher uses
+    # regex anchoring so "auth" doesn't match "authelia".
+    if allowed_jobs:
+        job_re = "|".join(allowed_jobs)
+        query = f'{{job=~"^({job_re})$"}} |= "{source_ip}"'
+    else:
+        query = f'{{machine=~".+"}} |= "{source_ip}"'
+
     params = {
-        "query": f'{{machine=~".+"}} |= "{source_ip}"',
+        "query": query,
         "start": f"{start_ts}000000000",
         "end":   f"{end_ts}000000000",
-        "limit": str(limit),
+        "limit": str(limit * 2),  # fetch extra to cover post-filter drops
         "direction": "backward",
     }
     try:
         r = await client.get(f"{LOKI_URL}/loki/api/v1/query_range", params=params)
         r.raise_for_status()
         data = r.json().get("data", {}).get("result", [])
-        lines: list[tuple[int, str, dict]] = []
-        for stream in data:
-            labels = stream.get("stream", {})
-            for ts, line in stream.get("values", []):
-                lines.append((int(ts), line, labels))
-        lines.sort(key=lambda x: x[0])
-        # Compact form for the LLM prompt
-        return [
-            f"[{labels.get('machine','?')}:{labels.get('job','?')}] {line.strip()[:280]}"
-            for _, line, labels in lines[-limit:]
-        ]
+        return filter_loki_lines(data, allowed_jobs, limit)
     except Exception as exc:
         log.warning("Loki fetch failed for %s: %s", source_ip, exc)
         return []
+
+
+# ---------------------------------------------------------------------------
+# Prompt + structured output (anti-confabulation)
+# ---------------------------------------------------------------------------
+
+# Topology block — the LLM has no way of knowing this otherwise, and most of
+# the false narratives in the wild traced back to the model misreading
+# Tailscale/CF-tunnel proxy hops as attacker activity. Keep this terse;
+# every token is in the context window for every alert.
+_TOPOLOGY = (
+    "HOMELAB TOPOLOGY (use this to interpret log entries):\n"
+    "- Tailscale CGNAT range 100.64.0.0/10 is our private mesh — any IP in "
+    "that range is one of our own machines (noc-local, noc-claw, noc-tux, "
+    "noc-baguette), NEVER an attacker.\n"
+    "- LAN range 192.168.0.0/16 is local devices — also not attackers.\n"
+    "- Cloudflare tunnels terminate on noc-local; tunnelled traffic to "
+    "games.nocfa.net / matrix.nocfa.net / element.nocfa.net / api.nocfa.net "
+    "appears in nginx/caddy/traefik with the CF edge IP, NOT the attacker's IP.\n"
+    "- Our dashboard polls `/api/agent/*`, `/api/observability/*`, `/api/status` "
+    "every 10s over Tailscale; those are NOT probes.\n"
+    "- SSH `Accepted publickey` from a Tailscale IP for user `noc` is "
+    "automation (already filtered out, but flag if you see it).\n"
+    "- The user `noc` is the legitimate operator on every host."
+)
+
+_OUTPUT_CONTRACT = (
+    "OUTPUT CONTRACT — emit a SINGLE JSON object, no prose, no code fences, "
+    "no preamble. Schema:\n"
+    "{\n"
+    '  "verdict": "<one short sentence: what the attacker actually did, '
+    'based ONLY on the Triggering Requests section>",\n'
+    '  "intent": "<scanner|cve-probe|brute-force|credential-stuffing|'
+    'recon|exploit-attempt|unknown>",\n'
+    '  "exposure": "<none|low|medium|high>",\n'
+    '  "real_attacker_ip": "<the alert source_ip, OR \'masked by proxy\' '
+    'if you only see Cloudflare/Tailscale IPs in the logs>",\n'
+    '  "internal_noise": <true|false — true ONLY if the triggering events '
+    'all look like our own automation hitting us>,\n'
+    '  "notes": "<at most one short caveat, or empty string>"\n'
+    "}\n\n"
+    "RULES:\n"
+    "1. Base `verdict` and `intent` ONLY on the Triggering Requests block. "
+    "The Surrounding Logs block may contain unrelated traffic — use it for "
+    "context but DO NOT invent a narrative that connects unrelated events.\n"
+    "2. If the triggering requests are a single 404 to one path, say so — "
+    "do NOT escalate to 'sustained brute-force campaign'.\n"
+    "3. If you are not sure, set `intent`='unknown' and put your "
+    "uncertainty in `notes`. Confabulating is worse than admitting "
+    "uncertainty.\n"
+    "4. NEVER claim SSH brute-force unless the Triggering Requests "
+    "explicitly include sshd Failed/Invalid lines.\n"
+    "5. `exposure` rules: if every HTTP status in Triggering Requests is 4xx "
+    "or 5xx, `exposure` MUST be `none` (the request was rejected). `low` "
+    "is for 200/3xx on benign endpoints (favicon, static assets). "
+    "`medium` is 200 on a recognised admin/login endpoint. `high` is only "
+    "for evidence of a successful exploit (e.g. 200 on a known CVE path "
+    "with a payload in the URL)."
+)
+
+
+def _strip_code_fences(s: str) -> str:
+    """Strip ```json ... ``` wrappers some models emit despite instructions."""
+    s = s.strip()
+    if s.startswith("```"):
+        # remove first fence line
+        s = s.split("\n", 1)[1] if "\n" in s else s.lstrip("`")
+        # remove trailing fence
+        if s.rstrip().endswith("```"):
+            s = s.rstrip()[:-3]
+    return s.strip()
+
+
+def parse_verdict(raw: str) -> dict[str, Any] | None:
+    """Try to parse the LLM's JSON verdict; return None if unparseable."""
+    if not raw:
+        return None
+    try:
+        return json.loads(_strip_code_fences(raw))
+    except json.JSONDecodeError:
+        # Some models prepend a sentence before the JSON. Try to find a
+        # `{...}` block inside the response as a last-ditch recovery.
+        s = _strip_code_fences(raw)
+        start = s.find("{")
+        end = s.rfind("}")
+        if start >= 0 and end > start:
+            try:
+                return json.loads(s[start:end + 1])
+            except json.JSONDecodeError:
+                return None
+        return None
 
 
 async def summarize(client: httpx.AsyncClient,
@@ -247,30 +431,43 @@ async def summarize(client: httpx.AsyncClient,
                     duration: str,
                     log_lines: list[str],
                     events: list[dict[str, str]] | None = None) -> str:
-    """Ask the MLX model for a one-paragraph incident summary."""
+    """Ask the MLX model for a structured incident verdict (JSON string).
+
+    Returns the raw response text. Caller uses parse_verdict() to extract
+    fields and falls back to rendering the raw text if parsing fails.
+    """
     system = (
-        "You are a security-ops triage assistant on a home lab. "
-        "Given a CrowdSec alert and the surrounding log lines, write a single "
-        "terse paragraph (3-5 sentences) that tells a human: what the attacker "
-        "appears to be doing, which service is exposed, whether this looks like "
-        "a known scanner pattern (e.g. Mirai, SSH credential stuffing, WP-scan), "
-        "and whether the homelab's existing protection is sufficient. No "
-        "markdown, no bullet points, no questions, no greetings. Plain prose."
+        "You are a security-ops triage assistant on a home lab. Your job "
+        "is to interpret a CrowdSec alert WITHOUT inventing details that "
+        "the evidence does not directly support.\n\n"
+        + _TOPOLOGY
+        + "\n\n"
+        + _OUTPUT_CONTRACT
     )
     ctx = "\n".join(log_lines[-30:]) or "(no matching log lines found in Loki)"
     events_block = format_events_for_llm(events or [])
     if events_block:
         user = (
-            f"Alert: scenario={scenario}, source_ip={source_ip} ({source_cn}), "
-            f"events={count}, ban_duration={duration}\n\n"
-            f"Triggering requests (from CrowdSec, primary evidence):\n{events_block}\n\n"
-            f"Surrounding log lines mentioning that IP (may include unrelated noise):\n{ctx}"
+            f"Alert: scenario={scenario}, source_ip={source_ip} "
+            f"({source_cn or '??'}), events={count}, "
+            f"ban_duration={duration or '?'}\n\n"
+            f"=== Triggering Requests (PRIMARY EVIDENCE — base your verdict on these) ===\n"
+            f"{events_block}\n\n"
+            f"=== Surrounding Logs (CONTEXT ONLY — may include unrelated noise) ===\n"
+            f"{ctx}\n\n"
+            f"Now emit the JSON verdict per the OUTPUT CONTRACT."
         )
     else:
         user = (
-            f"Alert: scenario={scenario}, source_ip={source_ip} ({source_cn}), "
-            f"events={count}, ban_duration={duration}\n\n"
-            f"Recent log lines mentioning that IP:\n{ctx}"
+            f"Alert: scenario={scenario}, source_ip={source_ip} "
+            f"({source_cn or '??'}), events={count}, "
+            f"ban_duration={duration or '?'}\n\n"
+            f"=== Triggering Requests ===\n"
+            f"(none — CrowdSec did not attach HTTP event meta; this may be "
+            f"an ssh, network, or other non-http scenario)\n\n"
+            f"=== Surrounding Logs (CONTEXT ONLY) ===\n"
+            f"{ctx}\n\n"
+            f"Now emit the JSON verdict per the OUTPUT CONTRACT."
         )
     body = {
         "model": MLX_MODEL,
@@ -278,6 +475,10 @@ async def summarize(client: httpx.AsyncClient,
             {"role": "system", "content": system},
             {"role": "user",   "content": user},
         ],
+        # JSON-mode hint — mlx_lm.server accepts this even though enforcement
+        # is partial; combined with the OUTPUT CONTRACT it lifts adherence
+        # noticeably (mdsf-crew uses the same trick).
+        "response_format": {"type": "json_object"},
         "temperature": 0.1,
         "max_tokens": 350,
     }
@@ -307,6 +508,38 @@ async def summarize(client: httpx.AsyncClient,
     return "(LLM summary unavailable: loop_exhausted)"
 
 
+# Discord embed colors keyed by exposure level (decimal RGB).
+_COLORS = {
+    "internal": 9807270,   # grey  — likely false positive (our own automation)
+    "none":     5763719,   # green — every request blocked / 404'd
+    "low":      15844367,  # gold
+    "medium":   15105570,  # amber
+    "high":     15548997,  # red   — actual hit on a vulnerable surface
+    "unknown":  10070709,  # blurple
+}
+
+
+def render_description_from_verdict(verdict: dict[str, Any]) -> str:
+    """Build a compact human-readable description from the LLM JSON verdict."""
+    bits: list[str] = []
+    v = (verdict.get("verdict") or "").strip()
+    if v:
+        bits.append(v)
+    intent = (verdict.get("intent") or "").strip()
+    real_ip = (verdict.get("real_attacker_ip") or "").strip()
+    notes = (verdict.get("notes") or "").strip()
+    meta_bits: list[str] = []
+    if intent and intent.lower() != "unknown":
+        meta_bits.append(f"intent: **{intent}**")
+    if real_ip and real_ip.lower() != "unknown":
+        meta_bits.append(f"attacker: `{real_ip}`")
+    if meta_bits:
+        bits.append("_" + " · ".join(meta_bits) + "_")
+    if notes:
+        bits.append(f"> {notes}")
+    return "\n\n".join(bits)[:4000] or "(LLM returned an empty verdict)"
+
+
 async def post_discord(client: httpx.AsyncClient,
                        scenario: str,
                        source_ip: str,
@@ -320,6 +553,25 @@ async def post_discord(client: httpx.AsyncClient,
     if not DISCORD_WEBHOOK:
         log.info("DISCORD_WEBHOOK unset, skipping post")
         return
+
+    # Try to parse the structured verdict; fall back to raw prose if the
+    # model misbehaved.
+    verdict = parse_verdict(summary)
+    if verdict:
+        description = render_description_from_verdict(verdict)
+        exposure = str(verdict.get("exposure") or "unknown").lower()
+        internal = bool(verdict.get("internal_noise"))
+        color = _COLORS.get("internal" if internal else exposure,
+                            _COLORS["unknown"])
+        title_prefix = "[INTERNAL NOISE] " if internal else ""
+    else:
+        # Older prose path — still surface whatever the model returned.
+        description = summary[:4000]
+        color = _COLORS["unknown"]
+        internal = False
+        exposure = "unknown"
+        title_prefix = ""
+
     fields: list[dict[str, Any]] = [
         {"name": "Scenario",     "value": f"`{scenario}`",      "inline": True},
         {"name": "Origin",       "value": source_cn or "??",    "inline": True},
@@ -328,6 +580,8 @@ async def post_discord(client: httpx.AsyncClient,
         {"name": "Source IP",    "value": f"`{source_ip}`",     "inline": True},
         {"name": "Mode",         "value": mode_label,           "inline": True},
     ]
+    if verdict:
+        fields.append({"name": "Exposure", "value": exposure, "inline": True})
     # Paths probed: show actual URLs from CrowdSec event meta when available.
     paths_block = format_events_for_discord(events or [])
     if paths_block:
@@ -337,9 +591,9 @@ async def post_discord(client: httpx.AsyncClient,
             fields.append({"name": "Target", "value": f"`{next(iter(targets))}`", "inline": False})
         fields.append({"name": "Paths probed", "value": paths_block, "inline": False})
     embed = {
-        "title": f"CrowdSec + LLM triage — {source_ip}",
-        "description": summary[:4000],
-        "color": 15105570,  # amber
+        "title": f"{title_prefix}CrowdSec + LLM triage — {source_ip}",
+        "description": description,
+        "color": color,
         "fields": fields,
         "footer": {"text": f"noc-claw · {MLX_MODEL}"},
     }
@@ -395,10 +649,11 @@ async def _process_alert(client: httpx.AsyncClient, a: dict[str, Any]) -> None:
         return
 
     http_events = extract_http_events(a)
-    log.info("triage %s events=%d http_events=%d scenario=%s",
-             source_ip, count, len(http_events), scenario)
+    log.info("triage %s events=%d http_events=%d scenario=%s allowed_jobs=%s",
+             source_ip, count, len(http_events), scenario,
+             ",".join(jobs_for_scenario(scenario)))
     try:
-        ctx = await fetch_loki_context(client, source_ip)
+        ctx = await fetch_loki_context(client, source_ip, scenario=scenario)
         summary = await summarize(client, scenario, source_ip, source_cn,
                                    count, duration, ctx, http_events)
         await post_discord(client, scenario, source_ip, source_cn,

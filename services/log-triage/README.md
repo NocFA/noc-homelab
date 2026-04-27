@@ -1,8 +1,9 @@
 # log-triage — LLM enrichment for CrowdSec alerts
 
 FastAPI service that consumes CrowdSec HTTP notifier POSTs, pulls surrounding
-log context from Loki, asks the local MLX model on noc-claw for a one-paragraph
-human summary, and posts the result to Discord.
+log context from Loki, asks the local MLX model on noc-claw for a structured
+JSON verdict, and posts the result to Discord with verdict-derived colors and
+fields.
 
 ```
 CrowdSec (noc-tux, active firewall bouncer)
@@ -10,12 +11,41 @@ CrowdSec (noc-tux, active firewall bouncer)
        ▼
 log-triage  (noc-claw, :8182)
        │  extract_http_events() ── http_verb/path/status/target_fqdn
-       │  GET /loki/api/v1/query_range  → 20-40 context lines
-       │  POST /v1/chat/completions     → one-paragraph summary
+       │  fetch_loki_context(scenario=...) → scenario-aware job filter
+       │     (http-* → traefik/caddy/synapse/docker;
+       │      ssh-* → auth only;
+       │      always drop job=homelab and "Accepted publickey" lines)
+       │  POST /v1/chat/completions  → structured JSON verdict
+       │   ├── topology preamble (Tailscale = us, CF = proxy, agent polls)
+       │   ├── "Triggering Requests" labelled PRIMARY EVIDENCE
+       │   ├── "Surrounding Logs" labelled CONTEXT ONLY (may be unrelated)
+       │   ├── OUTPUT CONTRACT: {verdict, intent, exposure, real_attacker_ip,
+       │   │                     internal_noise, notes}
        │   └── serialized via asyncio.Semaphore(1), one retry on
        │       httpx.RemoteProtocolError (MLX SIGABRTs on concurrent GPU)
-       └──▶ Discord embed: Target, Paths probed, LLM summary
+       └──▶ Discord embed: color by exposure, fields rendered from verdict,
+            falls back to raw text if JSON parse fails
 ```
+
+## Anti-confabulation design
+
+The earlier prose-summary design (pre-noc-homelab-1fq) let the small model
+weave false narratives by combining unrelated log events that share a source
+IP. Three structural changes:
+
+1. **Loki context is filtered by scenario family** — http alerts only see
+   web-server logs, ssh alerts only see auth.log; `job=homelab` (our own
+   agent + dashboard polls) is always dropped, as is any line containing
+   `Accepted publickey`, `homelab-agent`, or `/api/agent/*` patterns.
+2. **Topology preamble** tells the model that Tailscale CGNAT = our own
+   machines, Cloudflare tunnels terminate on noc-local (so tunnelled traffic
+   appears with edge IPs not attacker IPs), and dashboard polling is not a
+   probe.
+3. **Structured JSON output** with explicit anti-confab rules: "base verdict
+   ONLY on Triggering Requests", "if uncertain set intent=unknown", "NEVER
+   claim SSH brute-force unless the Triggering Requests include sshd Failed
+   lines". Discord color is keyed off `exposure` (none=green, high=red,
+   internal_noise=grey).
 
 Co-located with mlx-server on noc-claw: inference stays on the loopback, no
 cross-Tailscale hop. Observability is `/health` (checks Loki, MLX, Discord
