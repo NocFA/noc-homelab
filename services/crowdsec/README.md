@@ -140,3 +140,40 @@ continue to work unchanged.
 working after install, first check `ipset test crowdsec-blacklists-0 <ip>`
 then either extend `homelab-whitelist.yaml` or
 `sudo cscli decisions delete --ip <ip>`.
+
+## Local scenario overrides
+
+Some hub scenarios are too aggressive for our traffic mix. We replace the
+hub symlink at `/etc/crowdsec/scenarios/<name>.yaml` with a local file
+(committed under `services/crowdsec/scenarios/`); cscli marks the item
+`tainted` and stops auto-upgrading it. To re-sync to upstream later:
+`sudo cscli scenarios remove <name> --purge && sudo cscli scenarios install <name>`,
+then re-apply the patch.
+
+### `scenarios/http-generic-bf.yaml`
+
+The hub file ships three scenarios in one yaml: the conservative
+`crowdsecurity/http-generic-bf` (requires `sub_type=='auth_fail'`, never
+fires for us today because no parser tags it) and two LePresidente
+scenarios that fire on raw `http_status` of 401/403 POST regardless of
+path. Modern Matrix clients (Element X with sliding sync) keep many
+parallel requests in flight; when the access token rotates (MAS does this
+regularly) every queued request 401s within ~100ms, easily breaching the
+5-event capacity and 24h-banning a legit user. Real password auth lives on
+`auth.nocfa.net` (MAS), not on `/_matrix/client/*`, so the patched filter
+excludes Matrix client/federation/media paths while keeping every other
+vhost (and `/_synapse/admin/`) protected.
+
+Deploy:
+```bash
+sudo rm /etc/crowdsec/scenarios/http-generic-bf.yaml
+sudo install -o root -g root -m 0644 \
+  /home/noc/noc-homelab/services/crowdsec/scenarios/http-generic-bf.yaml \
+  /etc/crowdsec/scenarios/http-generic-bf.yaml
+sudo systemctl restart crowdsec
+sudo cscli scenarios list | grep http-generic-bf   # status: enabled,local
+```
+
+Verify with `cscli explain` — Matrix POST 401s should hit no scenarios,
+synthetic POST 401s on `auth.nocfa.net /oauth2/token` should still trigger
+`LePresidente/http-generic-401-bf`.

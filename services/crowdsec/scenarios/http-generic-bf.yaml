@@ -1,0 +1,129 @@
+# Local override of crowdsecurity/http-generic-bf
+# ---------------------------------------------------------------------------
+# Source:    /etc/crowdsec/hub/scenarios/crowdsecurity/http-generic-bf.yaml
+# Override:  /etc/crowdsec/scenarios/http-generic-bf.yaml  (this file replaces
+#            the symlink to the hub copy)
+# Repo:      services/crowdsec/scenarios/http-generic-bf.yaml
+#
+# WHY THIS EXISTS
+# ----------------
+# The upstream hub file ships three scenarios in one yaml:
+#   1. crowdsecurity/http-generic-bf       — fires on sub_type=='auth_fail'.
+#                                             Requires a parser to tag the
+#                                             event. Our Traefik parser does
+#                                             NOT tag auth_fail, so this
+#                                             never fires for us today.
+#   2. LePresidente/http-generic-401-bf    — fires on raw http_status=='401'
+#                                             POST (no path discrimination).
+#   3. LePresidente/http-generic-403-bf    — fires on raw http_status=='403'
+#                                             POST (no path discrimination).
+#
+# Scenarios 2 and 3 are too aggressive for token-bearing APIs. Modern Matrix
+# clients (Element X especially, with sliding sync) keep many parallel
+# requests in flight; when an access token rotates (MAS does this regularly)
+# every queued request 401s within the same ~100ms window, easily breaching
+# the 5-event capacity and triggering a 24h ban on a legit user.
+#
+# Real Matrix login does NOT happen on /_matrix/client/* — MAS handles auth
+# at auth.nocfa.net. So 401/403 on /_matrix/client/, /_matrix/federation/,
+# and /_matrix/media/ are NEVER password attempts on a MAS-fronted server,
+# they're just expired tokens or membership permission errors. We exclude
+# those paths from the LePresidente filters. /_synapse/admin/ remains
+# protected (real brute-force surface), and so does everything on
+# auth.nocfa.net (where actual password auth lives).
+#
+# DEPLOY
+# ------
+# sudo rm /etc/crowdsec/scenarios/http-generic-bf.yaml   # remove hub symlink
+# sudo install -o root -g root -m 0644 \
+#   /home/noc/noc-homelab/services/crowdsec/scenarios/http-generic-bf.yaml \
+#   /etc/crowdsec/scenarios/http-generic-bf.yaml
+# sudo systemctl reload crowdsec
+# sudo cscli scenarios list | grep http-generic-bf
+#   # expect: status shows ⚠ tainted (good — means cscli won't overwrite us)
+#
+# Hub upgrades won't touch this file because the path no longer points at
+# the managed hub copy. To re-sync to upstream (e.g. to pull in a real fix):
+#   sudo cscli scenarios remove crowdsecurity/http-generic-bf --purge
+#   sudo cscli scenarios install crowdsecurity/http-generic-bf
+# ...then re-apply this patch on top.
+# ---------------------------------------------------------------------------
+
+# 404 scan / generic auth_fail bursts. Unmodified from upstream.
+type: leaky
+name: crowdsecurity/http-generic-bf
+description: "Detect generic http brute force"
+filter: "evt.Meta.service == 'http' && evt.Meta.sub_type == 'auth_fail'"
+groupby: evt.Meta.source_ip
+capacity: 5
+leakspeed: "10s"
+blackhole: 1m
+labels:
+  confidence: 3
+  spoofable: 0
+  classification:
+    - attack.T1110
+  behavior: "http:bruteforce"
+  label: "HTTP Bruteforce"
+  service: http
+  remediation: true
+---
+# Generic 401 Authorization Errors — PATCHED
+# Excludes Matrix client / federation / media APIs (token-bearing endpoints
+# where 401 == expired token, not failed password). Keeps protection on
+# /_synapse/admin/ and on every other vhost (auth.nocfa.net, etc.).
+type: leaky
+name: LePresidente/http-generic-401-bf
+description: "Detect generic 401 Authorization error brute force (excl. Matrix client/federation/media APIs)"
+filter: |-
+  evt.Meta.log_type == 'http_access-log'
+  && evt.Parsed.verb == 'POST'
+  && evt.Meta.http_status == '401'
+  && !(
+       evt.Meta.http_path startsWith '/_matrix/client/'
+    || evt.Meta.http_path startsWith '/_matrix/federation/'
+    || evt.Meta.http_path startsWith '/_matrix/media/'
+  )
+groupby: evt.Meta.source_ip
+capacity: 5
+leakspeed: "10s"
+blackhole: 1m
+labels:
+  confidence: 3
+  spoofable: 0
+  classification:
+    - attack.T1110
+  behavior: "http:bruteforce"
+  label: "HTTP Bruteforce"
+  service: http
+  remediation: true
+---
+# Generic 403 Forbidden (Authorization) Errors — PATCHED
+# Same Matrix exclusions. Element clients can burst 403s when membership
+# changes mid-sync (kicked from a room while a queued request was in flight,
+# server-side ACLs flicking, etc.) and we don't want to ban the user for it.
+type: leaky
+name: LePresidente/http-generic-403-bf
+description: "Detect generic 403 Forbidden (Authorization) error brute force (excl. Matrix client/federation/media APIs)"
+filter: |-
+  evt.Meta.log_type == 'http_access-log'
+  && evt.Parsed.verb == 'POST'
+  && evt.Meta.http_status == '403'
+  && !(
+       evt.Meta.http_path startsWith '/_matrix/client/'
+    || evt.Meta.http_path startsWith '/_matrix/federation/'
+    || evt.Meta.http_path startsWith '/_matrix/media/'
+  )
+groupby: evt.Meta.source_ip
+capacity: 5
+leakspeed: "10s"
+blackhole: 1m
+labels:
+  confidence: 3
+  spoofable: 0
+  classification:
+    - attack.T1110
+  behavior: "http:bruteforce"
+  label: "HTTP Bruteforce"
+  service: http
+  remediation: true
