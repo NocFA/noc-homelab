@@ -223,3 +223,120 @@ print(f"critical={t['CRITICAL']} high={t['HIGH']} medium={t['MEDIUM']} targets={
 PY
 )"
 echo "trivy-scan $HOSTNAME_SHORT: $SUMMARY"
+
+# ── Diff vs previous run + Discord notify on new CRITICAL/HIGH ──────────────
+# Pattern matches AIDE FIM (linux/scripts/aide-check.sh): sources
+# configs/discord-webhooks.env if present, posts only when there's a delta,
+# uses DISCORD_WEBHOOK_LOCKDOWN. First run on a host has no prev report, so
+# the bootstrap path skips notify — only deltas after that fire.
+PREV_REPORT="$REPORT_DIR/report.prev.json"
+
+# Locate webhook env. Repo root is two-up from scripts/. Don't fail the scan
+# on missing env — just skip the notify step.
+SCRIPT_DIR_REAL="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR_REAL/.." && pwd)"
+WEBHOOK_ENV="$REPO_ROOT/configs/discord-webhooks.env"
+if [[ -r "$WEBHOOK_ENV" ]]; then
+    # shellcheck source=/dev/null
+    source "$WEBHOOK_ENV"
+fi
+
+if [[ -n "${DISCORD_WEBHOOK_LOCKDOWN:-}" ]]; then
+    NOTIFY_OUT="$(REPORT="$REPORT_FILE" PREV="$PREV_REPORT" WEBHOOK="$DISCORD_WEBHOOK_LOCKDOWN" HOST="$HOSTNAME_SHORT" python3 <<'PY'
+import json, os, urllib.request, urllib.error
+
+def load(path):
+    with open(path) as f:
+        return json.load(f)
+
+cur = load(os.environ["REPORT"])
+prev_path = os.environ["PREV"]
+
+def critical_high_set(report):
+    out = set()
+    for t in report.get("targets") or []:
+        for f in t.get("findings") or []:
+            if f.get("severity") in ("CRITICAL", "HIGH"):
+                # Identity = (CVE id, target_name, package). The same CVE in
+                # two different images is two findings worth flagging.
+                out.add((f.get("id", ""), t.get("name", ""), f.get("pkg", "")))
+    return out
+
+if not os.path.exists(prev_path):
+    print("NOTIFY=skip (no prev report, bootstrapping baseline)")
+    raise SystemExit(0)
+
+try:
+    prev = load(prev_path)
+except (json.JSONDecodeError, ValueError) as e:
+    print(f"NOTIFY=skip (prev report unreadable: {e})")
+    raise SystemExit(0)
+
+prev_set = critical_high_set(prev)
+cur_set = critical_high_set(cur)
+new_keys = cur_set - prev_set
+
+if not new_keys:
+    print("NOTIFY=skip (no new CRITICAL/HIGH findings)")
+    raise SystemExit(0)
+
+# Materialise full records for the new keys, preserving current report data.
+new_findings = []
+for t in cur.get("targets") or []:
+    for f in t.get("findings") or []:
+        key = (f.get("id", ""), t.get("name", ""), f.get("pkg", ""))
+        if key in new_keys and f.get("severity") in ("CRITICAL", "HIGH"):
+            new_findings.append({**f, "source": t.get("name", "")})
+
+sev_rank = {"CRITICAL": 0, "HIGH": 1}
+new_findings.sort(key=lambda f: (sev_rank.get(f["severity"], 9), f.get("id", "")))
+
+# Build embed body. Cap at 25 lines; Discord limit is 4096 chars per embed
+# description, so be conservative.
+host = os.environ["HOST"]
+n_crit = sum(1 for f in new_findings if f["severity"] == "CRITICAL")
+n_high = sum(1 for f in new_findings if f["severity"] == "HIGH")
+title = f"Trivy: {len(new_findings)} new finding(s) on {host}"
+
+lines = [f"**{n_crit} critical, {n_high} high** new since last scan.", ""]
+for f in new_findings[:25]:
+    sev = f["severity"]
+    fixed = f.get("fixed") or "no fix"
+    lines.append(f"`{sev[:1]}` `{f['id']}` {f['pkg']} {f['installed']} -> {fixed} ({f['source']})")
+if len(new_findings) > 25:
+    lines.append(f"\n...and {len(new_findings)-25} more.")
+
+body = "\n".join(lines)
+if len(body) > 3800:
+    body = body[:3800] + "\n...(truncated)"
+
+# Orange for HIGH-only, red if any CRITICAL.
+color = 15158332 if n_crit else 16753920
+payload = {"embeds": [{
+    "title": title,
+    "description": body,
+    "color": color,
+    "footer": {"text": f"Trivy {cur.get('trivy_version','')} - {host}"},
+}]}
+
+req = urllib.request.Request(
+    os.environ["WEBHOOK"],
+    data=json.dumps(payload).encode("utf-8"),
+    headers={"Content-Type": "application/json"},
+    method="POST",
+)
+try:
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        print(f"NOTIFY=ok ({resp.status}) new={len(new_findings)}")
+except urllib.error.HTTPError as e:
+    print(f"NOTIFY=fail http={e.code} body={e.read()[:200]!r}")
+except Exception as e:
+    print(f"NOTIFY=fail err={e}")
+PY
+)"
+    echo "trivy-notify $HOSTNAME_SHORT: $NOTIFY_OUT"
+fi
+
+# Rotate current → prev for next run's diff. Always do this, even on
+# first-run/skip path, so subsequent runs have a baseline to compare to.
+cp "$REPORT_FILE" "$PREV_REPORT"
