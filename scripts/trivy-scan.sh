@@ -181,9 +181,15 @@ done
 TARGETS_JSON+="]"
 
 # Totals + top critical/high across targets, produced by python for safety.
-FINAL="$(TARGETS_RAW="$TARGETS_JSON" HOST="$HOSTNAME_SHORT" TS="$TIMESTAMP" TRIVY_VER="$("$TRIVY" --version 2>/dev/null | awk '/^Version:/ {print $2; exit}')" python3 <<'PY'
+# Hand the targets JSON off via a file rather than env var — `docker ps`
+# results on a busy host blow past ARG_MAX otherwise.
+TARGETS_FILE="$TMP_DIR/targets.json"
+printf '%s' "$TARGETS_JSON" >"$TARGETS_FILE"
+
+FINAL="$(TARGETS_FILE="$TARGETS_FILE" HOST="$HOSTNAME_SHORT" TS="$TIMESTAMP" TRIVY_VER="$("$TRIVY" --version 2>/dev/null | awk '/^Version:/ {print $2; exit}')" python3 <<'PY'
 import json, os
-targets = json.loads(os.environ["TARGETS_RAW"])
+with open(os.environ["TARGETS_FILE"]) as f:
+    targets = json.load(f)
 totals = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0}
 for t in targets:
     c = t.get("counts") or {}
