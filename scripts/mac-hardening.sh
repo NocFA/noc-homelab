@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Mac hardening — applies Lynis 2026-04-22 baseline fixes for noc-local and
-# noc-claw (bead noc-homelab-vlo).
+# noc-claw (beads noc-homelab-vlo, noc-homelab-mf6).
 #
 # Findings addressed:
 #   noc-local
 #     INSE-8050  — ftp-proxy LaunchDaemon present (binary /usr/libexec/ftp-proxy
 #                  loadable on demand). Disable so it cannot be summoned.
+#     FIRE-4590  — Application Firewall off. Enable (mf6).
 #
 #   noc-claw
 #     FIRE-4590  — Application Firewall (socketfilterfw) is off. Enable.
@@ -73,8 +74,8 @@ harden_noc_local() {
     fi
 }
 
-# === noc-claw: Application Firewall (FIRE-4590) ===================================
-harden_noc_claw_firewall() {
+# === Application Firewall (FIRE-4590, both Macs) ==================================
+harden_app_firewall() {
     local fw=/usr/libexec/ApplicationFirewall/socketfilterfw
 
     [[ -x "$fw" ]] || err "$fw not found — skipping FIRE-4590"
@@ -177,9 +178,10 @@ harden_noc_claw_hosts() {
 case "$HOST" in
     noc-local)
         harden_noc_local
+        harden_app_firewall
         ;;
     noc-claw)
-        harden_noc_claw_firewall
+        harden_app_firewall
         harden_noc_claw_dns
         harden_noc_claw_hosts
         ;;
