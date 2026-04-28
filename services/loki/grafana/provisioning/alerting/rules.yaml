@@ -205,6 +205,7 @@ groups:
 
       - uid: netdata-scrape-down
         title: Netdata scrape target down
+
         condition: C
         data:
           - refId: A
@@ -246,3 +247,300 @@ groups:
         labels:
           severity: warning
           component: monitoring
+
+  # Loki-backed rules (bead noc-homelab-ck9). Observation-only; never block
+  # traffic. CrowdSec stays the enforcement layer. Thresholds tuned against
+  # 48h baselines, set 2–5x above p95 so legit traffic never trips them.
+  #
+  #   synapse  /_matrix/client/.*register  : 0 hits / 48h  → fire at 30/10m
+  #   cloudflared "panic|fatal|conn fail"  : 0 / 48h       → fire at 5/5m
+  #   journal  "UFW BLOCK"                 : p95 25/5m     → fire at 100/5m
+  #   rathole  fatal/panic/parse-error     : 0             → fire at 1/5m
+  #   forgejo  HTTP 5xx                    : 0 / 48h       → fire at 5/5m
+  #   synapse  HTTP 5xx                    : 0 / 48h       → fire at 10/5m
+  - orgId: 1
+    name: homelab-logs
+    folder: Homelab
+    interval: 1m
+    rules:
+      - uid: synapse-register-spike
+        title: Synapse /register endpoint hit rate spike
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: {type: loki, uid: loki}
+              expr: 'sum(count_over_time({job="synapse"} |~ "/_matrix/client/.*register" [10m]))'
+              queryType: instant
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 600, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [30], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Synapse /_matrix/client/*/register hit > 30 times in 10m"
+          description: "Registration is admin-only (via Authentik MAS) on this homeserver, so the /register endpoint should be near-silent. A spike means open-relay probing or an Authentik bypass — investigate auth.nocfa.net + cscli decisions."
+          value: "{{ $values.B }} hits"
+          runbook_url: http://noc-tux:3000/explore?left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bjob%3D%5C%22synapse%5C%22%7D%20%7C~%20%5C%22/_matrix/client/.%2Aregister%5C%22%22%7D%5D%7D
+        labels:
+          severity: warning
+          component: matrix
+
+      - uid: cloudflared-error-burst
+        title: cloudflared panic / fatal / connection-failed burst
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: {type: loki, uid: loki}
+              expr: 'sum(count_over_time({service_name="cloudflared"} |~ "panic|fatal|connection failed" [5m]))'
+              queryType: instant
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [5], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 3m
+        annotations:
+          summary: "cloudflared real-error rate > 5 in 5m"
+          description: "Excludes routine 'canceled by remote' (clients hanging up). Sustained errors here mean tunnel reconnect storms or upstream origin failures — services exposed via cloudflared (looney.eu, mdsf, mdsf-crew) may be flapping."
+          value: "{{ $values.B }} errors"
+          runbook_url: http://noc-tux:3000/explore?left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bservice_name%3D%5C%22cloudflared%5C%22%7D%20%7C~%20%5C%22panic%7Cfatal%7Cconnection%20failed%5C%22%22%7D%5D%7D
+        labels:
+          severity: warning
+          component: cloudflared
+
+      - uid: ufw-block-rate-high
+        title: UFW block rate elevated
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: {type: loki, uid: loki}
+              expr: 'sum(count_over_time({job="journal"} |~ "UFW BLOCK" [5m]))'
+              queryType: instant
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [100], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "UFW dropped > 100 packets in 5m (4x p95)"
+          description: "Internet background scan baseline is ~25/5m; this is a sustained spike. Cross-check against `cscli decisions list` and `cscli alerts list` — CrowdSec already bans repeats, so this is for awareness only."
+          value: "{{ $values.B }} blocks"
+          runbook_url: http://noc-tux:3000/explore?left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bjob%3D%5C%22journal%5C%22%7D%20%7C~%20%5C%22UFW%20BLOCK%5C%22%22%7D%5D%7D
+        labels:
+          severity: info
+          component: firewall
+
+      - uid: rathole-fatal
+        title: rathole tunnel fatal / config error
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: {type: loki, uid: loki}
+              expr: 'sum(count_over_time({service_name=~".*rathole.*"} |~ "expected a table key|panic|fatal|FATAL" [5m]))'
+              queryType: instant
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [0], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "rathole logged a fatal / config-parse error"
+          description: "rathole won't reconnect with a malformed config or after a panic. Anything tunneled through noc-baguette is offline until fixed."
+          value: "{{ $values.B }} fatal events"
+          runbook_url: http://noc-tux:3000/explore?left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bservice_name%3D~%5C%22.%2Arathole.%2A%5C%22%7D%22%7D%5D%7D
+        labels:
+          severity: critical
+          component: rathole
+
+      - uid: forgejo-server-errors
+        title: Forgejo HTTP 5xx burst
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: {type: loki, uid: loki}
+              expr: 'sum(count_over_time({service_name="forgejo"} |~ " 50[0-9] " [5m]))'
+              queryType: instant
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [5], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Forgejo returned > 5 HTTP 5xx responses in 5m"
+          description: "Real Forgejo errors (DB, internal panics) — distinct from 4xx user mistakes. 48h baseline is 0/5m so this is a clean signal."
+          value: "{{ $values.B }} 5xx"
+          runbook_url: http://noc-tux:3000/explore?left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bservice_name%3D%5C%22forgejo%5C%22%7D%20%7C~%20%5C%22%2050%5B0-9%5D%20%5C%22%22%7D%5D%7D
+        labels:
+          severity: warning
+          component: forgejo
+
+      - uid: synapse-server-errors
+        title: Synapse HTTP 5xx burst
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: loki
+            model:
+              refId: A
+              datasource: {type: loki, uid: loki}
+              expr: 'sum(count_over_time({job="synapse"} |~ " 5[0-9][0-9] " [5m]))'
+              queryType: instant
+              intervalMs: 60000
+              maxDataPoints: 43200
+          - refId: B
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: {params: [10], type: gt}
+                  operator: {type: and}
+                  query: {params: [C]}
+                  reducer: {params: [], type: last}
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: "Synapse returned > 10 HTTP 5xx responses in 5m"
+          description: "Real Synapse errors (DB issues, federation poison events). Raised threshold vs Forgejo because Synapse's HTTP volume is ~100x higher; 48h baseline still shows 0/5m so 10/5m is a clean spike."
+          value: "{{ $values.B }} 5xx"
+          runbook_url: http://noc-tux:3000/explore?left=%7B%22datasource%22%3A%22loki%22%2C%22queries%22%3A%5B%7B%22expr%22%3A%22%7Bjob%3D%5C%22synapse%5C%22%7D%20%7C~%20%5C%22%205%5B0-9%5D%5B0-9%5D%20%5C%22%22%7D%5D%7D
+        labels:
+          severity: warning
+          component: matrix
