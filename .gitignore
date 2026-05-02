@@ -103,8 +103,12 @@ beads.db*
 .claude/
 AGENTS.md
 CLAUDE.md
+GEMINI.md
 .gitattributes
 noc-homelab-beads/
+
+# Vendored binaries (build artifacts, not source)
+linux/services/rathole/rathole
 
 # Matrix — plaintext inventory (secrets), only SOPS-encrypted vars committed.
 # Allow the synapse log config template through since it has no secrets and
