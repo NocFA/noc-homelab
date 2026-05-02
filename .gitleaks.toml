@@ -1,0 +1,54 @@
+# noc-homelab gitleaks configuration
+[extend]
+useDefault = true
+
+[[rules]]
+id = "cloudflare-cfut-token"
+description = "Cloudflare API token (cfut_ prefix)"
+regex = '''cfut_[A-Za-z0-9]{40,80}'''
+keywords = ["cfut_"]
+
+[[rules]]
+id = "discord-webhook-url"
+description = "Discord webhook URL"
+regex = '''https?://(?:ptb\.|canary\.)?(?:discord|discordapp)\.com/api/webhooks/\d+/[A-Za-z0-9_-]{60,}'''
+keywords = ["discord.com", "discordapp.com"]
+
+[allowlist]
+description = "noc-homelab allowlist"
+paths = [
+    '''noc-homelab-beads/.*''',
+    '''^\.beads/.*''',
+    '''services/[^/]+/data/.*''',
+    '''services/[^/]+/data\..*/.*''',
+    '''configs/.*CREDENTIALS.*''',
+    '''configs/redis-password\.env''',
+    '''services/seafile/\.env''',
+    '''services/gatus/config-winlocal\.yaml''',
+    '''^windows/.*\.md''',
+    '''^061tech/.*''',
+    '''configs/nzbhydra2/nzbhydra\.yml''',
+    '''^kickstarts/.*\.md''',
+    '''^docs/.*\.md''',
+    '''configs/teamspeak/README\.md''',
+]
+regexTarget = "match"
+regexes = [
+    '''b8572ab7b0d24446cf4d32295286444a''',
+    '''947dfff2b6a8f142dfa56d3ae9e23cc1''',
+    '''44ddcfd51aa8edef2dea3e3a64a08a58''',
+    '''139476150786195456''',
+    '''YOUR_REAL_DEBRID_API_TOKEN_HERE''',
+    '''YOUR_TOKEN''',
+    '''CHANGE_ME[A-Za-z0-9_]*''',
+    '''cfut_REPLACE_ME[A-Za-z0-9_]*''',
+    '''<[A-Z_]+>''',
+]
+stopwords = [
+    "example",
+    "placeholder",
+    "redacted",
+    "change_me",
+    "your_token",
+    "your_real_debrid",
+]

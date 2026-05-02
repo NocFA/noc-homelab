@@ -1,0 +1,31 @@
+# noc-homelab gitleaks ignore file
+# Working-tree scan suppressions for plaintext-on-disk files that are
+# encrypted in git objects via git-crypt. Format: file:rule-id:line.
+
+configs/cloudflare-api.env:generic-api-key:7
+configs/cloudflared/8e5208a7-eeae-440a-bdf2-8aa1a8dd7280.json:generic-api-key:3
+configs/discord-webhooks.env:discord-webhook-url:14
+configs/discord-webhooks.env:discord-webhook-url:18
+configs/media-keys.yaml:generic-api-key:1
+configs/media-keys.yaml:generic-api-key:2
+linux/services/crowdsec/config.yaml:generic-api-key:11
+linux/services/gatus/config.yaml:discord-webhook-url:3
+linux/services/zurg/config.yml:generic-api-key:11
+services/arcane/.env:generic-api-key:5
+services/arcane/.env:generic-api-key:6
+services/authentik/.env:generic-api-key:2
+services/authentik/.env:generic-api-key:3
+services/authentik/.env:generic-api-key:4
+services/crowdsec-agent/.env:generic-api-key:3
+services/crowdsec/.env:discord-webhook-url:2
+services/crowdsec/.env:generic-api-key:4
+services/gatus/config.yaml:discord-webhook-url:204
+services/log-triage/.env:discord-webhook-url:4
+services/log-triage/.env:generic-api-key:5
+services/loki/.env:generic-api-key:1
+services/matrix/vars.sops.yml:generic-api-key:3
+services/matrix/vars.sops.yml:generic-api-key:4
+services/matrix/vars.sops.yml:generic-api-key:12
+services/matrix/vars.sops.yml:generic-api-key:18
+services/matrix/vars.sops.yml:generic-api-key:26
+services/zurg/config.yml:generic-api-key:4
