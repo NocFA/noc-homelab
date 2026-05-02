@@ -1,10 +1,40 @@
-machine:
-  id: noc-tux
-  display_name: noc-tux
-  role: media
+# NOC Homelab Agent Configuration (canonical, multi-host)
+#
+# Single source of truth for every host's service catalogue.  The agent
+# reads this file at startup, looks up its own hostname under `hosts:`,
+# and filters the `services:` list to entries whose `host:` matches.
+#
+# Schema version 2 (introduced 2026-05-02 by Wave 4 redesign).  The
+# previous schema was per-host (each machine kept its own copy and
+# git skip-worktree was used to stop them clobbering each other).
+#
+# To add a service: append an entry to `services:` with `host:` set to
+# the machine it runs on.  No skip-worktree, no per-host overrides.
 
+version: 2
+
+# Hosts the agent recognises.  Keys must match `platform.node()` on the
+# target machine (FQDN suffixes are stripped at runtime).  If a host is
+# missing from this block the agent will refuse to start.
+hosts:
+  noc-local:
+    display_name: noc-local
+    role: dashboard
+    platform: darwin
+  noc-tux:
+    display_name: noc-tux
+    role: media
+    platform: linux
+  noc-claw:
+    display_name: noc-claw
+    role: agent
+    platform: darwin
+
+# All services across the homelab, every host in one list.
 services:
-  emby:
+  # ----- noc-tux -----------------------------------------------------
+  - host: noc-tux
+    id: emby
     name: Emby
     manager: systemd
     service_name: emby-server
@@ -12,7 +42,8 @@ services:
     port: 8096
     description: Emby Media Server
     url: http://noc-tux:8096
-  plex:
+  - host: noc-tux
+    id: plex
     name: Plex
     manager: systemd
     service_name: plexmediaserver
@@ -20,7 +51,8 @@ services:
     port: 32400
     description: Plex Media Server
     url: http://noc-tux:32400/web
-  sunshine:
+  - host: noc-tux
+    id: sunshine
     name: Sunshine
     manager: systemd
     service_name: sunshine
@@ -28,7 +60,8 @@ services:
     port: 47990
     description: Sunshine Game Stream
     url: https://noc-tux:47990
-  zurg:
+  - host: noc-tux
+    id: zurg
     name: Zurg
     manager: systemd
     service_name: zurg
@@ -36,13 +69,15 @@ services:
     port: 9999
     description: Zurg WebDAV for Real-Debrid
     url: http://noc-tux:9999
-  rclone-zurg:
+  - host: noc-tux
+    id: rclone-zurg
     name: Rclone Mount
     manager: systemd
     service_name: rclone-zurg
     scope: user
     description: Rclone FUSE mount for Zurg
-  gatus:
+  - host: noc-tux
+    id: gatus
     name: Gatus
     manager: systemd
     service_name: gatus
@@ -50,43 +85,118 @@ services:
     port: 3001
     description: Health monitoring
     url: http://noc-tux:3001
-  homelab-agent:
+  - host: noc-tux
+    id: homelab-agent
     name: Homelab Agent
     manager: systemd
     service_name: homelab-agent
     scope: user
     port: 8080
     description: Homelab Agent API
-  plextraktsync:
+  - host: noc-tux
+    id: plextraktsync
     name: PlexTraktSync
     manager: systemd
     service_name: plextraktsync
     scope: user
     description: Plex to Trakt.tv sync
-  authentik:
+  - host: noc-tux
+    id: authentik
     name: Authentik
     manager: docker
     container: authentik-server
     description: Authentik SSO
     url: https://auth.nocfa.net
-  arcane:
+  - host: noc-tux
+    id: arcane
     name: Arcane
     manager: docker
     container: arcane
     port: 3552
     description: Arcane Game Server
-  matrix-synapse:
+  - host: noc-tux
+    id: matrix-synapse
     name: Matrix Synapse
     manager: docker
     container: matrix-synapse
     description: Matrix Synapse homeserver
-  matrix-coturn:
+  - host: noc-tux
+    id: matrix-coturn
     name: Matrix Coturn
     manager: docker
     container: matrix-coturn
     description: Matrix TURN/STUN server
-  matrix-client-element:
+  - host: noc-tux
+    id: matrix-client-element
     name: Element
     manager: docker
     container: matrix-client-element
     description: Element Matrix client
+
+  # ----- noc-local ---------------------------------------------------
+  - host: noc-local
+    id: dashboard
+    name: Dashboard
+    launchd: com.noc.dashboard
+    port: 8080
+  - host: noc-local
+    id: gatus
+    name: Gatus
+    port: 3001
+  - host: noc-local
+    id: glances
+    name: Glances
+    launchd: com.noc.glances
+    port: 61999
+  - host: noc-local
+    id: copyparty
+    name: Copyparty
+    launchd: com.noc.copyparty
+    port: 8081
+  - host: noc-local
+    id: maloja
+    name: Maloja
+    launchd: com.maloja.service
+    port: 42010
+  - host: noc-local
+    id: multi-scrobbler
+    name: Multi-Scrobbler
+    launchd: com.multiscrobbler.service
+    port: 9078
+  - host: noc-local
+    id: voiceseq
+    name: VoiceSeq
+    launchd: com.noc.voiceseq
+    port: 61998
+  - host: noc-local
+    id: dmm
+    name: Debrid Media Manager
+    launchd: com.noc.dmm
+    port: 3002
+
+  # ----- noc-claw ----------------------------------------------------
+  - host: noc-claw
+    id: mlx-server
+    name: MLX Server
+    launchd: com.noc.mlx-server
+    port: 8181
+    description: Local LLM runtime (mlx_lm.server, gemma-3-12b-it-4bit)
+    url: http://100.95.102.128:8181
+  - host: noc-claw
+    id: glances
+    name: Glances
+    launchd: com.noc.glances
+    port: 61999
+    url: http://100.95.102.128:61999
+  - host: noc-claw
+    id: log-triage
+    name: Log Triage
+    launchd: com.noc.log-triage
+    port: 8182
+    description: "CrowdSec alert -> LLM summary -> Discord"
+    url: http://100.95.102.128:8182
+  - host: noc-claw
+    id: crowdsec-agent
+    name: CrowdSec Agent
+    launchd: com.noc.crowdsec-agent
+    description: CrowdSec LAPI client (observation mode)

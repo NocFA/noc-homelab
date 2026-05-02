@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import platform
 import sys
 from dataclasses import asdict
 from flask import Flask, jsonify, request
@@ -13,11 +14,77 @@ handler = None
 config = {}
 
 
+def _current_hostname() -> str:
+    """Return the local hostname, stripped of any FQDN suffix.
+
+    `platform.node()` may return something like `noc-tux.tail6aa1bb.ts.net`
+    on Tailscale machines; the canonical config keys are bare hostnames.
+    """
+    name = platform.node() or ''
+    return name.split('.', 1)[0]
+
+
 def load_config(config_path: str) -> dict:
+    """Load agent config and produce a host-scoped legacy-shaped dict.
+
+    The on-disk schema (v2, introduced 2026-05-02) is a single canonical
+    file listing every service across the homelab, each tagged with a
+    `host:` field, plus a top-level `hosts:` map of per-machine metadata.
+
+    The rest of the agent (route handlers, platform handlers) still
+    expects the legacy shape:
+
+        {
+          'machine': {'id': ..., 'display_name': ..., 'role': ...},
+          'services': {svc_id: {...}, ...},
+        }
+
+    so this function detects the current hostname, filters the v2 list,
+    and reshapes it back to the legacy dict.  v1 files (no `version:`
+    key, top-level `machine:` block) are returned as-is.
+    """
     if not os.path.exists(config_path):
         return {'services': {}}
     with open(config_path, 'r') as f:
-        return yaml.safe_load(f) or {'services': {}}
+        raw = yaml.safe_load(f) or {}
+
+    # Legacy v1: keep behaviour identical.
+    if raw.get('version') is None and 'hosts' not in raw:
+        if 'services' not in raw:
+            raw['services'] = {}
+        return raw
+
+    hostname = _current_hostname()
+    hosts = raw.get('hosts') or {}
+    if hostname not in hosts:
+        raise RuntimeError(
+            f"agent/config.yaml has no entry for host {hostname!r}; "
+            f"add it under `hosts:` (known: {sorted(hosts)})"
+        )
+    host_meta = hosts[hostname] or {}
+
+    services_dict = {}
+    for svc in raw.get('services') or []:
+        if not isinstance(svc, dict):
+            continue
+        if svc.get('host') != hostname:
+            continue
+        svc_id = svc.get('id')
+        if not svc_id:
+            continue
+        # Strip the routing fields; everything else passes through to
+        # the platform handlers verbatim.
+        cleaned = {k: v for k, v in svc.items() if k not in ('host', 'id')}
+        services_dict[svc_id] = cleaned
+
+    return {
+        'machine': {
+            'id': host_meta.get('id', hostname),
+            'display_name': host_meta.get('display_name', hostname),
+            'role': host_meta.get('role', 'agent'),
+        },
+        'services': services_dict,
+    }
 
 
 @app.route('/api/agent/health')
