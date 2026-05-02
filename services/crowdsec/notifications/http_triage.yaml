@@ -30,9 +30,11 @@ format: |
     "scenario":     {{$a.Scenario | toJson}},
     "events_count": {{$a.EventsCount}},
     "source": {
-      "ip":    {{$a.Source.IP | toJson}},
-      "cn":    {{$a.Source.Cn | toJson}},
-      "scope": {{$a.Source.Scope | toJson}}
+      "ip":        {{$a.Source.IP | toJson}},
+      "cn":        {{$a.Source.Cn | toJson}},
+      "scope":     {{$a.Source.Scope | toJson}},
+      "as_number": {{$a.Source.AsNumber | toJson}},
+      "as_name":   {{$a.Source.AsName | toJson}}
     },
     "decisions": [{{range $j, $d := $a.Decisions}}{{if $j}},{{end}}{"type": {{$d.Type | toJson}}, "duration": {{$d.Duration | toJson}}}{{end}}],
     "events": [{{range $k, $e := $a.Events}}{{if $k}},{{end}}{

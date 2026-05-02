@@ -21,6 +21,12 @@
 # (returning), etc. This is intentional — multi-scenario hits indicate a
 # more determined attacker, so escalation is reasonable. The bouncer
 # consolidates per-IP iptables rules so the longest active duration wins.
+#
+# Notifier: `http_triage` is the SOLE Discord sender for every tier. The
+# log-triage service on noc-claw renders both the rich CrowdSec metadata
+# (flag, ASN, ban duration, paths probed) AND the LLM verdict into a
+# single embed — adding `http_discord` here would produce two messages
+# per alert (see noc-homelab-yupq).
 
 ---
 # Tier 4: persistent offender — 14-day ban
@@ -32,7 +38,6 @@ decisions:
    duration: 336h
 on_success: break
 notifications:
-  - http_discord
   - http_triage
 
 ---
@@ -45,7 +50,6 @@ decisions:
    duration: 168h
 on_success: break
 notifications:
-  - http_discord
   - http_triage
 
 ---
@@ -58,7 +62,6 @@ decisions:
    duration: 72h
 on_success: break
 notifications:
-  - http_discord
   - http_triage
 
 ---
@@ -71,7 +74,6 @@ decisions:
    duration: 24h
 on_success: break
 notifications:
-  - http_discord
   - http_triage
 
 ---
@@ -84,5 +86,4 @@ decisions:
    duration: 24h
 on_success: break
 notifications:
-  - http_discord
   - http_triage
