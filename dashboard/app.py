@@ -2679,9 +2679,13 @@ def websites_list():
     if r:
         try:
             sites_data = json.loads(r.stdout.strip()) if r.stdout.strip() else {}
+            # Each site may pin a custom systemd unit via tunnel_service
+            # (e.g. love-looney shares cloudflared-looney-eu with looney-eu);
+            # fall back to cloudflared-<sid> when unset for backward compat.
             checks = ['systemctl --user is-active caddy-websites 2>/dev/null']
-            for sid in sites_data:
-                checks.append(f"echo {sid}:$(systemctl --user is-active cloudflared-{sid} 2>/dev/null)")
+            for sid, s in sites_data.items():
+                unit = s.get('tunnel_service') or f'cloudflared-{sid}'
+                checks.append(f"echo {sid}:$(systemctl --user is-active {unit} 2>/dev/null)")
             status_r = _websites_ssh('; '.join(checks), timeout=8)
             tunnel_status = {}
             if status_r and status_r.stdout:
@@ -2708,7 +2712,19 @@ def websites_tunnel_action(site_id, action):
         return jsonify({'error': 'Invalid action'}), 400
     if not re.match(r'^[a-zA-Z0-9-]+$', site_id):
         return jsonify({'error': 'Invalid site ID'}), 400
-    r = _websites_ssh(f'systemctl --user {action} cloudflared-{site_id}', timeout=12)
+    # Resolve the actual systemd unit name from sites.json so shared tunnels
+    # (love-looney → cloudflared-looney-eu) hit the right service.
+    unit = f'cloudflared-{site_id}'
+    sites_r = _websites_ssh(f"cat {NOC_TUX_SITES_JSON} 2>/dev/null", timeout=5)
+    if sites_r and sites_r.stdout.strip():
+        try:
+            sd = json.loads(sites_r.stdout.strip())
+            unit = sd.get(site_id, {}).get('tunnel_service') or unit
+        except json.JSONDecodeError:
+            pass
+    if not re.match(r'^[a-zA-Z0-9_.@-]+$', unit):
+        return jsonify({'error': 'Invalid tunnel unit'}), 400
+    r = _websites_ssh(f'systemctl --user {action} {unit}', timeout=12)
     if not r:
         return jsonify({'error': 'Cannot reach noc-tux'}), 503
     if r.returncode == 0:

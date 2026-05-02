@@ -1,0 +1,18 @@
+[Unit]
+Description=Sync CrowdSec ban decisions to Cloudflare WAF rule (love.looney.eu)
+After=network-online.target crowdsec.service
+Wants=network-online.target
+Requires=crowdsec.service
+
+[Service]
+Type=oneshot
+# cscli needs root to read /etc/crowdsec/config.yaml; the sync script does
+# nothing else privileged.
+User=root
+EnvironmentFile=/etc/cf-crowdsec-sync.env
+ExecStart=/home/noc/noc-homelab/services/cf-crowdsec-sync/sync.sh
+TimeoutStartSec=30
+Nice=10
+
+[Install]
+WantedBy=multi-user.target
