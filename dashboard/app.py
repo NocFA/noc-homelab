@@ -190,14 +190,46 @@ def load_services_config():
     except Exception:
         return {}
 
+def _load_authentik_env_token():
+    """Read AUTHENTIK_API_TOKEN from services/authentik/.env (plaintext on disk
+    via SOPS skip-worktree workflow). Falls back to process env. Returns None
+    if neither is set."""
+    val = os.environ.get('AUTHENTIK_API_TOKEN')
+    if val:
+        return val
+    env_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        'services', 'authentik', '.env'
+    )
+    try:
+        with open(env_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#') or '=' not in line:
+                    continue
+                k, _, v = line.partition('=')
+                if k.strip() == 'AUTHENTIK_API_TOKEN':
+                    return v.strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return None
+
+
 def get_authentik_config():
-    """Load authentik config section from machines.json"""
+    """Load authentik config section from machines.json. The api_token is
+    sourced from services/authentik/.env (or AUTHENTIK_API_TOKEN env var) so
+    secrets stay out of the committed machines.json. Falls back to whatever
+    is in machines.json (typically null) if no env override is found."""
     config_path = os.path.join(os.path.dirname(__file__), 'machines.json')
     try:
         with open(config_path, 'r') as f:
-            return json.load(f).get('authentik', {})
+            cfg = json.load(f).get('authentik', {})
     except Exception:
-        return {}
+        cfg = {}
+    token = _load_authentik_env_token()
+    if token:
+        cfg['api_token'] = token
+    return cfg
 
 SELF_MACHINE_ID = _detect_self_id()
 _ALL_MACHINES = load_machines_config()

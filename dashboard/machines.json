@@ -1,7 +1,7 @@
 {
   "authentik": {
     "api_url": "https://auth.nocfa.net",
-    "api_token": "Ghu4CWd9GdN5xpTLhIoKz1aq4Qfktx1QJ3HkxnjVitQhgSf",
+    "api_token": null,
     "enrollment_flow_slug": "enrollment-invitation"
   },
   "machines": [
