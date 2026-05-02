@@ -1,0 +1,10 @@
+[Unit]
+Description=Media Pipeline Watchdog (mount/hook/timer health)
+After=network-online.target zurg.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/noc/noc-homelab/linux/scripts/media-pipeline-watchdog.sh
+StandardOutput=journal
+StandardError=journal
