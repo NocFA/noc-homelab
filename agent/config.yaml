@@ -12,14 +12,6 @@ services:
     port: 8096
     description: Emby Media Server
     url: http://noc-tux:8096
-  jellyfin:
-    name: Jellyfin
-    manager: systemd
-    service_name: jellyfin
-    scope: system
-    port: 8097
-    description: Jellyfin Media Server
-    url: http://noc-tux:8097
   plex:
     name: Plex
     manager: systemd
