@@ -1,0 +1,23 @@
+# Use bd merge for beads JSONL files
+.beads/issues.jsonl merge=beads
+
+# git-crypt: transparent encryption for secrets.
+# Files matched here are encrypted in git objects, plaintext in working tree.
+configs/*.env                                    filter=git-crypt diff=git-crypt
+configs/media-keys.yaml                          filter=git-crypt diff=git-crypt
+configs/filebot-license.psm                      filter=git-crypt diff=git-crypt
+configs/filebot-schemes.txt                      filter=git-crypt diff=git-crypt
+configs/cloudflared/*.json                       filter=git-crypt diff=git-crypt
+configs/cloudflared/config.yml                   filter=git-crypt diff=git-crypt
+configs/rclone/rclone.conf                       filter=git-crypt diff=git-crypt
+configs/sunshine/apps.json                       filter=git-crypt diff=git-crypt
+configs/sunshine/sunshine.conf                   filter=git-crypt diff=git-crypt
+services/*/.env                                  filter=git-crypt diff=git-crypt
+services/gatus/config.yaml                       filter=git-crypt diff=git-crypt
+services/zurg/config.yml                         filter=git-crypt diff=git-crypt
+services/loki/config/loki.yaml                   filter=git-crypt diff=git-crypt
+services/loki/config/prometheus.yml              filter=git-crypt diff=git-crypt
+services/matrix/vars.sops.yml                    filter=git-crypt diff=git-crypt
+linux/services/crowdsec/config.yaml              filter=git-crypt diff=git-crypt
+linux/services/gatus/config.yaml                 filter=git-crypt diff=git-crypt
+linux/services/zurg/config.yml                   filter=git-crypt diff=git-crypt

@@ -104,7 +104,6 @@ beads.db*
 AGENTS.md
 CLAUDE.md
 GEMINI.md
-.gitattributes
 noc-homelab-beads/
 
 # Vendored binaries (build artifacts, not source)
