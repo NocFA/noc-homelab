@@ -3,6 +3,8 @@
 
 // Never sync these
 .git
+.git.WAVE5-REMOVED
+.git.WAVE5-REMOVED/**
 .beads
 .beads/**
 beads.db
@@ -30,6 +32,7 @@ CLAUDE.md
 
 // Vendored binaries / build artefacts
 linux/services/rathole/rathole
+linux/services/zurg/zurg
 
 // Service runtime data (huge / host-specific)
 linux/cache
@@ -42,6 +45,8 @@ linux/services/zurg/zurg
 services/zurg/zurg.exe
 services/*/data
 services/*/data/**
+services/*/data.*
+services/*/data.*/**
 services/*/db
 configs/teamspeak/backups
 configs/nzbhydra2/database
@@ -117,6 +122,11 @@ scratch
 
 // Per-machine deployed gatus configs (not the .example template)
 services/gatus/config-winlocal.yaml
+services/gatus/config.yml
+
+// Per-host runtime files that crept into the synced tree (audit 2026-05-02, noc-homelab-ixfm)
+/config.yaml
+**/redis-password.env
 
 // Re-includes
 !.gitignore
