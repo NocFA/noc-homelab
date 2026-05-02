@@ -1,0 +1,132 @@
+// Syncthing ignore for noc-homelab.
+// Order matters: ! re-includes win.
+
+// Never sync these
+.git
+.beads
+.beads/**
+beads.db
+beads.db*
+noc-homelab-beads
+noc-homelab-beads/**
+.claude
+.claude/**
+
+// AI/dev tooling (machine-local, gitignored)
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+
+// Python venvs / caches
+.venv
+**/.venv
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+
+// Node
+**/node_modules
+
+// Vendored binaries / build artefacts
+linux/services/rathole/rathole
+
+// Service runtime data (huge / host-specific)
+linux/cache
+linux/cache/**
+linux/services/zurg/data
+linux/services/zurg/data/**
+linux/services/zurg/logs
+linux/services/zurg/logs/**
+linux/services/zurg/zurg
+services/zurg/zurg.exe
+services/*/data
+services/*/data/**
+services/*/db
+configs/teamspeak/backups
+configs/nzbhydra2/database
+configs/nzbhydra2/cache
+configs/nzbhydra2/logs
+configs/nzbhydra2/backup
+
+// Untracked WIP
+onedrive-migration
+onedrive-migration/**
+services/seafile
+services/seafile/**
+
+// Host-local matrix inventory (host_vars contains plaintext secrets)
+// Allow only the synapse log template through
+services/matrix/inventory/**
+!services/matrix/inventory/host_vars/
+!services/matrix/inventory/host_vars/matrix.nocfa.net/
+!services/matrix/inventory/host_vars/matrix.nocfa.net/synapse.log.config.j2
+
+// Runtime symlinks (per-host)
+media
+media/**
+
+// Misc gitignored runtime
+**/*.bak
+**/*.backup
+**/*.bak-*
+**/*.swp
+**/*.swo
+docs/migration.md
+beads
+beads/**
+beads_mdsf-crew
+beads_mdsf-crew/**
+
+// Secret-shaped files (defensive — anything not committed shouldn't sync)
+**/*.key
+**/*.p12
+**/CREDENTIALS.txt
+**/*CREDENTIALS*
+
+// Logs
+logs
+logs/**
+**/*.log
+**/*.log.*
+
+// Transient runtime
+**/*.pid
+**/*.pid.lock
+**/*.seed
+**/.alert_history.json
+
+// Branch-local scratch
+.homelab-lockdown
+.scratch
+scratch
+
+// Editor / OS junk
+**/.DS_Store
+**/.AppleDouble
+**/.LSOverride
+**/*.swp
+**/*.swo
+**/*~
+**/*.tmp
+**/temp
+**/tmp
+
+// SOPS leftover safety
+**/*.dec
+
+// Per-machine deployed gatus configs (not the .example template)
+services/gatus/config-winlocal.yaml
+
+// Re-includes
+!.gitignore
+!.sops.yaml
+!.gitattributes
+!.gitleaks.toml
+!.gitleaksignore
+!**/.env.example
+!**/.env
+
+// Syncthing internal
+.stversions
+.stversions/**

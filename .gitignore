@@ -147,3 +147,7 @@ scratch/
 # configure. Global gitignore blocks `.env.*`; negate here for examples only.
 !*.env.example
 !**/.env.example
+
+# Syncthing folder markers / version history (machine-local)
+.stfolder/
+.stversions/
