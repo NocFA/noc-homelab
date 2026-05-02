@@ -4,7 +4,7 @@
 #
 #  1. Cleans stale symlinks under media/
 #  2. Runs FileBot to create/update symlinks for movies + shows
-#  3. Triggers Emby + Jellyfin + Plex library scans
+#  3. Triggers Emby + Plex library scans
 #
 # media/configs/media-keys.yaml is plaintext on disk per the project's SOPS
 # at-rest workflow (encrypted only in git via pre-commit hook). Reads it
@@ -47,7 +47,6 @@ fi
 rm -f "$PENDING_FILE"
 
 EMBY_URL="http://localhost:8096"
-JELLYFIN_URL="http://localhost:8097"
 PLEX_URL="http://localhost:32400"
 
 # UTF-8 locale: FileBot's JVM needs this or unicode filenames
@@ -107,7 +106,7 @@ post_discord_failure() {
   "content": "<@139476150786195456>",
   "embeds": [{
     "title": "noc-tux -- library-update.sh degraded",
-    "description": "**${err_count} error(s) during zurg \`on_library_update\` hook**:\n${err_list}\nNew content may not appear in Emby/Jellyfin/Plex until next manual scan.",
+    "description": "**${err_count} error(s) during zurg \`on_library_update\` hook**:\n${err_list}\nNew content may not appear in Emby/Plex until next manual scan.",
     "color": 15745372,
     "footer": {"text": "library-update.sh -- noc-homelab"}
   }]
@@ -213,7 +212,6 @@ fi
 
 extract() { echo "$MEDIA_KEYS" | grep "^$1:" | head -1 | awk '{print $2}'; }
 EMBY_API_KEY=$(extract emby_api_key)
-JELLYFIN_API_KEY=$(extract jellyfin_api_key)
 PLEX_TOKEN=$(extract plex_token)
 
 # === MEDIA SERVER SCANS ===
@@ -231,12 +229,6 @@ if [[ -n "$EMBY_API_KEY" ]]; then
     trigger_scan "Emby" "$EMBY_URL/Library/Refresh?api_key=$EMBY_API_KEY"
 else
     err "Emby API key not found"
-fi
-
-if [[ -n "$JELLYFIN_API_KEY" ]]; then
-    trigger_scan "Jellyfin" "$JELLYFIN_URL/Library/Refresh?api_key=$JELLYFIN_API_KEY"
-else
-    err "Jellyfin API key not found"
 fi
 
 if [[ -n "$PLEX_TOKEN" ]]; then
