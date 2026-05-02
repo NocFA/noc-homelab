@@ -29,6 +29,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from collections import deque
 from contextlib import asynccontextmanager
@@ -42,9 +43,14 @@ from fastapi.responses import JSONResponse
 # Config (env-driven, see .env.example)
 # ---------------------------------------------------------------------------
 
-MLX_URL         = os.environ.get("MLX_URL", "http://localhost:8181/v1/chat/completions")
-MLX_MODEL       = os.environ.get("MLX_MODEL", "mlx-community/gemma-3-12b-it-4bit")
-MLX_RETRY_DELAY = float(os.environ.get("MLX_RETRY_DELAY_SECONDS", "10"))
+MLX_URL             = os.environ.get("MLX_URL", "http://localhost:8181/v1/chat/completions")
+MLX_MODEL           = os.environ.get("MLX_MODEL", "mlx-community/gemma-3-12b-it-4bit")
+MLX_RETRY_DELAY     = float(os.environ.get("MLX_RETRY_DELAY_SECONDS", "10"))
+# 60s was too tight for fat-context prompts: gemma-3-12b-4bit on M4 16GB takes
+# ~50s just to do prompt processing on ~2.8k tokens, then has to actually
+# generate a response. 180s gives reliable headroom; the events_block + ctx
+# caps below also keep the prompt small enough for the typical case.
+MLX_REQUEST_TIMEOUT = float(os.environ.get("MLX_REQUEST_TIMEOUT_SECONDS", "180"))
 LOKI_URL        = os.environ.get("LOKI_URL", "http://noc-tux:3100")
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "").strip()
 AUTH_TOKEN      = os.environ.get("AUTH_TOKEN", "").strip()
@@ -116,7 +122,10 @@ state = _State()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=5.0))
+    # Default client timeout is the floor — per-request overrides set higher
+    # values for MLX. Keep the default at 30s so non-MLX calls (Loki, Discord)
+    # fail fast.
+    app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
     log.info("triage service up — MLX=%s Loki=%s discord=%s",
              MLX_URL, LOKI_URL, "configured" if DISCORD_WEBHOOK else "MISSING")
     yield
@@ -259,13 +268,35 @@ _LINE_DROP_PATTERNS: tuple[tuple[str, str], ...] = (
 )
 
 
+_DEDUP_DIGIT_RUN = re.compile(r"\d+")
+_DEDUP_QUOTED    = re.compile(r'"[^"]*"')
+
+
+def _dedup_signature(line: str) -> str:
+    """Collapse a log line to a fingerprint for near-duplicate detection.
+
+    Strips the `[machine:job]` prefix, replaces digit runs with `#` and quoted
+    strings with `"…"`. http-probing scanners often emit dozens of access lines
+    that differ only by timestamp and request ID — fingerprinting collapses
+    them so the LLM doesn't see the same shape 30 times.
+    """
+    body = line.split("] ", 1)[-1] if "] " in line else line
+    body = _DEDUP_QUOTED.sub('"_"', body)
+    body = _DEDUP_DIGIT_RUN.sub("#", body)
+    return body.strip()
+
+
 def filter_loki_lines(streams: list[dict[str, Any]],
                        allowed_jobs: tuple[str, ...],
-                       limit: int) -> list[str]:
-    """Apply scenario-aware job allowlist + per-line drop list.
+                       limit: int,
+                       max_per_signature: int = 2) -> list[str]:
+    """Apply scenario-aware job allowlist, drop list, and near-dup collapse.
 
     Returns formatted prompt-ready lines, newest last. Always drops
     `job=homelab` (our own automation noise) regardless of allowlist.
+    Near-duplicate lines (same signature after digit/quote stripping) are
+    capped at `max_per_signature` occurrences to avoid feeding the LLM a
+    wall of nearly-identical traefik 404s.
     """
     rows: list[tuple[int, str, dict[str, Any]]] = []
     for stream in streams:
@@ -284,10 +315,24 @@ def filter_loki_lines(streams: list[dict[str, Any]],
             except (TypeError, ValueError):
                 continue
     rows.sort(key=lambda x: x[0])
-    return [
-        f"[{labels.get('machine','?')}:{labels.get('job','?')}] {text.strip()[:280]}"
-        for _, text, labels in rows[-limit:]
+    formatted = [
+        f"[{labels.get('machine','?')}:{labels.get('job','?')}] {text.strip()[:240]}"
+        for _, text, labels in rows
     ]
+    # Newest-last; walk newest-first for dedup so the most-recent example of a
+    # repeated signature is preserved, then reverse.
+    seen: dict[str, int] = {}
+    kept: list[str] = []
+    for line in reversed(formatted):
+        sig = _dedup_signature(line)
+        if seen.get(sig, 0) >= max_per_signature:
+            continue
+        seen[sig] = seen.get(sig, 0) + 1
+        kept.append(line)
+        if len(kept) >= limit:
+            break
+    kept.reverse()
+    return kept
 
 
 async def fetch_loki_context(client: httpx.AsyncClient,
@@ -444,7 +489,21 @@ async def summarize(client: httpx.AsyncClient,
         + "\n\n"
         + _OUTPUT_CONTRACT
     )
-    ctx = "\n".join(log_lines[-30:]) or "(no matching log lines found in Loki)"
+    # Hard caps on the surrounding-logs context. Was previously [-30:] with no
+    # byte budget, which let http-probing alerts balloon the prompt past 2.8k
+    # tokens — slow enough on M4 16GB gemma-3-12b-4bit to ReadTimeout at 60s.
+    # Keep this aggressive: surrounding logs are CONTEXT ONLY, the LLM should
+    # base the verdict on the events_block (already separately capped).
+    ctx_lines = log_lines[-15:]
+    ctx_total = 0
+    ctx_kept: list[str] = []
+    for line in ctx_lines:
+        if ctx_total + len(line) > 3500:
+            ctx_kept.append(f"... ({len(ctx_lines) - len(ctx_kept)} more line(s) truncated)")
+            break
+        ctx_kept.append(line)
+        ctx_total += len(line) + 1
+    ctx = "\n".join(ctx_kept) or "(no matching log lines found in Loki)"
     events_block = format_events_for_llm(events or [])
     if events_block:
         user = (
@@ -487,7 +546,7 @@ async def summarize(client: httpx.AsyncClient,
     async with _MLX_LOCK:
         for attempt in (1, 2):
             try:
-                r = await client.post(MLX_URL, json=body, timeout=60.0)
+                r = await client.post(MLX_URL, json=body, timeout=MLX_REQUEST_TIMEOUT)
                 r.raise_for_status()
                 data = r.json()
                 msg = data.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -519,8 +578,31 @@ _COLORS = {
 }
 
 
+def _render_attribution_line(source_ip: str,
+                              source_cn: str,
+                              as_number: str,
+                              as_name: str,
+                              count: int,
+                              duration: str) -> str:
+    """Render the rich CrowdSec attribution line at the top of the description.
+
+    Mirrors the format that http_discord.yaml used to emit so the merged
+    embed retains the same scannable header (IP, flag, country, ASN, ban
+    duration, event count) that operators were already used to.
+    """
+    flag = f" :flag_{source_cn.lower()}: {source_cn}" if source_cn else ""
+    asn = ""
+    if as_number:
+        asn = f" · AS{as_number}"
+        if as_name:
+            asn += f" *{as_name}*"
+    head = f"**`{source_ip}`**{flag}{asn}"
+    body = f"BAN for **{duration or '?'}** · {count} event(s)"
+    return f"{head}\n{body}"
+
+
 def render_description_from_verdict(verdict: dict[str, Any]) -> str:
-    """Build a compact human-readable description from the LLM JSON verdict."""
+    """Build the verdict-derived portion of the description (no attribution)."""
     bits: list[str] = []
     v = (verdict.get("verdict") or "").strip()
     if v:
@@ -537,13 +619,15 @@ def render_description_from_verdict(verdict: dict[str, Any]) -> str:
         bits.append("_" + " · ".join(meta_bits) + "_")
     if notes:
         bits.append(f"> {notes}")
-    return "\n\n".join(bits)[:4000] or "(LLM returned an empty verdict)"
+    return "\n\n".join(bits)
 
 
 async def post_discord(client: httpx.AsyncClient,
                        scenario: str,
                        source_ip: str,
                        source_cn: str,
+                       as_number: str,
+                       as_name: str,
                        count: int,
                        duration: str,
                        summary: str,
@@ -555,22 +639,29 @@ async def post_discord(client: httpx.AsyncClient,
         return
 
     # Try to parse the structured verdict; fall back to raw prose if the
-    # model misbehaved.
+    # model misbehaved or timed out.
     verdict = parse_verdict(summary)
+    attribution = _render_attribution_line(source_ip, source_cn,
+                                            as_number, as_name,
+                                            count, duration)
     if verdict:
-        description = render_description_from_verdict(verdict)
+        verdict_block = render_description_from_verdict(verdict) \
+                        or "_(LLM returned an empty verdict)_"
         exposure = str(verdict.get("exposure") or "unknown").lower()
         internal = bool(verdict.get("internal_noise"))
         color = _COLORS.get("internal" if internal else exposure,
                             _COLORS["unknown"])
         title_prefix = "[INTERNAL NOISE] " if internal else ""
     else:
-        # Older prose path — still surface whatever the model returned.
-        description = summary[:4000]
+        # LLM down / unparseable. Still ship the attribution + raw text so the
+        # alert never gets dropped on the floor.
+        verdict_block = f"_{summary}_" if summary else "_(no LLM verdict available)_"
         color = _COLORS["unknown"]
         internal = False
         exposure = "unknown"
         title_prefix = ""
+
+    description = (attribution + "\n\n" + verdict_block)[:4000]
 
     fields: list[dict[str, Any]] = [
         {"name": "Scenario",     "value": f"`{scenario}`",      "inline": True},
@@ -591,13 +682,13 @@ async def post_discord(client: httpx.AsyncClient,
             fields.append({"name": "Target", "value": f"`{next(iter(targets))}`", "inline": False})
         fields.append({"name": "Paths probed", "value": paths_block, "inline": False})
     embed = {
-        "title": f"{title_prefix}CrowdSec + LLM triage — {source_ip}",
+        "title": f"{title_prefix}{scenario}",
         "description": description,
         "color": color,
         "fields": fields,
         "footer": {"text": f"noc-claw · {MLX_MODEL}"},
     }
-    payload = {"username": "Log-Triage", "embeds": [embed]}
+    payload = {"username": "CrowdSec + Triage", "embeds": [embed]}
     try:
         r = await client.post(DISCORD_WEBHOOK, json=payload, timeout=15.0)
         r.raise_for_status()
@@ -635,8 +726,15 @@ async def health(req: Request) -> dict[str, Any]:
 
 async def _process_alert(client: httpx.AsyncClient, a: dict[str, Any]) -> None:
     """Background-task worker: hydrate one CrowdSec alert, summarize, post."""
-    source_ip = (a.get("source") or {}).get("ip", "unknown")
-    source_cn = (a.get("source") or {}).get("cn", "") or ""
+    src = a.get("source") or {}
+    source_ip = src.get("ip", "unknown")
+    source_cn = src.get("cn", "") or ""
+    # AsNumber comes through as a JSON number from the CrowdSec template
+    # (`{{$a.Source.AsNumber | toJson}}`) — normalise to a string so the
+    # downstream `f"AS{as_number}"` rendering doesn't say "AS0".
+    raw_asn = src.get("as_number")
+    as_number = "" if raw_asn in (None, 0, "0", "") else str(raw_asn)
+    as_name   = (src.get("as_name") or "").strip()
     scenario  = a.get("scenario") or (a.get("labels", {}).get("scenario") or "unknown")
     count     = int(a.get("events_count", 0) or 0)
     decisions = a.get("decisions") or []
@@ -657,7 +755,8 @@ async def _process_alert(client: httpx.AsyncClient, a: dict[str, Any]) -> None:
         summary = await summarize(client, scenario, source_ip, source_cn,
                                    count, duration, ctx, http_events)
         await post_discord(client, scenario, source_ip, source_cn,
-                           count, duration, summary, http_events)
+                           as_number, as_name, count, duration,
+                           summary, http_events)
         log.info("triage done %s ctx=%d http=%d sum=%d",
                  source_ip, len(ctx), len(http_events), len(summary))
     except Exception as exc:  # never let a background failure leak
