@@ -1,0 +1,12 @@
+[Unit]
+Description=Run cf-crowdsec-sync every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=15s
+Unit=cf-crowdsec-sync.service
+Persistent=true
+
+[Install]
+WantedBy=timers.target
