@@ -33,25 +33,38 @@ ADMIN_EMAIL="${SEAFILE_ADMIN_EMAIL:-(unset)}"
 HOSTNAME="${SEAFILE_SERVER_HOSTNAME:-(unset)}"
 PORT="${SEAFILE_PORT:-8000}"
 
+# If SEAFILE_SERVER_HOSTNAME already includes a port (recommended to dodge the
+# SERVICE_URL trap), use it as-is; otherwise append SEAFILE_PORT for the banner.
+case "$HOSTNAME" in
+  *:*) URL="http://${HOSTNAME}" ;;
+  *)   URL="http://${HOSTNAME}:${PORT}" ;;
+esac
+
 echo ""
 echo "Seafile is starting."
-echo "  Web UI:       http://${HOSTNAME}:${PORT}"
+echo "  Web UI:       ${URL}"
 echo "  Admin login:  ${ADMIN_EMAIL}  (password in $ENV_FILE)"
 echo ""
-echo "IMPORTANT — SERVICE_URL gotcha (seafile-mc 11.0):"
+echo "SERVICE_URL gotcha reminder (seafile-mc 11.0):"
 echo "  The container entrypoint builds SERVICE_URL from"
 echo "      \$SEAFILE_SERVER_PROTOCOL://\$SEAFILE_SERVER_HOSTNAME"
-echo "  and IGNORES SEAFILE_PORT. With the current .env"
-echo "      SEAFILE_SERVER_HOSTNAME=${HOSTNAME}"
-echo "      SEAFILE_PORT=${PORT}"
-echo "  uploads/downloads will fail because Seafile thinks the file server"
-echo "  lives on port 80, not ${PORT}."
+echo "  and IGNORES SEAFILE_PORT. If SEAFILE_SERVER_HOSTNAME does NOT contain"
+echo "  a port suffix, file uploads/downloads will fail because Seafile assumes"
+echo "  port 80."
 echo ""
-echo "  Fix ONE of the following AFTER first boot (or before, if you stop now):"
-echo "    A) Edit .env so SEAFILE_SERVER_HOSTNAME=${HOSTNAME}:${PORT}, then"
-echo "         docker compose down && docker compose up -d"
-echo "    B) Patch data/seafile/conf/seahub_settings.py:"
-echo "         SERVICE_URL      = 'http://${HOSTNAME}:${PORT}'"
-echo "         FILE_SERVER_ROOT = 'http://${HOSTNAME}:${PORT}/seafhttp'"
-echo "       then  docker compose restart seafile"
+case "$HOSTNAME" in
+  *:*)
+    echo "  Current .env has SEAFILE_SERVER_HOSTNAME=${HOSTNAME} (port-suffixed) — OK."
+    ;;
+  *)
+    echo "  Current .env has SEAFILE_SERVER_HOSTNAME=${HOSTNAME} — NOT port-suffixed."
+    echo "  Fix ONE of the following:"
+    echo "    A) Edit .env so SEAFILE_SERVER_HOSTNAME=${HOSTNAME}:${PORT}, then"
+    echo "         docker compose down && docker compose up -d"
+    echo "    B) Patch data/seafile/conf/seahub_settings.py:"
+    echo "         SERVICE_URL      = '${URL}'"
+    echo "         FILE_SERVER_ROOT = '${URL}/seafhttp'"
+    echo "       then  docker compose restart seafile"
+    ;;
+esac
 echo ""
