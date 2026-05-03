@@ -1,10 +1,11 @@
 """
 Log triage webhook service.
 
-Consumes CrowdSec alerts, fetches surrounding log context from Loki, asks the
-local MLX LLM on noc-claw to produce a one-paragraph human summary, and posts
-the result to Discord. Runs as a LaunchAgent on noc-claw so it's co-located
-with the MLX server (no Tailscale round-trip for inference).
+Consumes CrowdSec alert batches, groups alerts by source IP, fetches
+surrounding log context from Loki, asks the local MLX LLM on noc-claw to
+produce a single structured verdict per IP, and posts one combined Discord
+embed per IP. Runs as a LaunchAgent on noc-claw so it's co-located with the
+MLX server (no Tailscale round-trip for inference).
 
 Endpoints
 ---------
@@ -19,8 +20,16 @@ If AUTH_TOKEN is set, inbound requests must carry matching
 
 Rate limiting
 -------------
-Same alert key (scenario, source IP) is ignored for DEDUPE_WINDOW seconds.
+Same source IP is ignored for DEDUPE_WINDOW seconds (per-IP, not
+per-scenario — multi-scenario scans coalesce into one post).
 Total summaries capped at MAX_PER_HOUR to guard against runaway LLM spend.
+
+Coalescing
+----------
+A single CrowdSec notifier batch (group_wait=60s, group_threshold=50)
+typically contains every scenario that fired for an attack. We group the
+batch by source IP and emit ONE embed per IP, listing every scenario, the
+longest ban duration, and a combined LLM verdict over the union of events.
 """
 
 from __future__ import annotations
@@ -337,19 +346,20 @@ def filter_loki_lines(streams: list[dict[str, Any]],
 
 async def fetch_loki_context(client: httpx.AsyncClient,
                              source_ip: str,
-                             scenario: str = "",
+                             allowed_jobs: tuple[str, ...] = (),
                              start_ts: int | None = None,
                              window_seconds: int = 600,
                              limit: int = 40) -> list[str]:
-    """Pull recent log lines mentioning the attacker IP, filtered by scenario.
+    """Pull recent log lines mentioning the attacker IP, filtered by job allowlist.
 
-    The legacy behaviour (no scenario filter) is preserved if scenario is
-    empty — useful for ad-hoc probes.
+    Caller computes the allowlist from the union of jobs across every
+    scenario in the IP group (see _process_ip_group). Empty allowlist falls
+    back to a global query (any machine, any job) — only useful for ad-hoc
+    manual probes.
     """
     if start_ts is None:
         start_ts = int(time.time()) - window_seconds
     end_ts = start_ts + window_seconds * 2  # +/- window around the event
-    allowed_jobs = jobs_for_scenario(scenario) if scenario else ()
 
     # Push the job filter into the LogQL query when we have one — avoids
     # transferring streams we'd just drop client-side. The matcher uses
@@ -469,7 +479,7 @@ def parse_verdict(raw: str) -> dict[str, Any] | None:
 
 
 async def summarize(client: httpx.AsyncClient,
-                    scenario: str,
+                    scenarios: list[str],
                     source_ip: str,
                     source_cn: str,
                     count: int,
@@ -478,8 +488,10 @@ async def summarize(client: httpx.AsyncClient,
                     events: list[dict[str, str]] | None = None) -> str:
     """Ask the MLX model for a structured incident verdict (JSON string).
 
-    Returns the raw response text. Caller uses parse_verdict() to extract
-    fields and falls back to rendering the raw text if parsing fails.
+    `scenarios` is a list (possibly with one element) of every CrowdSec
+    scenario that fired for this IP in the current batch. Returns the raw
+    response text — caller uses parse_verdict() to extract fields and falls
+    back to rendering the raw text if parsing fails.
     """
     system = (
         "You are a security-ops triage assistant on a home lab. Your job "
@@ -505,11 +517,20 @@ async def summarize(client: httpx.AsyncClient,
         ctx_total += len(line) + 1
     ctx = "\n".join(ctx_kept) or "(no matching log lines found in Loki)"
     events_block = format_events_for_llm(events or [])
+    scenarios_str = ", ".join(scenarios) if scenarios else "unknown"
+    header = (
+        f"Alert: scenarios=[{scenarios_str}], source_ip={source_ip} "
+        f"({source_cn or '??'}), total_events={count}, "
+        f"ban_duration={duration or '?'}"
+    )
+    if len(scenarios) > 1:
+        header += (
+            f"\n\nNOTE: multiple scenarios fired for this single IP in the "
+            f"same window — treat them as one coordinated scan."
+        )
     if events_block:
         user = (
-            f"Alert: scenario={scenario}, source_ip={source_ip} "
-            f"({source_cn or '??'}), events={count}, "
-            f"ban_duration={duration or '?'}\n\n"
+            f"{header}\n\n"
             f"=== Triggering Requests (PRIMARY EVIDENCE — base your verdict on these) ===\n"
             f"{events_block}\n\n"
             f"=== Surrounding Logs (CONTEXT ONLY — may include unrelated noise) ===\n"
@@ -518,9 +539,7 @@ async def summarize(client: httpx.AsyncClient,
         )
     else:
         user = (
-            f"Alert: scenario={scenario}, source_ip={source_ip} "
-            f"({source_cn or '??'}), events={count}, "
-            f"ban_duration={duration or '?'}\n\n"
+            f"{header}\n\n"
             f"=== Triggering Requests ===\n"
             f"(none — CrowdSec did not attach HTTP event meta; this may be "
             f"an ssh, network, or other non-http scenario)\n\n"
@@ -568,12 +587,14 @@ async def summarize(client: httpx.AsyncClient,
 
 
 # Discord embed colors keyed by exposure level (decimal RGB).
+# `none` = attack attempted but blocked (404/4xx). Orange not green — green
+# implies "all fine" but it's still an attack worth surfacing.
 _COLORS = {
-    "internal": 9807270,   # grey  — likely false positive (our own automation)
-    "none":     5763719,   # green — every request blocked / 404'd
+    "internal": 9807270,   # grey   — likely false positive (our own automation)
+    "none":     16747008,  # orange — every request blocked / 404'd (FF8C00)
     "low":      15844367,  # gold
-    "medium":   15105570,  # amber
-    "high":     15548997,  # red   — actual hit on a vulnerable surface
+    "medium":   15105570,  # amber-orange (E67E22)
+    "high":     15548997,  # red    — actual hit on a vulnerable surface
     "unknown":  10070709,  # blurple
 }
 
@@ -622,8 +643,61 @@ def render_description_from_verdict(verdict: dict[str, Any]) -> str:
     return "\n\n".join(bits)
 
 
+def _format_scenarios_field(scenarios_with_counts: list[tuple[str, int]]) -> str:
+    """Render the Scenarios field for multi-scenario coalesced posts.
+
+    Each line: `scenario_name` (N events). Sorted by count descending so the
+    biggest contributors land at the top. Discord field cap is 1024 chars,
+    so we truncate very long lists with `+N more`.
+    """
+    if not scenarios_with_counts:
+        return ""
+    ranked = sorted(scenarios_with_counts, key=lambda x: -x[1])
+    lines: list[str] = []
+    used = 0
+    for s, n in ranked:
+        line = f"`{s}` — {n} event(s)"
+        if used + len(line) + 1 > 1000:
+            remaining = len(ranked) - len(lines)
+            if remaining > 0:
+                lines.append(f"_+{remaining} more scenario(s)_")
+            break
+        lines.append(line)
+        used += len(line) + 1
+    return "\n".join(lines)
+
+
+def _pick_longest_duration(durations: list[str]) -> str:
+    """Return the longest CrowdSec duration string from a list (e.g. '336h0m0s' > '48h0m0s').
+
+    Parses each duration as hours/minutes/seconds and returns the original
+    string corresponding to the largest total. Falls back to the first
+    non-empty value if parsing fails.
+    """
+    if not durations:
+        return ""
+    best_secs = -1
+    best_str = ""
+    for d in durations:
+        if not d:
+            continue
+        if best_str == "":
+            best_str = d
+        secs = 0
+        m_h = re.search(r"(\d+)h", d)
+        m_m = re.search(r"(\d+)m", d)
+        m_s = re.search(r"(\d+)s", d)
+        if m_h: secs += int(m_h.group(1)) * 3600
+        if m_m: secs += int(m_m.group(1)) * 60
+        if m_s: secs += int(m_s.group(1))
+        if secs > best_secs:
+            best_secs = secs
+            best_str = d
+    return best_str
+
+
 async def post_discord(client: httpx.AsyncClient,
-                       scenario: str,
+                       scenarios_with_counts: list[tuple[str, int]],
                        source_ip: str,
                        source_cn: str,
                        as_number: str,
@@ -633,10 +707,19 @@ async def post_discord(client: httpx.AsyncClient,
                        summary: str,
                        events: list[dict[str, str]] | None = None,
                        mode_label: str | None = None) -> None:
+    """Post one combined Discord embed for a single source IP.
+
+    `scenarios_with_counts` is the list of (scenario_name, event_count) for
+    every CrowdSec scenario that fired against this IP in the current batch.
+    A single-scenario post still goes through this path (with one entry).
+    """
     mode_label = mode_label or MODE_LABEL
     if not DISCORD_WEBHOOK:
         log.info("DISCORD_WEBHOOK unset, skipping post")
         return
+
+    primary_scenario = scenarios_with_counts[0][0] if scenarios_with_counts else "unknown"
+    n_scenarios = len(scenarios_with_counts)
 
     # Try to parse the structured verdict; fall back to raw prose if the
     # model misbehaved or timed out.
@@ -663,26 +746,44 @@ async def post_discord(client: httpx.AsyncClient,
 
     description = (attribution + "\n\n" + verdict_block)[:4000]
 
-    fields: list[dict[str, Any]] = [
-        {"name": "Scenario",     "value": f"`{scenario}`",      "inline": True},
+    if n_scenarios > 1:
+        title = f"{title_prefix}Multi-scenario scan ({n_scenarios} scenarios)"
+    else:
+        title = f"{title_prefix}{primary_scenario}"
+
+    fields: list[dict[str, Any]] = []
+    # When multiple scenarios fired, list them all in a dedicated field so
+    # operators can see at a glance what the IP triggered (and its weight).
+    if n_scenarios > 1:
+        fields.append({
+            "name": "Scenarios",
+            "value": _format_scenarios_field(scenarios_with_counts),
+            "inline": False,
+        })
+    else:
+        fields.append({"name": "Scenario", "value": f"`{primary_scenario}`", "inline": True})
+    fields.extend([
         {"name": "Origin",       "value": source_cn or "??",    "inline": True},
         {"name": "Events",       "value": str(count),           "inline": True},
         {"name": "Ban duration", "value": duration or "?",      "inline": True},
         {"name": "Source IP",    "value": f"`{source_ip}`",     "inline": True},
         {"name": "Mode",         "value": mode_label,           "inline": True},
-    ]
+    ])
     if verdict:
         fields.append({"name": "Exposure", "value": exposure, "inline": True})
     # Paths probed: show actual URLs from CrowdSec event meta when available.
     paths_block = format_events_for_discord(events or [])
     if paths_block:
-        # Target FQDN is usually constant across events; surface it once if so.
+        # Target FQDN is usually constant across events; surface all if many.
         targets = {e["target"] for e in (events or []) if e.get("target")}
         if len(targets) == 1:
             fields.append({"name": "Target", "value": f"`{next(iter(targets))}`", "inline": False})
+        elif len(targets) > 1:
+            target_list = ", ".join(f"`{t}`" for t in sorted(targets))
+            fields.append({"name": "Targets", "value": target_list[:1020], "inline": False})
         fields.append({"name": "Paths probed", "value": paths_block, "inline": False})
     embed = {
-        "title": f"{title_prefix}{scenario}",
+        "title": title,
         "description": description,
         "color": color,
         "fields": fields,
@@ -724,8 +825,8 @@ async def health(req: Request) -> dict[str, Any]:
     return {"checks": checks}
 
 
-async def _process_alert(client: httpx.AsyncClient, a: dict[str, Any]) -> None:
-    """Background-task worker: hydrate one CrowdSec alert, summarize, post."""
+def _alert_source(a: dict[str, Any]) -> tuple[str, str, str, str]:
+    """Extract (source_ip, source_cn, as_number, as_name) from a CrowdSec alert."""
     src = a.get("source") or {}
     source_ip = src.get("ip", "unknown")
     source_cn = src.get("cn", "") or ""
@@ -734,31 +835,111 @@ async def _process_alert(client: httpx.AsyncClient, a: dict[str, Any]) -> None:
     # downstream `f"AS{as_number}"` rendering doesn't say "AS0".
     raw_asn = src.get("as_number")
     as_number = "" if raw_asn in (None, 0, "0", "") else str(raw_asn)
-    as_name   = (src.get("as_name") or "").strip()
-    scenario  = a.get("scenario") or (a.get("labels", {}).get("scenario") or "unknown")
-    count     = int(a.get("events_count", 0) or 0)
-    decisions = a.get("decisions") or []
-    duration  = (decisions[0].get("duration") if decisions else "") or ""
+    as_name = (src.get("as_name") or "").strip()
+    return source_ip, source_cn, as_number, as_name
 
-    key = f"{scenario}::{source_ip}"
-    ok, reason = await state.should_process(key)
-    if not ok:
-        log.info("skip %s (%s)", key, reason)
+
+def _alert_scenario(a: dict[str, Any]) -> str:
+    return a.get("scenario") or (a.get("labels", {}).get("scenario") or "unknown")
+
+
+def _alert_duration(a: dict[str, Any]) -> str:
+    decisions = a.get("decisions") or []
+    return (decisions[0].get("duration") if decisions else "") or ""
+
+
+def _dedup_events_by_path(events: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Drop near-identical (verb, path, target) tuples from the combined list.
+
+    A multi-scenario scan often has overlapping events (same path matched by
+    multiple scenarios). Keep the first occurrence to preserve timestamp
+    ordering, drop subsequent dups.
+    """
+    seen: set[tuple[str, str, str]] = set()
+    out: list[dict[str, str]] = []
+    for e in events:
+        key = (e.get("verb", ""), e.get("path", ""), e.get("target", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(e)
+    return out
+
+
+async def _process_ip_group(client: httpx.AsyncClient,
+                             source_ip: str,
+                             alerts: list[dict[str, Any]]) -> None:
+    """Background-task worker: process every alert for one source IP as a unit.
+
+    - Combines events across scenarios (deduped by verb+path+target)
+    - Picks the longest ban duration as the headline
+    - Uses the union of Loki job allowlists across all scenarios
+    - Makes ONE LLM call covering every scenario
+    - Posts ONE combined Discord embed
+    """
+    if not alerts:
         return
 
-    http_events = extract_http_events(a)
-    log.info("triage %s events=%d http_events=%d scenario=%s allowed_jobs=%s",
-             source_ip, count, len(http_events), scenario,
-             ",".join(jobs_for_scenario(scenario)))
+    # Source attribution comes from the first alert; CrowdSec emits identical
+    # source blocks for every alert pertaining to the same IP.
+    _, source_cn, as_number, as_name = _alert_source(alerts[0])
+
+    # Collect per-scenario data + union of events.
+    scenarios_with_counts: list[tuple[str, int]] = []
+    durations: list[str] = []
+    seen_scenarios: set[str] = set()
+    all_events: list[dict[str, str]] = []
+    job_allowlist: set[str] = set()
+    total_events_count = 0
+
+    for a in alerts:
+        scenario = _alert_scenario(a)
+        per_alert_events = int(a.get("events_count", 0) or 0)
+        total_events_count += per_alert_events
+        durations.append(_alert_duration(a))
+        if scenario not in seen_scenarios:
+            seen_scenarios.add(scenario)
+            scenarios_with_counts.append((scenario, per_alert_events))
+            for j in jobs_for_scenario(scenario):
+                job_allowlist.add(j)
+        else:
+            # Same scenario fired twice for the same IP in this batch — bump
+            # the event count on the existing entry rather than adding a row.
+            for i, (s, n) in enumerate(scenarios_with_counts):
+                if s == scenario:
+                    scenarios_with_counts[i] = (s, n + per_alert_events)
+                    break
+        all_events.extend(extract_http_events(a))
+
+    combined_events = _dedup_events_by_path(all_events)
+    longest_duration = _pick_longest_duration(durations)
+    scenarios = [s for s, _ in scenarios_with_counts]
+
+    key = source_ip
+    ok, reason = await state.should_process(key)
+    if not ok:
+        log.info("skip %s (%s, scenarios=%d)", key, reason, len(scenarios))
+        return
+
+    log.info("triage %s scenarios=%d total_events=%d http_events=%d "
+             "longest_ban=%s allowed_jobs=%s",
+             source_ip, len(scenarios), total_events_count,
+             len(combined_events), longest_duration,
+             ",".join(sorted(job_allowlist)))
+
     try:
-        ctx = await fetch_loki_context(client, source_ip, scenario=scenario)
-        summary = await summarize(client, scenario, source_ip, source_cn,
-                                   count, duration, ctx, http_events)
-        await post_discord(client, scenario, source_ip, source_cn,
-                           as_number, as_name, count, duration,
-                           summary, http_events)
+        # Loki: query once, reusing the union of jobs across every scenario
+        # in this group. The allowlist is what matters for filtering noise.
+        ctx = await fetch_loki_context(client, source_ip,
+                                        allowed_jobs=tuple(sorted(job_allowlist)))
+        summary = await summarize(client, scenarios, source_ip, source_cn,
+                                   total_events_count, longest_duration,
+                                   ctx, combined_events)
+        await post_discord(client, scenarios_with_counts, source_ip, source_cn,
+                           as_number, as_name, total_events_count,
+                           longest_duration, summary, combined_events)
         log.info("triage done %s ctx=%d http=%d sum=%d",
-                 source_ip, len(ctx), len(http_events), len(summary))
+                 source_ip, len(ctx), len(combined_events), len(summary))
     except Exception as exc:  # never let a background failure leak
         log.warning("triage failed for %s: %s", source_ip, exc)
 
@@ -770,8 +951,9 @@ async def alert_handler(req: Request,
     if AUTH_TOKEN and x_auth_token != AUTH_TOKEN:
         raise HTTPException(status_code=401, detail="bad auth token")
 
-    # CrowdSec HTTP notifier sends a JSON array of alert objects.
-    # Handle both array and object (for manual probes).
+    # CrowdSec HTTP notifier sends a JSON array of alert objects (batched
+    # via group_wait/group_threshold). Handle both array and object (for
+    # manual probes).
     try:
         raw = await req.body()
         payload = json.loads(raw) if raw else []
@@ -785,17 +967,24 @@ async def alert_handler(req: Request,
     else:
         raise HTTPException(status_code=400, detail="payload must be array or object")
 
-    # Fire-and-forget: CrowdSec (or Loki ruler, etc.) gets an immediate 202
-    # so its own retry/timeout loop never blocks on MLX inference.
+    # Group by source IP — every alert for one IP coalesces into a single
+    # downstream LLM call + Discord post. Different IPs in the same batch
+    # are processed independently in parallel background tasks.
+    by_ip: dict[str, list[dict[str, Any]]] = {}
+    for a in alerts:
+        ip = (a.get("source") or {}).get("ip") or "unknown"
+        by_ip.setdefault(ip, []).append(a)
+
+    # Fire-and-forget: CrowdSec gets an immediate 202 so its own retry/
+    # timeout loop never blocks on MLX inference.
     client: httpx.AsyncClient = req.app.state.http
     queued: list[str] = []
-    for a in alerts:
-        bg.add_task(_process_alert, client, a)
-        source_ip = (a.get("source") or {}).get("ip", "?")
-        scenario = a.get("scenario", "?")
-        queued.append(f"{scenario}::{source_ip}")
+    for ip, ip_alerts in by_ip.items():
+        bg.add_task(_process_ip_group, client, ip, ip_alerts)
+        scenarios = sorted({_alert_scenario(a) for a in ip_alerts})
+        queued.append(f"{ip} ({len(ip_alerts)} alert(s), {len(scenarios)} scenario(s))")
 
-    return {"ok": True, "queued": queued}
+    return {"ok": True, "queued": queued, "alert_count": len(alerts), "ip_count": len(by_ip)}
 
 
 # ---------------------------------------------------------------------------

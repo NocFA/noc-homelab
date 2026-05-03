@@ -1,9 +1,9 @@
-# Secondary CrowdSec notifier → log-triage webhook on noc-claw.
+# SOLE CrowdSec notifier → log-triage webhook on noc-claw.
 #
-# Fires alongside http_discord. The triage service hydrates each alert with
-# Loki context + an LLM-generated summary before posting to Discord.
-# http_discord still fires for immediate/simple coverage; http_triage is the
-# slower, "why is this happening" variant.
+# The triage service hydrates each batch with Loki context + an LLM-generated
+# summary, groups alerts by source IP, and posts ONE combined Discord embed
+# per IP that includes the rich attribution (flag, ASN, ban duration, paths)
+# AND the LLM verdict — replaces the previous separate http_discord notifier.
 #
 # The notifier sends the array of alert objects as JSON (same as what cscli
 # alerts inspect gives you). Headers include the auth token that matches the
@@ -13,11 +13,15 @@ type: http
 name: http_triage
 log_level: info
 
-# Same batch shape as http_discord — flush per alert (threshold=1) within
-# 5s. Log-triage returns 202 fast (fire-and-forget), so the notifier doesn't
-# block on MLX inference; keep the upstream timeout tight.
-group_wait: 5s
-group_threshold: 1
+# Coalesce alerts into batches so a multi-scenario scan produces ONE Discord
+# post per source IP instead of N. group_wait is the upper-bound delay from
+# the first alert in a window to the flush; group_threshold caps batch size
+# for pathological floods. The bouncer has already enforced bans by the time
+# the batch flushes, so the up-to-60s notifier delay is purely cosmetic.
+# log-triage groups the batch by source IP and emits one combined embed +
+# one combined LLM verdict per IP.
+group_wait: 60s
+group_threshold: 50
 max_retry: 3
 timeout: 5s
 

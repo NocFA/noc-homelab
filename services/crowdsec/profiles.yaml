@@ -6,33 +6,32 @@
 #
 # We use GetDecisionsCount(value), which counts all decisions (active +
 # expired) currently retained in the SQLite DB for the given IP. The DB
-# keeps decisions for 60 days (see config.yaml.local.example —
+# keeps decisions for 60 days (see services/crowdsec/config.yaml.local
 # `db_config.flush.max_age`), so this acts as a 60-day rolling
 # repeat-offender history.
 #
-# Tiers:
-#   0 prior decisions  → 24h ban (first offender, fresh IP)
-#   1+ prior decisions → 72h ban (3 days, returning offender)
-#   4+ prior decisions → 168h ban (7 days, repeat offender)
-#   10+ prior decisions → 336h ban (14 days, persistent offender)
+# Tiers (simplified 2026-05-03, noc-homelab-lx2w):
+#   0 prior decisions  → 48h ban  (initial — fresh IP, single scan)
+#   1+ prior decisions → 336h ban (14d — IP has scanned us before)
 #
 # Note: a single multi-scenario scan triggers several alerts in the same
-# second. The first sees count=0 (default), the second sees count=1
-# (returning), etc. This is intentional — multi-scenario hits indicate a
-# more determined attacker, so escalation is reasonable. The bouncer
-# consolidates per-IP iptables rules so the longest active duration wins.
+# second. The first sees count=0 (initial 48h), the second sees count=1
+# (escalates to 14d) — bouncer collapses per-IP iptables rules so the
+# longest active duration wins. Multi-scenario scans = 14d ban end-to-end,
+# which is the desired behaviour.
 #
 # Notifier: `http_triage` is the SOLE Discord sender for every tier. The
 # log-triage service on noc-claw renders both the rich CrowdSec metadata
 # (flag, ASN, ban duration, paths probed) AND the LLM verdict into a
-# single embed — adding `http_discord` here would produce two messages
-# per alert (see noc-homelab-yupq).
+# single embed, AND coalesces multi-scenario alerts for a single IP into
+# one combined post. Adding `http_discord` here would produce two messages
+# per alert (see noc-homelab-yupq, noc-homelab-lx2w).
 
 ---
-# Tier 4: persistent offender — 14-day ban
-name: persistent_offender_ip
+# Tier 2: repeat offender — 14-day ban
+name: repeat_offender_ip
 filters:
- - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetDecisionsCount(Alert.GetValue()) >= 10
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetDecisionsCount(Alert.GetValue()) >= 1
 decisions:
  - type: ban
    duration: 336h
@@ -41,49 +40,25 @@ notifications:
   - http_triage
 
 ---
-# Tier 3: repeat offender — 7-day ban
-name: repeat_offender_ip
-filters:
- - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetDecisionsCount(Alert.GetValue()) >= 4
-decisions:
- - type: ban
-   duration: 168h
-on_success: break
-notifications:
-  - http_triage
-
----
-# Tier 2: returning offender — 3-day ban
-name: returning_offender_ip
-filters:
- - Alert.Remediation == true && Alert.GetScope() == "Ip" && GetDecisionsCount(Alert.GetValue()) >= 1
-decisions:
- - type: ban
-   duration: 72h
-on_success: break
-notifications:
-  - http_triage
-
----
-# Tier 1: first offender — 24h ban (fallthrough default)
+# Tier 1: first offender — 48h ban (fallthrough default)
 name: default_ip_remediation
 filters:
  - Alert.Remediation == true && Alert.GetScope() == "Ip"
 decisions:
  - type: ban
-   duration: 24h
+   duration: 48h
 on_success: break
 notifications:
   - http_triage
 
 ---
-# Range bans (e.g. /24 from a noisy ASN) — 24h flat for now.
+# Range bans (e.g. /24 from a noisy ASN) — 48h flat to match initial.
 name: default_range_remediation
 filters:
  - Alert.Remediation == true && Alert.GetScope() == "Range"
 decisions:
  - type: ban
-   duration: 24h
+   duration: 48h
 on_success: break
 notifications:
   - http_triage

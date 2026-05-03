@@ -15,15 +15,19 @@ every prior decision still in the DB counts toward the next tier:
 
 | Prior decisions | Ban duration |
 | --- | --- |
-| 0 (first offender) | 24h |
-| 1+ (returning) | 72h (3 days) |
-| 4+ (repeat) | 168h (7 days) |
-| 10+ (persistent) | 336h (14 days) |
+| 0 (first offender) | 48h (2 days) |
+| 1+ (returning, repeat) | 336h (14 days) |
 
 DB retention is set to 60 days (`config.yaml.local` →
 `db_config.flush.max_age: 60d`) so an IP that comes back weeks later still
 counts as a repeat offender. Profile order in `profiles.yaml` matters —
 most-specific tier first, default last, with `on_success: break` between.
+
+A multi-scenario scan within a single session triggers several alerts in
+the same second. The first sees count=0 (48h), subsequent alerts see
+count≥1 (escalate to 14d). The bouncer collapses per-IP iptables rules so
+the longest active duration wins → end result is a 14d ban for any
+multi-scenario scan, which is the intent.
 
 ## Install (noc-tux)
 
