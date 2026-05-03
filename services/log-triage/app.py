@@ -603,7 +603,9 @@ _COLORS = {
 # operators viewing the embed need to be on the mesh (phones included).
 # Override via env if a separate public domain ever lands.
 GRAFANA_BASE = os.environ.get("GRAFANA_BASE", "http://noc-tux:3000").rstrip("/")
-LOKI_DATASOURCE = os.environ.get("LOKI_DATASOURCE", "loki")
+# UID (not name) — Grafana 11 routes datasource refs by UID. Look up at
+# /api/datasources; ours is the lowercase "loki" UID for the "Loki" name.
+LOKI_DS_UID = os.environ.get("LOKI_DS_UID", "loki")
 
 
 def _build_lookup_links(source_ip: str) -> str:
@@ -620,23 +622,29 @@ def _build_lookup_links(source_ip: str) -> str:
     """
     import urllib.parse  # local import — only used here
 
-    # Grafana Explore expects the `left` param as URL-encoded JSON. The
-    # query intentionally uses `{machine=~".+"}` so it pulls from every
-    # job/host across the cluster (Loki streams are sharded by machine
-    # label). 24h covers a fresh attack window without overrunning the
-    # 14d retention.
-    explore = {
-        "datasource": LOKI_DATASOURCE,
-        "queries": [{
-            "refId":     "A",
-            "expr":      f'{{machine=~".+"}} |= "{source_ip}"',
-            "queryType": "range",
-        }],
-        "range": {"from": "now-24h", "to": "now"},
+    # Grafana 11 Explore URL schema: ?schemaVersion=1&orgId=1&panes={...}
+    # The legacy ?left=... format silently no-ops in Grafana 11 (Explore
+    # opens with an empty pane). Each query needs an explicit `datasource`
+    # ref by `{type, uid}`; the outer `datasource` shorthand is for the pane.
+    # The query uses `{machine=~".+"}` so it pulls from every job/host (Loki
+    # streams are sharded by machine label). 24h covers a fresh attack
+    # window without overrunning the 14d retention.
+    panes = {
+        "p1": {
+            "datasource": LOKI_DS_UID,
+            "queries": [{
+                "refId":      "A",
+                "datasource": {"type": "loki", "uid": LOKI_DS_UID},
+                "expr":       f'{{machine=~".+"}} |= "{source_ip}"',
+                "queryType":  "range",
+            }],
+            "range":      {"from": "now-24h", "to": "now"},
+            "panelsState": {"logs": {"visualisationType": "logs"}},
+        }
     }
     grafana_url = (
-        f"{GRAFANA_BASE}/explore?orgId=1&left="
-        + urllib.parse.quote(json.dumps(explore, separators=(",", ":")))
+        f"{GRAFANA_BASE}/explore?schemaVersion=1&orgId=1&panes="
+        + urllib.parse.quote(json.dumps(panes, separators=(",", ":")))
     )
 
     return (

@@ -80,6 +80,9 @@ services:
       # Admin login for edits is still required.
       GF_AUTH_ANONYMOUS_ENABLED: "true"
       GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+      # Lets anonymous Viewers use Explore (Grafana 11 default blocks this).
+      # Tailscale-private mesh, so granting Explore to Viewer is fine.
+      GF_USERS_VIEWERS_CAN_EDIT: "true"
       GF_AUTH_DISABLE_LOGIN_FORM: "false"
       GF_SECURITY_ADMIN_USER: "admin"
       # Password is set on first boot from GF_SECURITY_ADMIN_PASSWORD__FILE if
