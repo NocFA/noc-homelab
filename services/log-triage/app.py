@@ -599,6 +599,54 @@ _COLORS = {
 }
 
 
+# Grafana base URL for the Loki Explore deep link. Tailscale-internal —
+# operators viewing the embed need to be on the mesh (phones included).
+# Override via env if a separate public domain ever lands.
+GRAFANA_BASE = os.environ.get("GRAFANA_BASE", "http://noc-tux:3000").rstrip("/")
+LOKI_DATASOURCE = os.environ.get("LOKI_DATASOURCE", "loki")
+
+
+def _build_lookup_links(source_ip: str) -> str:
+    """Build a single-line markdown field of investigation links for an IP.
+
+    Includes:
+      - IPinfo (geo, ASN, hosting metadata)
+      - AbuseIPDB (community abuse reports)
+      - Shodan (open ports + service banners on that IP)
+      - Grafana → Loki Explore (every log line mentioning the IP, last 24h)
+
+    The Grafana link is a Tailscale-private deep link — phones on the mesh
+    can follow it; non-mesh viewers will just see a connection error.
+    """
+    import urllib.parse  # local import — only used here
+
+    # Grafana Explore expects the `left` param as URL-encoded JSON. The
+    # query intentionally uses `{machine=~".+"}` so it pulls from every
+    # job/host across the cluster (Loki streams are sharded by machine
+    # label). 24h covers a fresh attack window without overrunning the
+    # 14d retention.
+    explore = {
+        "datasource": LOKI_DATASOURCE,
+        "queries": [{
+            "refId":     "A",
+            "expr":      f'{{machine=~".+"}} |= "{source_ip}"',
+            "queryType": "range",
+        }],
+        "range": {"from": "now-24h", "to": "now"},
+    }
+    grafana_url = (
+        f"{GRAFANA_BASE}/explore?orgId=1&left="
+        + urllib.parse.quote(json.dumps(explore, separators=(",", ":")))
+    )
+
+    return (
+        f"[IPinfo](https://ipinfo.io/{source_ip}) · "
+        f"[AbuseIPDB](https://www.abuseipdb.com/check/{source_ip}) · "
+        f"[Shodan](https://www.shodan.io/host/{source_ip}) · "
+        f"[Loki logs (24h)]({grafana_url})"
+    )
+
+
 def _render_attribution_line(source_ip: str,
                               source_cn: str,
                               as_number: str,
@@ -771,6 +819,13 @@ async def post_discord(client: httpx.AsyncClient,
     ])
     if verdict:
         fields.append({"name": "Exposure", "value": exposure, "inline": True})
+    # Investigation links — clickable lookups in IPinfo / AbuseIPDB / Shodan
+    # plus a deep link into Grafana → Loki Explore filtered to this IP.
+    fields.append({
+        "name":   "Lookups",
+        "value":  _build_lookup_links(source_ip),
+        "inline": False,
+    })
     # Paths probed: show actual URLs from CrowdSec event meta when available.
     paths_block = format_events_for_discord(events or [])
     if paths_block:
