@@ -123,6 +123,18 @@ endpoints:
             send-on-resolved: true
             failure-threshold: 2
 
+    - name: "Seafile"
+      group: "Utilities"
+      url: "http://noc-local:8000"
+      interval: 30s
+      conditions:
+          - "[STATUS] == 200"
+      alerts:
+          - type: discord
+            enabled: false
+            send-on-resolved: true
+            failure-threshold: 2
+
     # --- Cross-Check ---
     - name: "noc-winlocal Gatus"
       group: "Cross-Check"

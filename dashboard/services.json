@@ -184,6 +184,19 @@
         10443
       ]
     },
+    "seafile": {
+      "compose_dir": "/Users/noc/noc-homelab/services/seafile",
+      "description": "Self-hosted file sync (OneDrive replacement)",
+      "launchd": "docker:seafile",
+      "log_paths": [
+        "~/Library/Logs/noc-homelab/seafile.log"
+      ],
+      "name": "Seafile",
+      "port": 8000,
+      "web_ports": [
+        8000
+      ]
+    },
     "voiceseq": {
       "description": "Voice Sequence API",
       "launchd": "com.noc.voiceseq",

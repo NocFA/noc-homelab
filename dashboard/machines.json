@@ -104,6 +104,18 @@
             "/Users/noc/noc-homelab/services/teamspeak6/data/logs/*_1.log"
           ]
         },
+        "seafile": {
+          "name": "Seafile",
+          "description": "Self-hosted file sync (OneDrive replacement)",
+          "manager": "docker",
+          "unit_name": "seafile",
+          "compose_dir": "/Users/noc/noc-homelab/services/seafile",
+          "port": 8000,
+          "url": "http://noc-local:8000",
+          "log_paths": [
+            "~/Library/Logs/noc-homelab/seafile.log"
+          ]
+        },
         "voiceseq": {
           "name": "Voice Sequence API",
           "description": "Voice Sequence API",
