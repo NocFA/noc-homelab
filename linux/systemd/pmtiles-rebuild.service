@@ -1,0 +1,19 @@
+[Unit]
+Description=Rebuild Ireland PMTiles bundle from the latest Protomaps daily build
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=webdev
+Group=webdev
+ExecStart=/usr/local/sbin/pmtiles-rebuild.sh
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/webdev/tiles
+PrivateTmp=true
+NoNewPrivileges=true

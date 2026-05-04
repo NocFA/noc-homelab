@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly PMTiles bundle rebuild
+Requires=pmtiles-rebuild.service
+
+[Timer]
+OnCalendar=*-*-01 04:00:00
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
