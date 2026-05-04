@@ -1,43 +1,50 @@
 #!/usr/bin/env bash
-# Monthly rebuild of the Ireland PMTiles bundle from the Protomaps daily build.
-# Writes /home/webdev/tiles/ireland-YYYY-MM-DD.pmtiles atomically.
+# Monthly rebuild of the Ireland PMTiles bundle in OpenMapTiles schema.
+# Source: Geofabrik OSM PBF for Ireland and Northern Ireland.
+# Tool:   tilemaker (built from source at /opt/tilemaker, binary at /usr/local/bin/tilemaker).
+# Output: /home/webdev/tiles/ireland-YYYY-MM-DD-omt.pmtiles (atomic mv from build dir).
 # Run as User=webdev via pmtiles-rebuild.service.
 set -euo pipefail
 
 TILE_DIR="/home/webdev/tiles"
-BBOX="-10.5,51.4,-5.4,55.4"          # Ireland (RoI + NI)
-PMTILES_BIN="/usr/local/bin/go-pmtiles"
+BUILD_DIR="${TILE_DIR}/build"
+TILEMAKER_BIN="/usr/local/bin/tilemaker"
+TILEMAKER_RES="/opt/tilemaker/resources"
+PBF_URL="https://download.geofabrik.de/europe/ireland-and-northern-ireland-latest.osm.pbf"
 
-# Find the most recent Protomaps daily build (walk back up to 7 days).
-SOURCE_URL=""
-SOURCE_DATE=""
-for offset in 0 1 2 3 4 5 6 7; do
-    d=$(date -u -d "${offset} days ago" +%Y%m%d)
-    url="https://build.protomaps.com/${d}.pmtiles"
-    if curl -sIfL --max-time 30 "${url}" >/dev/null 2>&1; then
-        SOURCE_URL="${url}"
-        SOURCE_DATE=$(date -u -d "${offset} days ago" +%Y-%m-%d)
-        break
-    fi
-done
+DATE_TAG="$(date -u +%Y-%m-%d)"
+PBF="${BUILD_DIR}/ireland-and-northern-ireland-latest.osm.pbf"
+TMP_OUT="${BUILD_DIR}/ireland-${DATE_TAG}-omt.pmtiles"
+FINAL_OUT="${TILE_DIR}/ireland-${DATE_TAG}-omt.pmtiles"
 
-if [ -z "${SOURCE_URL}" ]; then
-    echo "ERROR: no Protomaps build found in the last 7 days" >&2
-    exit 1
-fi
+mkdir -p "${BUILD_DIR}"
 
-OUT="${TILE_DIR}/ireland-${SOURCE_DATE}.pmtiles"
-TMP="${TILE_DIR}/.tmp.ireland-${SOURCE_DATE}.pmtiles"
-
-if [ -f "${OUT}" ]; then
-    echo "Up-to-date: ${OUT} already exists, skipping extract."
+if [ -f "${FINAL_OUT}" ]; then
+    echo "Up-to-date: ${FINAL_OUT} already exists, skipping rebuild."
     exit 0
 fi
 
-echo "Extracting ${SOURCE_URL} bbox=${BBOX} -> ${TMP}"
-"${PMTILES_BIN}" extract "${SOURCE_URL}" "${TMP}" \
-    --bbox="${BBOX}" \
-    --download-threads=8
+echo "Downloading ${PBF_URL}"
+rm -f "${PBF}"
+wget --no-verbose -O "${PBF}" "${PBF_URL}"
+echo "PBF size: $(stat -c%s "${PBF}") bytes"
 
-mv -f "${TMP}" "${OUT}"
-echo "Wrote ${OUT} ($(stat -c%s "${OUT}") bytes)"
+echo "Running tilemaker (OpenMapTiles schema) -> ${TMP_OUT}"
+rm -f "${TMP_OUT}"
+"${TILEMAKER_BIN}" \
+    --input "${PBF}" \
+    --output "${TMP_OUT}" \
+    --config "${TILEMAKER_RES}/config-openmaptiles.json" \
+    --process "${TILEMAKER_RES}/process-openmaptiles.lua"
+
+mv -f "${TMP_OUT}" "${FINAL_OUT}"
+rm -f "${PBF}"
+echo "Wrote ${FINAL_OUT} ($(stat -c%s "${FINAL_OUT}") bytes)"
+
+# Retain the previous .pmtiles bundle (rollback target); prune anything older.
+# Sort by date in filename and keep the two newest matching bundles.
+mapfile -t bundles < <(ls -1 "${TILE_DIR}"/ireland-*-omt.pmtiles 2>/dev/null | sort -r)
+for stale in "${bundles[@]:2}"; do
+    echo "Pruning ${stale}"
+    rm -f "${stale}"
+done
