@@ -84,6 +84,18 @@ echo "Wrote ${FINAL_OUT} ($(stat -c%s "${FINAL_OUT}") bytes)"
 echo "Cleaning up build artifacts"
 rm -f "${MBTILES}" "${SUMS}"
 
+# Mirror OFM's style/sprite/font/raster assets and rewrite the style URLs to
+# point at our domain + the freshly-built PMTiles file. Lovelang consumes
+# OFM's hosted styles directly, so without this step the styles still phone
+# home to tiles.openfreemap.org for fonts/sprites/raster.
+MIRROR_SH="$(dirname "$0")/pmtiles-mirror-ofm-assets.sh"
+if [ ! -x "${MIRROR_SH}" ]; then
+    # Installed location when run via systemd unit:
+    MIRROR_SH="/usr/local/sbin/pmtiles-mirror-ofm-assets.sh"
+fi
+echo "Running asset mirror: ${MIRROR_SH} planet-${DATE_TAG}.pmtiles"
+"${MIRROR_SH}" "planet-${DATE_TAG}.pmtiles"
+
 # Retain the previous .pmtiles bundle (rollback target); prune anything older.
 # Sort by date in filename and keep the two newest matching bundles.
 mapfile -t bundles < <(ls -1 "${TILE_DIR}"/planet-*.pmtiles 2>/dev/null | sort -r)
