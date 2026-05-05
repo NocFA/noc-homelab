@@ -1,5 +1,5 @@
 [Unit]
-Description=Rebuild Ireland PMTiles bundle from latest Geofabrik OSM PBF via tilemaker (OpenMapTiles schema)
+Description=Mirror latest OpenFreeMap planet PMTiles (download MBTiles, verify SHA256, convert with go-pmtiles)
 Wants=network-online.target
 After=network-online.target
 
@@ -8,7 +8,7 @@ Type=oneshot
 User=webdev
 Group=webdev
 ExecStart=/usr/local/sbin/pmtiles-rebuild.sh
-TimeoutStartSec=60min
+TimeoutStartSec=12h
 MemoryMax=8G
 Nice=10
 IOSchedulingClass=best-effort

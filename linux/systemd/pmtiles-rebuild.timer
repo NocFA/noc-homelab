@@ -1,9 +1,10 @@
 [Unit]
-Description=Monthly PMTiles bundle rebuild
+Description=Monthly OpenFreeMap planet PMTiles mirror refresh
 Requires=pmtiles-rebuild.service
 
 [Timer]
-OnCalendar=*-*-01 04:00:00
+# OpenFreeMap publishes weekly; once a month is plenty for our consumer (lovelang).
+OnCalendar=*-*-08 04:00:00
 RandomizedDelaySec=2h
 Persistent=true
 
