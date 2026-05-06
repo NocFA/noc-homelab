@@ -16,11 +16,22 @@ from collections import deque
 from datetime import datetime
 
 # Alert thresholds (defaults)
+# 'below': True means alert when value drops BELOW threshold (e.g. battery)
 THRESHOLDS = {
     'memory_percent': {'warning': 85, 'critical': 90},
     'temp_c': {'warning': 100, 'critical': 110},
     'cpu_percent': {'warning': 90, 'critical': 95},
+    'battery_percent': {'warning': 25, 'critical': 10, 'below': True},
 }
+
+# Per-metric sustained-check overrides (default is SUSTAINED_CHECKS)
+METRIC_SUSTAINED = {
+    'battery_percent': 3,   # ~30s — battery reads are stable, not transient
+}
+
+# AC power lost detection (binary, separate from threshold metrics)
+AC_POWER_SUSTAINED = 2      # ~20s — filter cable wiggle, alert fast
+AC_POWER_COOLDOWN = 3600    # 1 hour — don't nag once you know it's on battery
 
 # Per-machine threshold overrides. Merge on top of THRESHOLDS by metric.
 # noc-claw runs mlx_lm.server (~7.5GB resident) so memory routinely sits in the
@@ -121,6 +132,9 @@ class AlertEngine:
                                 stats['temp_c'] = val
                             elif 'core' in label.lower():
                                 core_temps.append(val)
+                        elif stype == 'battery':
+                            stats['battery_percent'] = val
+                            stats['battery_status'] = s.get('status', '')
                     if 'temp_c' not in stats and core_temps:
                         stats['temp_c'] = max(core_temps)
 
@@ -154,22 +168,28 @@ class AlertEngine:
             thresholds = _get_thresholds(machine_id, metric)
             key = (machine_id, metric)
             level = None
+            below = thresholds.get('below', False)
 
-            if value >= thresholds['critical']:
-                level = 'critical'
-            elif value >= thresholds['warning']:
-                level = 'warning'
+            if below:
+                if value <= thresholds['critical']:
+                    level = 'critical'
+                elif value <= thresholds['warning']:
+                    level = 'warning'
+            else:
+                if value >= thresholds['critical']:
+                    level = 'critical'
+                elif value >= thresholds['warning']:
+                    level = 'warning'
 
             if level:
-                # Increment breach count
                 with self.lock:
                     self._breach_counts[key] = self._breach_counts.get(key, 0) + 1
                     count = self._breach_counts[key]
 
-                if count >= SUSTAINED_CHECKS:
+                sustained = METRIC_SUSTAINED.get(metric, SUSTAINED_CHECKS)
+                if count >= sustained:
                     self._maybe_fire_alert(machine_id, metric, value, level, thresholds, stats, now)
             else:
-                # Value is back to normal
                 fired_at = None
                 with self.lock:
                     self._breach_counts.pop(key, None)
@@ -178,6 +198,52 @@ class AlertEngine:
                 if fired_at is not None:
                     duration = int(now - fired_at)
                     self._record_resolved(machine_id, metric, value, duration, now)
+
+        self._evaluate_power_state(machine_id, stats, now)
+
+    def _evaluate_power_state(self, machine_id, stats, now):
+        """Alert when a machine switches to battery power (AC unplugged)."""
+        battery_status = stats.get('battery_status')
+        if not battery_status:
+            return
+
+        key = (machine_id, 'ac_power_lost')
+        discharging = battery_status.lower() == 'discharging'
+
+        if discharging:
+            with self.lock:
+                self._breach_counts[key] = self._breach_counts.get(key, 0) + 1
+                count = self._breach_counts[key]
+
+            if count >= AC_POWER_SUSTAINED:
+                with self.lock:
+                    last_fired = self._active_alerts.get(key, 0)
+                    if (now - last_fired) < AC_POWER_COOLDOWN and key in self._active_alerts:
+                        return
+                    self._active_alerts[key] = now
+
+                battery_pct = stats.get('battery_percent', '?')
+                alert = {
+                    'machine': machine_id,
+                    'metric': 'ac_power_lost',
+                    'value': battery_pct if isinstance(battery_pct, (int, float)) else 0,
+                    'level': 'warning',
+                    'threshold': 'AC',
+                    'top_processes': [],
+                    'timestamp': now,
+                    'resolved': False,
+                }
+                with self.lock:
+                    self.history.append(alert)
+                self._save_history()
+                self._send_discord(alert)
+        else:
+            with self.lock:
+                self._breach_counts.pop(key, None)
+                fired_at = self._active_alerts.pop(key, None)
+            if fired_at is not None:
+                duration = int(now - fired_at)
+                self._record_resolved(machine_id, 'ac_power_lost', 0, duration, now)
 
     def _maybe_fire_alert(self, machine_id, metric, value, level, thresholds, stats, now):
         """Fire alert if not in cooldown."""
@@ -230,11 +296,15 @@ class AlertEngine:
             'memory_percent': 'Memory',
             'temp_c': 'Temperature',
             'cpu_percent': 'CPU',
+            'battery_percent': 'Battery Low',
+            'ac_power_lost': 'AC Power Lost',
         }
         metric_units = {
             'memory_percent': '%',
             'temp_c': '\u00b0C',
             'cpu_percent': '%',
+            'battery_percent': '%',
+            'ac_power_lost': '%',
         }
 
         metric_name = metric_labels.get(alert['metric'], alert['metric'])
@@ -244,27 +314,38 @@ class AlertEngine:
         if alert.get('resolved'):
             duration = alert.get('duration_secs', 0)
             dur_str = f"{duration // 60}m {duration % 60}s" if duration >= 60 else f"{duration}s"
+            if alert['metric'] == 'ac_power_lost':
+                desc = f'AC power restored. Was on battery for {dur_str}.'
+            else:
+                desc = f'{metric_name} returned to normal: **{alert["value"]}{unit}**\nDuration: {dur_str}'
             embed = {
                 'title': f'{machine} -- {metric_name} Resolved',
-                'description': f'{metric_name} returned to normal: **{alert["value"]}{unit}**\nDuration: {dur_str}',
+                'description': desc,
                 'color': 0x34d399,  # green
                 'timestamp': datetime.utcfromtimestamp(alert['timestamp']).isoformat(),
             }
             content = ''
         else:
             color = 0xf87171 if alert['level'] == 'critical' else 0xf59e0b  # red / amber
-            top_procs = alert.get('top_processes', [])
-            proc_lines = '\n'.join(
-                f"`{p['name'][:20]:<20}` mem {p['mem']}% cpu {p['cpu']}%"
-                for p in top_procs
-            ) if top_procs else 'N/A'
+
+            if alert['metric'] == 'ac_power_lost':
+                desc = f'Running on battery at **{alert["value"]}%**\nPlug in to prevent shutdown.'
+            elif alert['metric'] == 'battery_percent':
+                desc = f'**Battery**: {alert["value"]}% (threshold: {alert.get("threshold", "?")}{unit})\nPlug in immediately!'
+            else:
+                top_procs = alert.get('top_processes', [])
+                proc_lines = '\n'.join(
+                    f"`{p['name'][:20]:<20}` mem {p['mem']}% cpu {p['cpu']}%"
+                    for p in top_procs
+                ) if top_procs else 'N/A'
+                desc = (
+                    f'**{metric_name}**: {alert["value"]}{unit} (threshold: {alert.get("threshold", "?")}{unit})\n\n'
+                    f'**Top Consumers:**\n{proc_lines}'
+                )
 
             embed = {
                 'title': f'{machine} -- {metric_name} {alert["level"].upper()}',
-                'description': (
-                    f'**{metric_name}**: {alert["value"]}{unit} (threshold: {alert.get("threshold", "?")}{unit})\n\n'
-                    f'**Top Consumers:**\n{proc_lines}'
-                ),
+                'description': desc,
                 'color': color,
                 'timestamp': datetime.utcfromtimestamp(alert['timestamp']).isoformat(),
             }
