@@ -176,25 +176,36 @@ services:
 
   # ----- noc-claw ----------------------------------------------------
   - host: noc-claw
-    id: mlx-server
-    name: MLX Server
-    launchd: com.noc.mlx-server
+    id: openclaw-gateway
+    name: OpenClaw Gateway
+    launchd: ai.openclaw.gateway
+    port: 18789
+    description: OpenClaw AI gateway (Pi + OpenAI)
+    url: http://100.95.102.128:18789
+  - host: noc-claw
+    id: mdsf-mlx-server
+    name: MDSF MLX Server
+    launchd: com.noc.mdsf-mlx-server
     port: 8181
-    description: Local LLM runtime (mlx_lm.server, gemma-3-12b-it-4bit)
-    url: http://100.95.102.128:8181
+    description: Local LLM for MDSF crew (gemma-3-4b-it-4bit, localhost only)
+  - host: noc-claw
+    id: log-triage
+    name: Log Triage
+    launchd: com.noc.log-triage
+    port: 8182
+    description: "CrowdSec alert -> OpenAI LLM verdict -> Discord"
+    url: http://100.95.102.128:8182
+  - host: noc-claw
+    id: claw-discord-bot
+    name: Discord Bot
+    launchd: com.noc.claw-discord-bot
+    description: OpenClaw Discord relay (locked to user ID)
   - host: noc-claw
     id: glances
     name: Glances
     launchd: com.noc.glances
     port: 61999
     url: http://100.95.102.128:61999
-  - host: noc-claw
-    id: log-triage
-    name: Log Triage
-    launchd: com.noc.log-triage
-    port: 8182
-    description: "CrowdSec alert -> LLM summary -> Discord"
-    url: http://100.95.102.128:8182
   - host: noc-claw
     id: crowdsec-agent
     name: CrowdSec Agent

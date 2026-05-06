@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.noc.mlx-server</string>
+    <string>com.noc.mdsf-mlx-server</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
-        <string>: > /Users/noc/Library/Logs/noc-homelab/mlx-server.log; : > /Users/noc/Library/Logs/noc-homelab/mlx-server.error.log; exec /Users/noc/.local/bin/mlx_lm.server --model mlx-community/gemma-3-12b-it-4bit --host 0.0.0.0 --port 8181 --log-level INFO</string>
+        <string>: > /Users/noc/Library/Logs/noc-homelab/mdsf-mlx-server.log; : > /Users/noc/Library/Logs/noc-homelab/mdsf-mlx-server.error.log; exec /Users/noc/.local/bin/mlx_lm.server --model mlx-community/gemma-3-4b-it-4bit --host 127.0.0.1 --port 8181 --log-level INFO</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/noc</string>
@@ -19,9 +19,9 @@
     <key>ThrottleInterval</key>
     <integer>30</integer>
     <key>StandardOutPath</key>
-    <string>/Users/noc/Library/Logs/noc-homelab/mlx-server.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/mdsf-mlx-server.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/noc/Library/Logs/noc-homelab/mlx-server.error.log</string>
+    <string>/Users/noc/Library/Logs/noc-homelab/mdsf-mlx-server.error.log</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>HOME</key>

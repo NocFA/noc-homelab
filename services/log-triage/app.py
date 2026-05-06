@@ -2,10 +2,9 @@
 Log triage webhook service.
 
 Consumes CrowdSec alert batches, groups alerts by source IP, fetches
-surrounding log context from Loki, asks the local MLX LLM on noc-claw to
-produce a single structured verdict per IP, and posts one combined Discord
-embed per IP. Runs as a LaunchAgent on noc-claw so it's co-located with the
-MLX server (no Tailscale round-trip for inference).
+surrounding log context from Loki, asks the LLM (OpenAI API) to produce a
+single structured verdict per IP, and posts one combined Discord embed per IP.
+Runs as a LaunchAgent on noc-claw.
 
 Endpoints
 ---------
@@ -52,14 +51,10 @@ from fastapi.responses import JSONResponse
 # Config (env-driven, see .env.example)
 # ---------------------------------------------------------------------------
 
-MLX_URL             = os.environ.get("MLX_URL", "http://localhost:8181/v1/chat/completions")
-MLX_MODEL           = os.environ.get("MLX_MODEL", "mlx-community/gemma-3-12b-it-4bit")
-MLX_RETRY_DELAY     = float(os.environ.get("MLX_RETRY_DELAY_SECONDS", "10"))
-# 60s was too tight for fat-context prompts: gemma-3-12b-4bit on M4 16GB takes
-# ~50s just to do prompt processing on ~2.8k tokens, then has to actually
-# generate a response. 180s gives reliable headroom; the events_block + ctx
-# caps below also keep the prompt small enough for the typical case.
-MLX_REQUEST_TIMEOUT = float(os.environ.get("MLX_REQUEST_TIMEOUT_SECONDS", "180"))
+LLM_URL             = os.environ.get("LLM_URL", "https://api.openai.com/v1/chat/completions")
+LLM_MODEL           = os.environ.get("LLM_MODEL", "gpt-5.5")
+LLM_API_KEY         = os.environ.get("OPENAI_API_KEY", "").strip()
+LLM_REQUEST_TIMEOUT = float(os.environ.get("LLM_REQUEST_TIMEOUT_SECONDS", "30"))
 LOKI_URL        = os.environ.get("LOKI_URL", "http://noc-tux:3100")
 DISCORD_WEBHOOK = os.environ.get("DISCORD_WEBHOOK", "").strip()
 AUTH_TOKEN      = os.environ.get("AUTH_TOKEN", "").strip()
@@ -71,12 +66,6 @@ LOG_LEVEL       = os.environ.get("LOG_LEVEL", "INFO").upper()
 # Displayed as the "Mode" field in Discord. Override when the bouncer
 # posture changes (e.g. "active (firewall-bouncer)" once enforcement is on).
 MODE_LABEL      = os.environ.get("MODE_LABEL", "active (firewall-bouncer)")
-
-# mlx_lm.server serializes requests but the underlying Metal runtime can
-# still SIGABRT from mlx::core::gpu::check_error when two inference calls
-# land on the GPU concurrently (observed on M4 16GB, gemma-3-12b-4bit).
-# Gate every MLX call through a single-slot semaphore at the client side.
-_MLX_LOCK = asyncio.Semaphore(1)
 
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("log-triage")
@@ -135,8 +124,9 @@ async def lifespan(app: FastAPI):
     # values for MLX. Keep the default at 30s so non-MLX calls (Loki, Discord)
     # fail fast.
     app.state.http = httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=5.0))
-    log.info("triage service up — MLX=%s Loki=%s discord=%s",
-             MLX_URL, LOKI_URL, "configured" if DISCORD_WEBHOOK else "MISSING")
+    log.info("triage service up — LLM=%s model=%s Loki=%s discord=%s",
+             LLM_URL, LLM_MODEL, LOKI_URL,
+             "configured" if DISCORD_WEBHOOK else "MISSING")
     yield
     await app.state.http.aclose()
 
@@ -548,42 +538,28 @@ async def summarize(client: httpx.AsyncClient,
             f"Now emit the JSON verdict per the OUTPUT CONTRACT."
         )
     body = {
-        "model": MLX_MODEL,
+        "model": LLM_MODEL,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user",   "content": user},
         ],
-        # JSON-mode hint — mlx_lm.server accepts this even though enforcement
-        # is partial; combined with the OUTPUT CONTRACT it lifts adherence
-        # noticeably (mdsf-crew uses the same trick).
         "response_format": {"type": "json_object"},
         "temperature": 0.1,
         "max_tokens": 350,
     }
-    # Serialize MLX calls + give the KeepAlive-restarted server one retry
-    # if it crashed mid-response (httpx.RemoteProtocolError / ReadError).
-    async with _MLX_LOCK:
-        for attempt in (1, 2):
-            try:
-                r = await client.post(MLX_URL, json=body, timeout=MLX_REQUEST_TIMEOUT)
-                r.raise_for_status()
-                data = r.json()
-                msg = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                return msg.strip() or "(LLM returned empty summary)"
-            except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ConnectError) as exc:
-                if attempt == 1:
-                    log.warning("MLX call failed (%s) on attempt 1, "
-                                "waiting %.0fs for mlx-server restart",
-                                exc.__class__.__name__, MLX_RETRY_DELAY)
-                    await asyncio.sleep(MLX_RETRY_DELAY)
-                    continue
-                log.warning("MLX summarize failed after retry: %s", exc)
-                return f"(LLM summary unavailable: {exc.__class__.__name__})"
-            except Exception as exc:
-                log.warning("MLX summarize failed: %s", exc)
-                return f"(LLM summary unavailable: {exc.__class__.__name__})"
-    # unreachable, but satisfies type-checkers
-    return "(LLM summary unavailable: loop_exhausted)"
+    headers = {}
+    if LLM_API_KEY:
+        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
+    try:
+        r = await client.post(LLM_URL, json=body, headers=headers,
+                              timeout=LLM_REQUEST_TIMEOUT)
+        r.raise_for_status()
+        data = r.json()
+        msg = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return msg.strip() or "(LLM returned empty summary)"
+    except Exception as exc:
+        log.warning("LLM summarize failed: %s", exc)
+        return f"(LLM summary unavailable: {exc.__class__.__name__})"
 
 
 # Discord embed colors keyed by exposure level (decimal RGB).
@@ -850,7 +826,7 @@ async def post_discord(client: httpx.AsyncClient,
         "description": description,
         "color": color,
         "fields": fields,
-        "footer": {"text": f"noc-claw · {MLX_MODEL}"},
+        "footer": {"text": f"noc-claw · {LLM_MODEL}"},
     }
     payload = {"username": "CrowdSec + Triage", "embeds": [embed]}
     try:
@@ -867,7 +843,7 @@ async def post_discord(client: httpx.AsyncClient,
 
 @app.get("/")
 async def index() -> dict[str, str]:
-    return {"service": "homelab log-triage", "mlx_model": MLX_MODEL}
+    return {"service": "homelab log-triage", "llm_model": LLM_MODEL}
 
 
 @app.get("/health")
@@ -879,11 +855,16 @@ async def health(req: Request) -> dict[str, Any]:
         checks["loki"] = {"ok": r.status_code == 200, "status": r.status_code}
     except Exception as exc:
         checks["loki"] = {"ok": False, "error": str(exc)}
+    llm_health_url = LLM_URL.replace("/v1/chat/completions", "/v1/models")
+    headers = {}
+    if LLM_API_KEY:
+        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
     try:
-        r = await client.get(MLX_URL.replace("/v1/chat/completions", "/v1/models"), timeout=3.0)
-        checks["mlx"] = {"ok": r.status_code == 200, "status": r.status_code}
+        r = await client.get(llm_health_url, headers=headers, timeout=5.0)
+        checks["llm"] = {"ok": r.status_code == 200, "status": r.status_code,
+                          "model": LLM_MODEL}
     except Exception as exc:
-        checks["mlx"] = {"ok": False, "error": str(exc)}
+        checks["llm"] = {"ok": False, "error": str(exc)}
     checks["discord_configured"] = bool(DISCORD_WEBHOOK)
     return {"checks": checks}
 
