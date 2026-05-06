@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.noc.gbrain</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/noc/.bun/bin/bun</string>
+        <string>/Users/noc/.gbrain-src/src/cli.ts</string>
+        <string>serve</string>
+        <string>--http</string>
+        <string>--port</string>
+        <string>8184</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/noc</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    <key>StandardOutPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/gbrain.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/noc/Library/Logs/noc-homelab/gbrain.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>/Users/noc</string>
+        <key>PATH</key>
+        <string>/Users/noc/.bun/bin:/opt/homebrew/opt/node@22/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+</dict>
+</plist>
