@@ -571,7 +571,7 @@ async def on_message(message: discord.Message):
     async with message.channel.typing():
         try:
             reply = await handle_query(
-                text, message.author.id, message.channel_id,
+                text, message.author.id, message.channel.id,
                 image_urls, file_contexts, url_contexts,
             )
         except asyncio.TimeoutError:
