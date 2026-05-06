@@ -1,0 +1,93 @@
+diff --git a/src/cli.ts b/src/cli.ts
+old mode 100644
+new mode 100755
+diff --git a/src/commands/serve-http.ts b/src/commands/serve-http.ts
+index 87e7b50..aabe28f 100644
+--- a/src/commands/serve-http.ts
++++ b/src/commands/serve-http.ts
+@@ -31,6 +31,7 @@ import { loadConfig } from '../core/config.ts';
+ import { buildError, serializeError } from '../core/errors.ts';
+ import { VERSION } from '../version.ts';
+ import * as db from '../core/db.ts';
++import { createPgliteSqlProxy } from '../core/pglite-sql-adapter.ts';
+ 
+ interface ServeHttpOptions {
+   port: number;
+@@ -67,7 +68,7 @@ export async function runServeHttp(engine: BrainEngine, options: ServeHttpOption
+   }
+ 
+   // Get raw SQL connection for OAuth provider
+-  const sql = db.getConnection() as SqlQuery;
++  const sql = engine.kind === 'pglite' ? createPgliteSqlProxy(engine) : db.getConnection() as SqlQuery;
+ 
+   // Initialize OAuth provider. F12 cleanup: DCR-disable now flips a
+   // constructor option instead of monkey-patching `_clientsStore` after
+---NEW FILE: src/core/pglite-sql-adapter.ts---
+/**
+ * Adapter that bridges PGLite's query interface to postgres.js tagged template
+ * syntax. Enables serve-http.ts (which uses postgres.js tagged templates for
+ * OAuth, admin dashboard, and request logging) to work with PGLite engines.
+ *
+ * Supports:
+ * - Basic tagged template queries: sql`SELECT * FROM t WHERE id = ${id}`
+ * - Fragment composition: sql`... ${sql`AND col = ${val}`} ...`
+ * - Empty fragments: sql``
+ */
+
+import type { BrainEngine } from '../core/engine.ts';
+import type { SqlQuery } from '../core/oauth-provider.ts';
+
+const FRAGMENT_MARKER = Symbol.for('pglite-sql-fragment');
+
+interface SqlFragment {
+  [key: symbol]: true;
+  text: string;
+  params: unknown[];
+  then: (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => void;
+}
+
+export function createPgliteSqlProxy(engine: BrainEngine): SqlQuery {
+  function sql(strings: TemplateStringsArray, ...values: unknown[]): SqlFragment {
+    let text = '';
+    const params: unknown[] = [];
+    let paramIdx = 1;
+
+    for (let i = 0; i < strings.length; i++) {
+      text += strings[i];
+      if (i < values.length) {
+        const val = values[i] as any;
+        if (val && val[FRAGMENT_MARKER]) {
+          const fragText = val.text as string;
+          const fragParams = val.params as unknown[];
+          // Renumber fragment params ($1, $2, ...) to current offset.
+          // Process highest-numbered first to avoid $1 matching inside $10.
+          let renumbered = fragText;
+          for (let j = fragParams.length; j >= 1; j--) {
+            renumbered = renumbered.replace(
+              new RegExp(`\\$${j}(?!\\d)`, 'g'),
+              `$${paramIdx + j - 1}`,
+            );
+          }
+          text += renumbered;
+          params.push(...fragParams);
+          paramIdx += fragParams.length;
+        } else {
+          text += `$${paramIdx}`;
+          params.push(val);
+          paramIdx++;
+        }
+      }
+    }
+
+    return {
+      [FRAGMENT_MARKER]: true,
+      text,
+      params,
+      then(resolve, reject) {
+        engine.executeRaw(text, params).then(resolve, reject);
+      },
+    };
+  }
+
+  return sql as unknown as SqlQuery;
+}
